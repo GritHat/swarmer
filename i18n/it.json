@@ -1,66 +1,484 @@
 {
- "lingua_nome": "italiano",
- "nucleo_locale": "Ruoli locali del progetto",
- "ambiente_agente": "## Dove sei\n\nSei nel progetto dell'utente, con gli strumenti che la sessione ti concede. I documenti dello sciame sono nella\ncartella `sciame/`, alla radice del progetto: `PIPELINE.md` (le strategie e le fasi), `PREAMBOLO.md` (le regole\nestese), `AGENTI.md` (le schede di tutti i ruoli), `GIURIA.md` (giuria, esperti nuovi, plenaria). Se c'è\n`sciame/locale/`, le sue schede e le sue regole valgono al posto di quelle generiche. Scrivi solo nella cartella che\nti dà la consegna; il resto del progetto lo leggi soltanto. Se uno strumento ti manca o ti è negato, non aggirarlo:\ndillo nella consegna, e segna «non verificato» ciò che non hai potuto provare.",
- "ambiente_senza_strumenti": "## Dove sei\n\nNon hai strumenti: niente file, niente shell, niente rete. Lavori sul testo della consegna, e la tua risposta è la\nconsegna. Ciò che andrebbe provato lo dici con la prova che servirebbe, e lo segni «non verificato».",
- "testa_agenti": "# Lo sciame di agenti: le schede dei ruoli\n\nI ruoli sono **professionisti**, le competenze generali, e **sottoprofessionisti**, le loro specializzazioni: un\nsottoprofessionista sta subito dopo il suo professionista, con il numero «7.2». Questo file è generato dal database\nunico `sciame/db/professionisti.json`, nella lingua scelta: non si modifica a mano. Un ruolo nuovo si aggiunge con\n`bash sciame/sciame.sh approva <scheda>`; le schede proprie di un progetto stanno in `sciame/locale/AGENTI.md` e hanno\nsempre la priorità sui ruoli generici con la stessa sigla.\n\nFuori dallo sciame c'è il **coordinatore**: la sessione principale che riceve la richiesta. Le decisioni le prende\nl'utente, salvo una delega scritta a una giuria.\n",
- "sotto_di": " Sottoprofessionista di sciame-{genitore}.",
- "descrizione_coda": "Agente dello sciame (nucleo {nucleo}); lo convoca il coordinatore.",
- "prompt_ruolo": "Sei il ruolo «{nome}» (scheda {n}) dello sciame di agenti: {breve}\n\nTi convoca un coordinatore con una consegna: eseguila nel tuo ruolo e consegna come dice la consegna. Non vedi la\nconversazione del coordinatore né il lavoro degli altri ruoli, salvo ciò che la consegna ti dà. Rispondi in italiano,\nsalvo che la consegna chieda un'altra lingua.",
- "la_tua_scheda": "La tua scheda",
- "nota_agente": "generato dalla scheda «{n}. {nome}» del database dello sciame: non modificare a mano, si rigenera con bash sciame/sciame.sh rigenera",
- "nota_skill": "generato dai documenti dello sciame: non modificare a mano, si rigenera con bash sciame/sciame.sh rigenera",
- "nota_documento": "generato dallo sciame nella lingua scelta: si modifica nella sua fonte, sciame/documenti/ o sciame/db/",
- "i_ruoli": "I ruoli dello sciame",
- "indice_spiega": "Un ruolo si convoca con il nome della prima colonna. Le parole chiave servono a scegliere: aggiungi ai ruoli del\nprofilo quelli le cui parole chiave compaiono nella richiesta. Un sottoprofessionista si convoca al posto del suo\nprofessionista quando la richiesta cade nella sua specializzazione.",
- "indice_testa": "| agente | ruolo | nucleo | tipo | parole chiave |",
- "tipo_prof": "professionista",
- "tipo_sotto": "sottoprofessionista di `sciame-{genitore}`",
- "origine_locale": "scheda locale",
- "origine_solo_locale": "solo locale",
- "skill_argomenti": "[profilo=<profilo>] [ruoli=<sigla,sigla>] [lingua=<codice>] <la richiesta>",
- "skill_descrizione": {
+ "language_name": "italiano",
+ "local_core": "Ruoli locali del progetto",
+ "agent_environment": "## Dove sei\n\nSei nel progetto dell'utente, con gli strumenti che la sessione ti concede. I documenti dello sciame sono nella\ncartella `sciame/`, alla radice del progetto: `PIPELINE.md` (le strategie e le fasi), `PREAMBOLO.md` (le regole\nestese), `AGENTI.md` (le schede di tutti i ruoli), `GIURIA.md` (giuria, esperti nuovi, plenaria). Se c'è\n`sciame/locale/`, le sue schede e le sue regole valgono al posto di quelle generiche. Scrivi solo nella cartella che\nti dà la consegna; il resto del progetto lo leggi soltanto. Se uno strumento ti manca o ti è negato, non aggirarlo:\ndillo nella consegna, e segna «non verificato» ciò che non hai potuto provare.",
+ "environment_without_tools": "## Dove sei\n\nNon hai strumenti: niente file, niente shell, niente rete. Lavori sul testo della consegna, e la tua risposta è la\nconsegna. Ciò che andrebbe provato lo dici con la prova che servirebbe, e lo segni «non verificato».",
+ "agents_head": "# Lo sciame di agenti: le schede dei ruoli\n\nI ruoli sono **professionisti**, le competenze generali, e **sottoprofessionisti**, le loro specializzazioni: un\nsottoprofessionista sta subito dopo il suo professionista, con il numero «7.2». Questo file è generato dal database\nunico `sciame/db/professionals.json`, nella lingua scelta: non si modifica a mano. Un ruolo nuovo si aggiunge con\n`bash sciame/sciame.sh approva <scheda>`; le schede proprie di un progetto stanno in `sciame/locale/AGENTI.md` e hanno\nsempre la priorità sui ruoli generici con la stessa sigla.\n\nFuori dallo sciame c'è il **coordinatore**: la sessione principale che riceve la richiesta. Le decisioni le prende\nl'utente, salvo una delega scritta a una giuria.\n",
+ "sub_of": " Sottoprofessionista di {prefix}-{parent}.",
+ "description_tail": "Agente dello sciame (nucleo {core}); lo convoca il coordinatore.",
+ "role_prompt": "Sei il ruolo «{name}» (scheda {n}) dello sciame di agenti: {short}\n\nTi convoca un coordinatore con una consegna: eseguila nel tuo ruolo e consegna come dice la consegna. Non vedi la\nconversazione del coordinatore né il lavoro degli altri ruoli, salvo ciò che la consegna ti dà. Rispondi in italiano,\nsalvo che la consegna chieda un'altra lingua.",
+ "your_card": "La tua scheda",
+ "agent_note": "generato dalla scheda «{n}. {name}» del database dello sciame: non modificare a mano, si rigenera con bash sciame/sciame.sh rigenera",
+ "skill_note": "generato dai documenti dello sciame: non modificare a mano, si rigenera con bash sciame/sciame.sh rigenera",
+ "document_note": "generato dallo sciame nella lingua scelta: si modifica nella sua fonte, sciame/docs/ o sciame/db/",
+ "roles_title": "I ruoli dello sciame",
+ "index_explains": "Un ruolo si convoca con il nome della prima colonna. Le parole chiave servono a scegliere: aggiungi ai ruoli del\nprofilo quelli le cui parole chiave compaiono nella richiesta. Un sottoprofessionista si convoca al posto del suo\nprofessionista quando la richiesta cade nella sua specializzazione.",
+ "index_head": "| agente | ruolo | nucleo | tipo | parole chiave |",
+ "type_professional": "professionista",
+ "type_sub": "sottoprofessionista di `{prefix}-{parent}`",
+ "origin_local": "scheda locale",
+ "origin_local_only": "solo locale",
+ "skill_arguments": "[profilo=<profilo>] [ruoli=<sigla,sigla>] [lingua=<codice>] <la richiesta>",
+ "skill_description": {
   "auto": "Convoca lo sciame di agenti lasciando al coordinatore la scelta della strategia (singolo, ventaglio, classica, giuria, completa, plenaria, esperto) e dei ruoli. Usala solo quando l'utente chiede lo sciame senza dire quale convocazione.",
-  "singolo": "Esperto singolo dello sciame: un solo specialista, il più adatto o quello nominato, con una consegna completa (1 agente). Per una domanda chiara di un campo o un compito piccolo. Usala solo quando l'utente chiede lo sciame o un suo esperto.",
-  "ventaglio": "Ventaglio dello sciame: N agenti in parallelo, su fette di un lavoro o in gara sulla stessa consegna con la regola di scelta dichiarata prima; una tabella degli esiti (da 2 a 16 agenti). Usala solo quando l'utente chiede il ventaglio o un lavoro in parallelo con lo sciame.",
-  "classica": "Convocazione classica dello sciame: contratto, due corsie cieche, triage, torneo dei falsificatori, una squadra per ipotesi, prove e verdetti (da 6 a 15 agenti). Per decidere, progettare, correggere, dimostrare o misurare. Usala solo quando l'utente chiede la convocazione classica.",
-  "giuria": "Giuria dello sciame: una proposta già istruita, una giuria che vota (consenso approva, maggioranza rivede fino a tre giri, minoranza respinge); di norma l'esito è una raccomandazione all'utente (da 7 a 11 agenti). Usala solo quando l'utente chiede la giuria.",
-  "completa": "Convocazione completa dello sciame: tutti i professionisti in una tornata cieca senza voto, il consolidamento dell'arbitro, poi la classica (costosa). Per domande strategiche o aperte che toccano molti campi. Usala solo quando l'utente chiede la convocazione completa.",
-  "plenaria": "Plenaria dello sciame: completa, convocazione usuale, passata critica, due arbitri, voto finale con consenso (da 60 a 80 agenti e oltre). Solo per i passaggi di fase e le scelte d'impatto enormemente importante, su richiesta esplicita dell'utente.",
-  "esperto": "Esperto nuovo dello sciame: convoca una competenza che nessun ruolo ha, con una scheda provvisoria, e registra la richiesta; alla soglia propone la creazione del ruolo. Usala solo quando l'utente chiede un esperto che lo sciame non ha.",
-  "giuria-leggera": "Giuria leggera dello sciame: per le decisioni piccole e poco influenti, o dove un errore si scopre con una prova veloce: tre giurati (il competente, un critico, il garante), la prova prima del voto, un solo giro, poi la giuria ordinaria se serve (5 agenti). Usala solo quando l'utente chiede la giuria leggera."
+  "single": "Esperto singolo dello sciame: un solo specialista, il più adatto o quello nominato, con una consegna completa (1 agente). Per una domanda chiara di un campo o un compito piccolo. Usala solo quando l'utente chiede lo sciame o un suo esperto.",
+  "fan-out": "Ventaglio dello sciame: N agenti in parallelo, su fette di un lavoro o in gara sulla stessa consegna con la regola di scelta dichiarata prima; una tabella degli esiti (da 2 a 16 agenti). Usala solo quando l'utente chiede il ventaglio o un lavoro in parallelo con lo sciame.",
+  "classic": "Convocazione classica dello sciame: contratto, due corsie cieche, triage, torneo dei falsificatori, una squadra per ipotesi, prove e verdetti (da 6 a 15 agenti). Per decidere, progettare, correggere, dimostrare o misurare. Usala solo quando l'utente chiede la convocazione classica.",
+  "jury": "Giuria dello sciame: una proposta già istruita, una giuria che vota (consenso approva, maggioranza rivede fino a tre giri, minoranza respinge); di norma l'esito è una raccomandazione all'utente (da 7 a 11 agenti). Usala solo quando l'utente chiede la giuria.",
+  "full": "Convocazione completa dello sciame: tutti i professionisti in una tornata cieca senza voto, il consolidamento dell'arbitro, poi la classica (costosa). Per domande strategiche o aperte che toccano molti campi. Usala solo quando l'utente chiede la convocazione completa.",
+  "plenary": "Plenaria dello sciame: completa, convocazione usuale, passata critica, due arbitri, voto finale con consenso (da 60 a 80 agenti e oltre). Solo per i passaggi di fase e le scelte d'impatto enormemente importante, su richiesta esplicita dell'utente.",
+  "expert": "Esperto nuovo dello sciame: convoca una competenza che nessun ruolo ha, con una scheda provvisoria, e registra la richiesta; alla soglia propone la creazione del ruolo. Usala solo quando l'utente chiede un esperto che lo sciame non ha.",
+  "light-jury": "Giuria leggera dello sciame: per le decisioni piccole e poco influenti, o dove un errore si scopre con una prova veloce: tre giurati (il competente, un critico, il garante), la prova prima del voto, un solo giro, poi la giuria ordinaria se serve (5 agenti). Usala solo quando l'utente chiede la giuria leggera."
  },
- "skill_titolo": {
+ "skill_title": {
   "auto": "Sciame: la strategia la sceglie il coordinatore",
-  "singolo": "Sciame: esperto singolo",
-  "ventaglio": "Sciame: ventaglio",
-  "classica": "Sciame: convocazione classica",
-  "giuria": "Sciame: giuria",
-  "completa": "Sciame: convocazione completa",
-  "plenaria": "Sciame: plenaria",
-  "esperto": "Sciame: esperto nuovo",
-  "giuria-leggera": "Sciame: giuria leggera"
+  "single": "Sciame: esperto singolo",
+  "fan-out": "Sciame: ventaglio",
+  "classic": "Sciame: convocazione classica",
+  "jury": "Sciame: giuria",
+  "full": "Sciame: convocazione completa",
+  "plenary": "Sciame: plenaria",
+  "expert": "Sciame: esperto nuovo",
+  "light-jury": "Sciame: giuria leggera"
  },
- "auto_premessa": "**La strategia di questa convocazione la scegli tu**, con le regole qui sotto; poi segui il paragrafo della strategia scelta.",
- "completa_premessa": "**La strategia di questa convocazione è la completa**, che dopo il consolidamento prosegue come la classica.",
- "plenaria_premessa": "**La strategia di questa convocazione è la plenaria.** Prima di lanciare agenti, verifica che l'utente l'abbia confermata e dichiara il costo. Le regole complete sono in `sciame/GIURIA.md`, §5.",
- "strategia_e": "**La strategia di questa convocazione è: {strategia}.**",
- "la_richiesta": "## La richiesta\n\n$ARGUMENTS\n\n(Se qui sopra non c'è testo, la richiesta è l'ultimo messaggio dell'utente. Se comincia con `lingua=<codice>`, rispondi in quella lingua.)",
- "cli_manca_python": "manca python3 (3.8 o più recente)",
- "cli_non_installato": "in {radice} lo sciame non c'è ancora. Prima: bash sciame.sh installa",
- "cli_installato": "Sciame {versione} installato in {radice} ({lingua}): {agenti} agenti, {skill} skill.",
- "cli_lingua_attuale": "Lingua dello sciame: {lingua}. Disponibili: {lingue}.",
- "cli_lingua_cambiata": "Lingua dello sciame: {lingua}. Agenti, skill e documenti rigenerati.",
- "cli_lingua_sconosciuta": "lingua «{lingua}» non disponibile. Disponibili: {lingue}. Una lingua nuova si propone con una pull request (CONTRIBUTING.md).",
- "cli_allineato": "{ruoli} ruoli e {profili} profili: catalogo, agenti, skill e documenti allineati alle fonti",
- "cli_non_allineato": "Non allineato alle fonti: bash sciame/sciame.sh rigenera",
- "cli_saltati": "Non toccati, perché non generati dallo sciame (override o file del progetto): {n}",
- "cli_comando_sconosciuto": "comando sconosciuto: {comando}. bash sciame/sciame.sh aiuto",
- "cli_manca_richiesta": "manca la richiesta: bash sciame/sciame.sh {strategia} \"richiesta\"",
- "cli_manca_claude": "manca il comando claude: installa Claude Code e fai l'accesso",
- "cli_profilo_sconosciuto": "profilo sconosciuto: {profilo}. I profili: {profili}",
- "cli_ruolo_sconosciuto": "ruolo sconosciuto: {ruolo}. bash sciame/sciame.sh ruoli",
- "cli_approvato": "Ruolo sciame-{sigla} aggiunto al database ({tipo}). Rigenerati agenti, skill e documenti; sciame.sh ricostruito: {sciame_sh}. Proposta per il repository pubblico: {proposta}",
- "cli_proposta_scritta": "Proposta scritta in {percorso}. Per inviarla come pull request: {comando}",
- "cli_aggiornato": "Aggiornati {n} file di fabbrica; protetti perché modificati nel progetto: {protetti}"
+ "auto_preamble": "**La strategia di questa convocazione la scegli tu**, con le regole qui sotto; poi segui il paragrafo della strategia scelta.",
+ "full_preamble": "**La strategia di questa convocazione è la completa**, che dopo il consolidamento prosegue come la classica.",
+ "plenary_preamble": "**La strategia di questa convocazione è la plenaria.** Prima di lanciare agenti, verifica che l'utente l'abbia confermata e dichiara il costo. Le regole complete sono in `sciame/GIURIA.md`, §5.",
+ "strategy_is": "**La strategia di questa convocazione è: {strategy}.**",
+ "the_request": "## La richiesta\n\n$ARGUMENTS\n\n(Se qui sopra non c'è testo, la richiesta è l'ultimo messaggio dell'utente. Se porta `lingua=<codice>` (o `language=<codice>`), rispondi in quella lingua.)",
+ "cli_missing_python": "manca python3 (3.8 o più recente)",
+ "cli_not_installed": "in {root} lo sciame non c'è ancora. Prima: bash sciame.sh installa",
+ "cli_installed": "Sciame {version} installato in {root} ({language}): {agents} agenti, {skills} skill.",
+ "cli_language_current": "Lingua dello sciame: {language}. Disponibili: {languages}.",
+ "cli_language_changed": "Lingua dello sciame: {language}. Agenti, skill e documenti rigenerati.",
+ "cli_language_unknown": "lingua «{language}» non disponibile. Disponibili: {languages}. Una lingua nuova si propone con una pull request (CONTRIBUTING.md).",
+ "cli_aligned": "{roles} ruoli e {profiles} profili: catalogo, agenti, skill e documenti allineati alle fonti",
+ "cli_not_aligned": "Non allineato alle fonti: bash sciame/sciame.sh rigenera",
+ "cli_skipped": "Non toccati, perché non generati dallo sciame (override o file del progetto): {n}",
+ "cli_unknown_command": "comando sconosciuto: {command}. bash sciame/sciame.sh aiuto",
+ "cli_missing_request": "manca la richiesta: bash sciame/sciame.sh {strategy} \"richiesta\"",
+ "cli_missing_claude": "manca il comando claude: installa Claude Code e fai l'accesso",
+ "cli_unknown_profile": "profilo sconosciuto: {profile}. I profili: {profiles}",
+ "cli_unknown_role": "ruolo sconosciuto: {role}. bash sciame/sciame.sh ruoli",
+ "cli_approved": "Ruolo {ids} aggiunto al database ({type}). Rigenerati agenti, skill e documenti; sciame.sh ricostruito: {script}. Proposta per il repository pubblico: {path}",
+ "cli_proposal_written": "Proposta scritta in {path}. Per inviarla come pull request: {command}",
+ "cli_updated": "Aggiornati {n} file di fabbrica; protetti perché modificati nel progetto: {protected}",
+ "cli_left_modified": "Lasciati al loro posto perché modificati nel progetto (confrontali con la versione nuova, poi toglili a mano): {files}",
+ "cli_migrated": "Installazione portata a swarmer {version}; il ritorno alla 4.0 non è supportato. Se CLAUDE.md ha il paragrafo dello sciame 4.0, {command} lo riscrive.",
+ "cli_removed": "tolti {n} file generati; restano {path} e la cartella di stato del progetto",
+ "cli_reserved_warning": "attenzione: la sigla «{ids}» è riservata (un nome di strategia, locale o leggera): resta perché c'era prima della 5.0, ma una voce nuova con questa sigla è rifiutata",
+ "cli_cards_imported": "{n} schede portate negli override locali ({path}); il database pubblico non cambia",
+ "cli_translated": "Traduzione di {id} in «{language}» registrata in {path}; agenti, skill e catalogo rigenerati.",
+ "cli_translated_english": "Testi inglesi di {id} aggiunti al database ({path}); agenti, skill e catalogo rigenerati: ora la voce si può proporre.",
+ "cli_translation_exists": "{id} ha già i suoi testi in «{language}» nel database: per adattarli a questo progetto scrivi una scheda locale",
+ "cli_translation_pending": "Traduzioni in attesa in «{language}» ({n}): {ids}. Prima di convocare uno di questi ruoli il coordinatore lo traduce e lo registra con: {command}",
+ "cli_needs_english": "{id}: la voce non ha il testo inglese completo (texts.en), quindi resta locale: il database pubblico accetta solo voci in inglese. Traducila in inglese (nome, breve, parole, corpo, con le stesse sezioni) e registrala con: {command}",
+ "cli_local_until_english": "{ids}: senza i testi inglesi la voce resta locale; proponi la rifiuta finché non li ha ({command}).",
+ "cli_models_none": "tutti: inherit",
+ "cli_prefix": "sciame: ",
+ "jury_error_prefix": "ERRORE: ",
+ "jury_ambiguous_role": "il ruolo {role} ha due definizioni diverse ({a}, {b}): un giurato deve averne una sola",
+ "verify_clean": "verifica: nessun problema",
+ "build_up_to_date": "{path}: aggiornato",
+ "build_not_up_to_date": "{path}: NON aggiornato: costruisci",
+ "jury_line": "{decision}: {state}{extra} — sì {yes}/{n} — {option}",
+ "jury_regressive": " (revisione regressiva scartata: sì del giro {yes}/{n})",
+ "requests_line": "{role}: {requests} richieste, {convenings} convocazioni, {requesters} richiedenti — {verdict}",
+ "requests_to_create": "DA CREARE",
+ "requests_below": "sotto la soglia",
+ "requests_none": "nessuna richiesta aperta",
+ "requests_close": "sigle vicine, da unire o da distinguere con un motivo: {ids}",
+ "commit_message": "sciame: {ids}",
+ "pr_title": "sciame: {ids}",
+ "pr_summary": "Pull request a {upstream} con {n} voci: {ids}. Testo: {path}",
+ "pr_not_sent": "Il commit sarà firmato come «{identity}», che diventa pubblico. Non inviata: ripeti con --si per confermare.",
+ "pr_opened": "pull request aperta su {upstream}",
+ "sh_not_installed": "in {root} lo sciame non c'è ancora: bash sciame.sh installa",
+ "sh_incomplete": "questo file è incompleto: scaricalo di nuovo",
+ "sh_unsafe_name": "questo file contiene un nome di file non ammesso ({path}): non lo installo",
+ "sh_bad_folder": "cartella non ammessa in {path}: {folder}",
+ "sh_missing_python": "manca python3, o è troppo vecchio (serve il 3.8 o più recente)",
+ "sh_needs_value": "{option}: serve un valore",
+ "sh_needs_folder": "-C vuole una cartella",
+ "sh_not_a_project": "{root} non sembra un progetto: -C CARTELLA installa",
+ "sh_unknown_option": "{command}: opzione sconosciuta: {option}",
+ "commands": {
+  "install": [
+   "installa"
+  ],
+  "update": [
+   "aggiorna"
+  ],
+  "help": [
+   "aiuto"
+  ],
+  "language": [
+   "lingua"
+  ],
+  "roles": [
+   "ruoli"
+  ],
+  "professionals": [
+   "professionisti"
+  ],
+  "check": [
+   "controlla"
+  ],
+  "regenerate": [
+   "rigenera"
+  ],
+  "remove": [
+   "rimuovi"
+  ],
+  "instructions": [
+   "istruzioni"
+  ],
+  "models": [
+   "modelli"
+  ],
+  "requests": [
+   "richieste"
+  ],
+  "count": [
+   "conta"
+  ],
+  "approve": [
+   "approva"
+  ],
+  "propose": [
+   "proponi"
+  ],
+  "build": [
+   "costruisci"
+  ],
+  "verify": [
+   "verifica"
+  ],
+  "tests": [
+   "prove"
+  ],
+  "import-cards": [
+   "importa-schede"
+  ],
+  "translate": [
+   "traduci"
+  ],
+  "single": [
+   "singolo"
+  ],
+  "fan-out": [
+   "ventaglio"
+  ],
+  "classic": [
+   "classica"
+  ],
+  "jury": [
+   "giuria"
+  ],
+  "light-jury": [
+   "giuria-leggera"
+  ],
+  "full": [
+   "completa"
+  ],
+  "plenary": [
+   "plenaria"
+  ],
+  "expert": [
+   "esperto"
+  ],
+  "auto": [],
+  "prepare": [
+   "prepara"
+  ],
+  "snapshot": [
+   "fotografa"
+  ],
+  "gate": [
+   "cancello"
+  ],
+  "seal": [
+   "sigilla"
+  ],
+  "select": [
+   "seleziona"
+  ],
+  "close-branch": [
+   "chiudi-ramo"
+  ],
+  "status": [
+   "stato"
+  ]
+ },
+ "options": {
+  "--from": [
+   "--da"
+  ],
+  "--root": [
+   "--radice"
+  ],
+  "--folder": [
+   "--cartella"
+  ],
+  "--language": [
+   "--lingua"
+  ],
+  "--force": [
+   "--forza"
+  ],
+  "--instructions": [
+   "--istruzioni"
+  ],
+  "--local": [
+   "--locale"
+  ],
+  "--project-managed": [
+   "--gestiti-dal-progetto"
+  ],
+  "--profile": [
+   "--profilo"
+  ],
+  "--roles": [
+   "--ruoli"
+  ],
+  "--from-file": [
+   "--da-file"
+  ],
+  "--model": [
+   "--modello"
+  ],
+  "--print": [
+   "--stampa"
+  ],
+  "--show": [
+   "--mostra"
+  ],
+  "--remove": [
+   "--togli"
+  ],
+  "--all": [
+   "--tutti"
+  ],
+  "--without-script": [
+   "--senza-sciame-sh"
+  ],
+  "--generic-from-local": [
+   "--generica-di-locale"
+  ],
+  "--send": [
+   "--invia"
+  ],
+  "--yes": [
+   "--si",
+   "--sì"
+  ],
+  "--output": [
+   "--uscita"
+  ],
+  "--check": [
+   "--controlla"
+  ],
+  "--publication": [
+   "--pubblicazione"
+  ],
+  "--swarm": [
+   "--sciame"
+  ],
+  "--question": [
+   "--domanda"
+  ],
+  "--name": [
+   "--nome"
+  ],
+  "--strategy": [
+   "--strategia"
+  ],
+  "--dest": [],
+  "--seed": [
+   "--seme"
+  ],
+  "--n": [],
+  "--form": [
+   "--forma"
+  ],
+  "--rule": [
+   "--regola"
+  ],
+  "--notes": [
+   "--note"
+  ],
+  "--not-delivered": [
+   "--non-consegnati"
+  ],
+  "--verify": [
+   "--verifica"
+  ],
+  "--radical": [
+   "--radicale"
+  ],
+  "--owner": [
+   "--responsabile"
+  ],
+  "--reason": [
+   "--motivo"
+  ],
+  "--install": [
+   "--installa"
+  ],
+  "--remove-instructions": [
+   "--togli-istruzioni"
+  ],
+  "--list": [
+   "--elenco"
+  ]
+ },
+ "values": {
+  "strategy": {
+   "single": "singolo",
+   "fan-out": "ventaglio",
+   "classic": "classica",
+   "jury": "giuria",
+   "light-jury": "giuria-leggera",
+   "full": "completa",
+   "plenary": "plenaria",
+   "expert": "esperto",
+   "auto": "auto"
+  },
+  "form": {
+   "slices": "fette",
+   "race": "gara",
+   "mixed": "mista"
+  },
+  "rule": {
+   "first": "primo",
+   "ranking": "classifica",
+   "best": "migliore"
+  },
+  "profile": {
+   "code": "codice",
+   "defect": "difetto",
+   "architecture": "architettura",
+   "test": "prova",
+   "data": "dati",
+   "ai": "ia",
+   "research": "ricerca",
+   "writing": "scrittura",
+   "study": "studio",
+   "decision": "decisione",
+   "plan": "piano",
+   "security": "sicurezza",
+   "device": "dispositivo",
+   "interface": "interfaccia",
+   "perception": "percezione",
+   "motion": "movimento",
+   "estimation": "stima",
+   "tracking": "tracciamento",
+   "localization": "localizzazione",
+   "sensors": "sensori",
+   "latency": "latenza",
+   "general": "generale"
+  },
+  "lane": {
+   "all": "tutti"
+  }
+ },
+ "files": {
+  "PREAMBLE.md": "PREAMBOLO.md",
+  "PIPELINE.md": "PIPELINE.md",
+  "COORDINATOR_INSTRUCTIONS.md": "ISTRUZIONI_COORDINATORE.md",
+  "JURY.md": "GIURIA.md",
+  "ENVIRONMENT.md": "AMBIENTE.md",
+  "HYPOTHESIS_CARD.md": "SCHEDA_IPOTESI.md",
+  "README.md": "README.md",
+  "AGENTS.md": "AGENTI.md",
+  "convene.py": "convoca.py",
+  "jury.py": "giuria.py",
+  "generate_agents.py": "genera_agenti.py",
+  "swarmer": "sciame",
+  ".swarmer": ".sciame",
+  "proposals": "proposte",
+  "local": "locale",
+  "LOCAL_README.md": "LEGGIMI.md",
+  "FORBIDDEN.txt": "VIETATE.txt",
+  "EXPERT_REQUESTS.md": "RICHIESTE_ESPERTI.md",
+  ".new": ".nuovo",
+  "translations": "traduzioni"
+ },
+ "missions": {
+  "closure": "La chiusura: almeno una H# provata, nessuna contraddizione aperta su una conclusione adottata, previsioni risolte o dichiarate non risolte con la prova che le deciderebbe, le quattro verifiche dei risultati fondanti. Scrivi anche {closure_file} con la riga «Esito: chiuso» o «Esito: non chiuso», e al più tre decisioni per l'utente.",
+  "owner_solution": "Sei il responsabile di {h}. Scrivi la soluzione: passi, invarianti, costo, «dipende da», «invalidata se cambia». Le previsioni con la soglia in PREVISIONI.md, con la riga «decide: sì» o «decide: no».",
+  "proof": "Scrivi la prova o la verifica di {h}, dopo SOLUZIONE.md del responsabile: che cosa la rende corretta, con quali ipotesi, e come la si controlla.",
+  "measurement_plan": "Il piano delle misure di {h}: che cosa si misura, con quale soglia, prima delle prove. Se non servono misure, scrivilo con il perché.",
+  "attack": "L'attacco a {h}: i casi che dovrebbero romperla, con le previsioni prima.",
+  "counterchecks": "Esegui le controprove di {h}, dalla più economica: prima le falsificazioni, poi la correttezza, poi il controllo dissimile. Le previsioni nate ora vanno sigillate dal coordinatore prima delle prove.",
+  "defects": "Le anomalie delle controprove di {h} e i difetti nascosti, ciascuno con la causa provata o «non spiegata». Se non ci sono anomalie, elenca i controlli fatti.",
+  "verdict": "Il verdetto di {h} per proprietà (correttezza, completezza, efficacia, costo), e il dossier {dossier} completato campo per campo («manca» dove manca).",
+  "proof_contribution": "Il tuo contributo alle prove di {h}, sul piano delle misure, dopo le controprove.",
+  "cards": "Una scheda per idea: oggetto, enunciato preciso, tipo, rischi, ipotesi critica e controesempio candidato, come la si verifica. Niente fusioni: due idee sono la stessa solo se enunciato e tipo coincidono. Ogni scheda dice da quale consegna viene.",
+  "triage": "Assegna gli H# nella forma H-001, con la classe TESTARE, RIFORMULARE, APERTA o SMENTITA (solo con una prova), e le prime tre in ordine. Il coordinatore sigilla il triage appena arriva.",
+  "tournament": "Esegui il falsificatore di ogni H# TESTARE o APERTA del triage sigillato, al più cinque minuti ciascuno, con l'esito atteso registrato prima. Una smentita vale per l'idea solo se la decide un controllo che non condivide il prototipo; altrimenti l'H# torna RIFORMULARE.",
+  "selection": "Sugli esiti del torneo proponi al più tre H# più una radicale, con le priorità ordinali (informazione attesa, costo, probabilità di un controesempio). Chiudi con la riga «Controfirma: arbitro».",
+  "consolidation": "Consolida i contributi della tornata globale, prima per nucleo e poi d'insieme: fatti F# con lo stato, contraddizioni K#, idee candidate con l'origine (ruolo e file), domande aperte, ruoli da chiamare dopo. Niente voto. Le idee candidate entreranno in f2 come schede d'ingresso.",
+  "lane_a": "Sei nella corsia A, conservativa. Diagnosi del problema e dei vincoli; due proposte, ciascuna con l'enunciato, il guadagno atteso, i vincoli, chi la può provare e il falsificatore più economico (al più cinque minuti) con l'esito atteso scritto prima in PREVISIONI.md.",
+  "lane_b": "Sei nella corsia B, divergente. Il creativo: al più quattro idee da campi lontani, ciascuna con il meccanismo tradotto e il test. Il rovesciatore: al più due rovesciamenti dei presupposti, ciascuno con l'alternativa concreta e il test. Ogni idea con il falsificatore più economico in PREVISIONI.md.",
+  "global_round": "Tornata globale, dal tuo punto di vista: al più tre osservazioni o proposte, ciascuna con la prova o il falsificatore. Se il tuo campo non c'entra, scrivi «non pertinente: …» in una riga. Al più mezza pagina.",
+  "single": "Esegui la richiesta nel tuo ruolo, per intero, e rileggiti con le tue «domande che si pone sempre» prima di consegnare.",
+  "fan_out_slice": "Sei un agente di un ventaglio, con una fetta del lavoro: la tua è scritta qui sotto dal coordinatore. Fai solo la tua fetta, per intero, e verifica il criterio di fatto prima di consegnare.",
+  "race": "Sei un braccio di una gara: altri agenti hanno la tua stessa consegna, e il coordinatore sceglierà con la regola dichiarata nel contratto. Lavora da solo, per intero, e verifica il criterio di fatto prima di consegnare."
+ },
+ "convene": {
+  "agent": "Agente",
+  "at_most": "al più",
+  "canary": "(La prima riga della tua consegna deve essere questa riga del canarino.)",
+  "brief": "Consegna",
+  "convening": "Convocazione",
+  "criterion": "Criterio di fatto:",
+  "criterion_tail": "quello del contratto; se la missione qui sotto ne dà uno più stretto, vale quello.",
+  "question": "Domanda",
+  "outcome": "Esito in testa alla consegna:",
+  "outcome_tail": "FATTO, PROBLEMI o BLOCCATO, con le prove (regola 11 del preambolo).",
+  "phase": "fase",
+  "inputs": "Ingressi (leggi solo questi):",
+  "principles": "Principi del progetto",
+  "principles_text": "Quelli che non si negoziano, se ci sono; altrimenti «nessuno oltre il preambolo».",
+  "profile": "profilo",
+  "write": "Scrivi solo in",
+  "write_tail": "Niente modifiche al progetto, niente git, niente segreti.",
+  "strategy": "strategia",
+  "time": "Tempo",
+  "time_tail": "minuti. Prove al più di classe 1 (cinque minuti ciascuna) salvo diversa indicazione.",
+  "output": "Uscita",
+  "output_tail": "al più due pagine; `stato.md` nella stessa cartella se lavori più di dieci minuti.",
+  "forbidden": "Spazio vietato:",
+  "forbidden_tail": "le cartelle degli altri agenti della convocazione, e ciò che il contratto esclude.",
+  "what": "Che cosa fare",
+  "contract": "Contratto della convocazione",
+  "created": "Creato",
+  "slice": "Fetta {k} di {n}: <da compilare>",
+  "signatures_readme": "Ogni autore di f1 scrive qui `<sigla>.md`: per ogni scheda nata dalle sue idee, «fedele» oppure «si perde: …».\n",
+  "prepared": "Convocazione: {path}",
+  "prepared_summary": "Strategia {strategy}, profilo {profile}, seme {seed}. Nessun agente lanciato.",
+  "prepared_next": "Compila {contract}, poi: cancello C f0 --note '…'",
+  "prepared_briefs": "Consegne di f1:",
+  "prepared_brief_line": "  {role} ({lane}): {path}",
+  "prepared_map": "Mappa delle corsie (solo tua, non darla agli agenti): {path}",
+  "roles_line": "{agent}: {name} (nucleo {core}){words}",
+  "roles_words": "; parole: {words}",
+  "roles_none": "Nessuna parola chiave dei ruoli compare nella domanda: scegli dal profilo.",
+  "profiles": "Profili:",
+  "profile_line": "  {profile}: {for} (corsia A: {roles})",
+  "snapshot": "Foto di {n} file. Letti dopo l'ultima scrittura: {read}",
+  "sealed": "Sigillato {path}",
+  "gate_refused": "Cancello {phase} RIFIUTATO:",
+  "gate_holds": "Cancello {phase}: le condizioni reggono (verifica, niente scritto)",
+  "gate_approved": "Cancello {phase} approvato ({n} file legati)",
+  "branches_open": "Rami aperti: {ids}",
+  "branch_closed": "{h} chiusa in anticipo: non risolto dichiarato",
+  "status_head": "{name}: strategia {strategy}, profilo {profile}",
+  "status_early": "  {phase}: CHIUSO IN ANTICIPO",
+  "status_pending": "  {phase}: da approvare",
+  "status_approved": "  {phase}: approvato",
+  "status_invalid": "  {phase}: NON PIÙ VALIDO (file cambiati)",
+  "translation_pending": "Traduzione in attesa in «{language}» (translation-pending) per: {roles}. Prima di lanciarli traduci ogni scheda e registrala: {command}"
+ }
 }

@@ -1,0 +1,26 @@
+
+COMMANDS (bash swarmer/swarmer.sh <command>)
+  install [--language L] [--instructions] [--force] [--folder DIR] [--local DIR] [--project-managed]
+  update                       like install, with the files of this swarmer.sh; files modified in the project stay,
+                               the new version goes alongside them with the .new suffix
+  single | fan-out | classic | jury | light-jury | full | plenary | expert | auto  "request"
+      [--profile P] [--roles a,b] [--language L] [--from-file FILE] [--model M] [--print] [--show] [-- claude options]
+  help                         this text
+  language [L]                 the swarm's language (agents, skills, documents); without L it shows it
+  roles ["question"]           the roles and profiles; with a question, those its words call up
+  professionals                the tree of professionals and sub-professionals
+  check | regenerate | remove | instructions [--remove] | tests
+  models [role=model …]        the model of a role, of a core, or of all (--all=model)
+  requests                     the missing skills that have reached the creation threshold
+  count FOLDER ROUND           the tally of a jury
+  approve FILE.json            adds an approved professional: database, agents, skills and swarmer.sh
+  propose ID… [--send]         the pull request of the approved entries to the public repository (UPSTREAM):
+                               always in English, and only entries with complete English texts
+  import-cards AGENTS.md       brings into the database the cards of a 3.x AGENTI.md
+  translate ID FILE.json [--language L]  registers the translation of a role marked translation-pending (local,
+                               never published); with --language en, the English texts of a local entry
+  verify | build               the checks before publishing; the rebuild of swarmer.sh
+
+Abbreviated options are not accepted: write them in full. The Italian names of the commands and options
+(installa, aggiorna, --cartella, …) work in every installation.
+The project's local cards live in swarmer/local/ and always take priority over the generic roles.

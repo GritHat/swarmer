@@ -1,0 +1,76 @@
+{
+ "decisioni": {
+  "D1": {
+   "classe_plenaria": [],
+   "condizioni_dei_si": {
+    "avversario": "nessuna",
+    "debugger": "nessuna",
+    "garante": "nessuna",
+    "logico": "nessuna",
+    "statistico": "nessuna"
+   },
+   "dipende": [],
+   "dispositivo": "si fa (a)",
+   "giro_del_testo": 0,
+   "no": [],
+   "opzione": "(a)",
+   "preferenze": {},
+   "revisioni_chieste": {},
+   "sha_proposta": "3438c9109c44ca768b9c315f5afe987c2ea6ee9b885798343f4070a44dce158b",
+   "si": [
+    "avversario",
+    "debugger",
+    "garante",
+    "logico",
+    "statistico"
+   ],
+   "stato": "APPROVATA"
+  },
+  "D2": {
+   "classe_plenaria": [],
+   "condizioni_dei_si": {
+    "avversario": "nessuna",
+    "debugger": "nessuna",
+    "garante": "nessuna",
+    "logico": "nessuna",
+    "statistico": "nessuna"
+   },
+   "dipende": [],
+   "dispositivo": "si fa (b)",
+   "giro_del_testo": 0,
+   "motivo": "la decisione non è fra quelle delegate in DELEGA.md",
+   "no": [],
+   "opzione": "(b)",
+   "preferenze": {},
+   "revisioni_chieste": {},
+   "sha_proposta": "3438c9109c44ca768b9c315f5afe987c2ea6ee9b885798343f4070a44dce158b",
+   "si": [
+    "avversario",
+    "debugger",
+    "garante",
+    "logico",
+    "statistico"
+   ],
+   "stato": "RACCOMANDATA"
+  }
+ },
+ "giro": 0,
+ "giurati": [
+  "garante",
+  "avversario",
+  "logico",
+  "debugger",
+  "statistico"
+ ],
+ "limite_giri": 3,
+ "n": 5,
+ "protocollo": "G2",
+ "sha_giuria": "7b061d9741e8706ca4f478f0832278ed25f0ab1818b4212353c1ec306e092517",
+ "sha_voti": {
+  "avversario": "ae28fbe59d7d702f20ef9ab5ab31788be54159d7eb74e34c7262499a3e0b4e5b",
+  "debugger": "ae28fbe59d7d702f20ef9ab5ab31788be54159d7eb74e34c7262499a3e0b4e5b",
+  "garante": "ae28fbe59d7d702f20ef9ab5ab31788be54159d7eb74e34c7262499a3e0b4e5b",
+  "logico": "ae28fbe59d7d702f20ef9ab5ab31788be54159d7eb74e34c7262499a3e0b4e5b",
+  "statistico": "ae28fbe59d7d702f20ef9ab5ab31788be54159d7eb74e34c7262499a3e0b4e5b"
+ }
+}

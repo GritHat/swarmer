@@ -1,0 +1,94 @@
+{
+ "decisioni": {
+  "D1": {
+   "classe_plenaria": [],
+   "condizioni_dei_si": {
+    "avversario": "nessuna",
+    "garante": "nessuna",
+    "logico": "nessuna"
+   },
+   "dipende": [],
+   "dispositivo": "si fa (a)",
+   "giro_del_testo": 0,
+   "no": [
+    "debugger",
+    "statistico"
+   ],
+   "opzione": "(a)",
+   "preferenze": {},
+   "regressiva": {
+    "giro": 1,
+    "si_persi": [
+     "garante"
+    ],
+    "voti_del_giro": {
+     "no": [
+      "garante",
+      "statistico"
+     ],
+     "si": [
+      "avversario",
+      "debugger",
+      "logico"
+     ]
+    }
+   },
+   "revisioni_chieste": {
+    "debugger": "togliere la clausola 2",
+    "statistico": "togliere la clausola 2"
+   },
+   "sha_proposta": "3438c9109c44ca768b9c315f5afe987c2ea6ee9b885798343f4070a44dce158b",
+   "si": [
+    "avversario",
+    "garante",
+    "logico"
+   ],
+   "stato": "REVISIONE"
+  },
+  "D2": {
+   "classe_plenaria": [],
+   "condizioni_dei_si": {
+    "avversario": "nessuna",
+    "debugger": "nessuna",
+    "garante": "nessuna",
+    "logico": "nessuna",
+    "statistico": "nessuna"
+   },
+   "dipende": [],
+   "dispositivo": "si fa (b)",
+   "giro_del_testo": 0,
+   "no": [],
+   "opzione": "(b)",
+   "preferenze": {},
+   "revisioni_chieste": {},
+   "sha_proposta": "3438c9109c44ca768b9c315f5afe987c2ea6ee9b885798343f4070a44dce158b",
+   "si": [
+    "avversario",
+    "debugger",
+    "garante",
+    "logico",
+    "statistico"
+   ],
+   "stato": "RACCOMANDATA"
+  }
+ },
+ "giro": 1,
+ "giurati": [
+  "garante",
+  "avversario",
+  "logico",
+  "debugger",
+  "statistico"
+ ],
+ "limite_giri": 3,
+ "n": 5,
+ "protocollo": "G2",
+ "sha_giuria": "9ce8371e60ea66df792d9a9fe05f3c654956e9826a738497205325ec3b780283",
+ "sha_voti": {
+  "avversario": "402c662981eaf141aa11e1b7a16a06ab5f6896976f45fe2af6bd012e5d8b130e",
+  "debugger": "ae3e6d59fa40a083624cf531a6c30308719d9b5cf0d63d6f555e697542946ebd",
+  "garante": "1db0b08a578d7ce6735dd37d9b3e19a9064da66cf01b721e97654a29754100f2",
+  "logico": "402c662981eaf141aa11e1b7a16a06ab5f6896976f45fe2af6bd012e5d8b130e",
+  "statistico": "1db0b08a578d7ce6735dd37d9b3e19a9064da66cf01b721e97654a29754100f2"
+ }
+}

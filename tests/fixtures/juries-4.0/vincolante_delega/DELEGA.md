@@ -1,0 +1,2 @@
+DELEGATA D1
+sha256 dei byte che precedono questa riga: 326612e18b431202d4fcb33282c0bc320788bc1131bfd5fd060563db17506ff2

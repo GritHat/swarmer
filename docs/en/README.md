@@ -1,0 +1,119 @@
+# swarmer: the agent swarm for Claude Code (version 5.0)
+
+A swarm of specialist professionals and sub-professionals, which a coordinator convenes for a request with
+one of eight strategies. The coordinator is the Claude Code session open in the project; the agents are its
+`swarmer-<id>` subagents.
+
+**Setup and launch all live in `swarmer.sh`:** `bash swarmer/swarmer.sh help` prints them. In short:
+
+```
+bash swarmer.sh install [--language en|it]           # once per project
+bash swarmer/swarmer.sh single     "request"         # single expert
+bash swarmer/swarmer.sh fan-out    "request"         # N agents in parallel: slices or a race
+bash swarmer/swarmer.sh classic    "request"         # the graph pipeline
+bash swarmer/swarmer.sh jury       "request"         # one proposal, one vote
+bash swarmer/swarmer.sh light-jury "request"         # three jurors, the test before the vote
+bash swarmer/swarmer.sh full       "request"         # the whole swarm, no vote, then the classic
+bash swarmer/swarmer.sh plenary    "request"         # the gravest choices: five levels and the final vote
+bash swarmer/swarmer.sh expert     "request"         # a skill the swarm does not have yet
+bash swarmer/swarmer.sh auto       "request"         # the coordinator chooses
+```
+
+Inside Claude Code the same convenings are `/swarmer-single`, `/swarmer-fan-out`, `/swarmer-classic`,
+`/swarmer-jury`, `/swarmer-light-jury`, `/swarmer-full`, `/swarmer-plenary`, `/swarmer-expert` and `/swarmer`.
+
+## The strategies
+
+They are defined in `PIPELINE.md`; the jury, new experts and the plenary are detailed in `JURY.md`.
+
+| strategy | for | agents |
+|---|---|---|
+| single | a clear question in one field | 1 |
+| fan-out | divisible work, or several attempts racing under a selection rule declared in advance | 2–16 |
+| classic | deciding, designing, fixing, proving, measuring | 6–15 |
+| jury | deciding a proposal already prepared: consensus approves, majority revises, minority rejects | 7–11 |
+| light-jury | small decisions, or ones a quick test can check: three jurors, the test before the vote, one round | 5 |
+| full | strategic or open questions, every point of view, no vote | all professionals plus the classic |
+| plenary | phase transitions and choices of enormously important impact | 60–80 and more |
+| expert | a missing skill: provisional card, recorded request, creation at the threshold | 1 |
+| auto | unknown which: the coordinator chooses the cheapest one that suffices | — |
+
+Every brief follows the same template (`PIPELINE.md`, «The brief, in every strategy»): goal and done criterion,
+inputs, write scope and forbidden scope, verification, a response with DONE, ISSUES or BLOCKED at the top.
+
+## The roles: professionals and sub-professionals
+
+The single database is `db/professionals.json`: each entry has the role id, the type, the parent (for a
+sub-professional), the core, the version and the texts: English always and complete, the other languages optional.
+A role without the language of the installation is generated from English with the mark `translation-pending:
+<language>`, and the coordinator translates it at its first convening with `bash swarmer/swarmer.sh translate <id>
+<file.json>` (local overlay `local/translations/`, never published: `local/LOCAL_README.md` of this folder). `AGENTS.md`, the agents, the skills and the
+catalog are generated from it, in the chosen language: they are not edited by hand. The role ids are data and are the
+same in every language (`arbitro`, `avversario`, `debugger`, …).
+
+`bash swarmer/swarmer.sh professionals` prints the tree; `bash swarmer/swarmer.sh roles "question"` the roles that a
+question calls up.
+
+## Languages
+
+`bash swarmer/swarmer.sh language it` switches to Italian, `language en` to English: agents, skills and documents
+are regenerated, with the names of the language. At installation: `--language`. For a single convening:
+`language=it` at the start of the request, or `--language`. The Italian names of the commands and options
+(`installa`, `--cartella`, …) are accepted in every installation. A new language is added with a pull request to the
+swarm repository (`CONTRIBUTING.md`).
+
+## Local overrides
+
+A project's own cards live in `swarmer/local/AGENTS.md`. For the same role id a local card **always** takes
+priority over the generic role; an id that exists only there is a local-only role. The `local/` folder may
+contain project details and never goes into the public repository: `build`, `approve`, `propose` and
+`verify` do not distribute it, and they reject any public text containing the words in `local/FORBIDDEN.txt`. In a
+project that already has its own swarm:
+
+```
+bash swarmer.sh install --folder swarmer/skill --local swarmer --project-managed
+```
+
+installs the skill in a folder of its own, takes the project's cards as overrides, and neither writes nor deletes the
+agents that the project generates itself.
+
+## New experts
+
+A missing skill is requested: in briefs with the `MISSING-EXPERT` line, by the coordinator with the expert
+strategy. Requests go into `swarmer/EXPERT_REQUESTS.md`; `bash swarmer/swarmer.sh requests` tells which have reached
+the threshold. Once creation is approved, `bash swarmer/swarmer.sh approve <card.json>`:
+1. adds it to the database;
+2. regenerates agents, skills and documents;
+3. rebuilds `swarmer.sh`, so the portable copy is always up to date;
+4. writes the proposal in `swarmer/proposals/`.
+
+`bash swarmer/swarmer.sh propose <id> --send` opens the pull request to the public swarm repository (requires `gh`),
+always in English: an entry without complete English texts is refused until `translate <id> <file.json> --language en`.
+
+## The files in this folder
+
+| file | what it contains |
+|---|---|
+| `swarmer.sh` | a single file: installs, launches, updates; carries all the others with it |
+| `db/` | the single database of professionals and cores (`professionals.json`, `cores.json`) |
+| `docs/<language>/` | the documents in the skill's languages |
+| `i18n/<language>.json` | the texts of the generator and of the commands, and the names of each language |
+| `engine/` | the code: `swarmer.py` (the command line), `generate.py`, `professionals.py`, `convene.py`, `jury.py`, `compat.py` (the Italian names of 4.0) |
+| `tests/` | the test batteries: `bash swarmer/swarmer.sh tests` |
+| `AGENTS.md`, `PIPELINE.md`, `PREAMBLE.md`, `JURY.md`, `ENVIRONMENT.md`, `COORDINATOR_INSTRUCTIONS.md`, `HYPOTHESIS_CARD.md` | generated in the chosen language |
+| `convene.py`, `jury.py`, `generate_agents.py` | the usual commands, which hand over to the engine |
+| `catalog.json`, `VERSION`, `LANGUAGE`, `ROOT`, `FACTORY.json` | generated and state files |
+| `local/`, `EXPERT_REQUESTS.md`, `proposals/` | the project's own: never distributed |
+
+## Updating
+
+`bash swarmer.sh -C <project> update`, with the new `swarmer.sh`. Factory files that the project has not changed are
+updated. Those it has changed stay as they were, and the new version goes alongside them with the `.new` suffix. The
+database is merged: new entries are added and the project's entries remain. From a 3.x the cards are kept in a backup
+copy, and `import-cards` brings into the database those that the project had added.
+
+**From 4.0 (`sciame`).** The same command updates an installation of the 4.0: the internal state, the engine and the
+database take their 5.0 names, while the project's files (configuration, local cards, expert register, forbidden
+words, convenings and juries) are never renamed. An Italian 4.0 stays Italian, with the same agents and skills
+(`sciame-*`); an English 4.0 moves to `swarmer-*`, with `sciame.sh`, `convoca.py` and `giuria.py` kept as aliases.
+Going back to 4.0 is not supported.

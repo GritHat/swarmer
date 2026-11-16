@@ -1,0 +1,93 @@
+{
+ "format": 2,
+ "cores": [
+  {
+   "id": "teorico",
+   "texts": {
+    "it": {
+     "name": "teorico e formale"
+    },
+    "en": {
+     "name": "theory and formal methods"
+    }
+   }
+  },
+  {
+   "id": "modelli",
+   "texts": {
+    "it": {
+     "name": "IA e modelli"
+    },
+    "en": {
+     "name": "AI and models"
+    }
+   }
+  },
+  {
+   "id": "sperimentale",
+   "texts": {
+    "it": {
+     "name": "sperimentale e delle misure"
+    },
+    "en": {
+     "name": "experiments and measurement"
+    }
+   }
+  },
+  {
+   "id": "software",
+   "texts": {
+    "it": {
+     "name": "software e sistemi"
+    },
+    "en": {
+     "name": "software and systems"
+    }
+   }
+  },
+  {
+   "id": "conoscenza",
+   "texts": {
+    "it": {
+     "name": "conoscenza e comunicazione"
+    },
+    "en": {
+     "name": "knowledge and communication"
+    }
+   }
+  },
+  {
+   "id": "decisione",
+   "texts": {
+    "it": {
+     "name": "progetto e decisione"
+    },
+    "en": {
+     "name": "design and decision"
+    }
+   }
+  },
+  {
+   "id": "critico",
+   "texts": {
+    "it": {
+     "name": "critico e divergente"
+    },
+    "en": {
+     "name": "critical and divergent"
+    }
+   }
+  },
+  {
+   "id": "percezione",
+   "texts": {
+    "it": {
+     "name": "percezione, stima e movimento"
+    },
+    "en": {
+     "name": "perception, estimation and motion"
+    }
+   }
+  }
+ ]
+}

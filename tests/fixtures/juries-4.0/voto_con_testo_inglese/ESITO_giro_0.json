@@ -1,0 +1,51 @@
+{
+ "decisioni": {
+  "D1": {
+   "classe_plenaria": [],
+   "condizioni_dei_si": {
+    "avversario": "nessuna",
+    "debugger": "nessuna",
+    "garante": "nessuna",
+    "logico": "nessuna"
+   },
+   "dipende": [],
+   "dispositivo": "si fa (a)",
+   "giro_del_testo": 0,
+   "no": [
+    "statistico"
+   ],
+   "opzione": "(a)",
+   "preferenze": {},
+   "revisioni_chieste": {
+    "statistico": "togliere la clausola 2"
+   },
+   "sha_proposta": "dfbd6d9590c0d553924b5b980143e553cfeea1a3d8ab9c90da3c8115b9576396",
+   "si": [
+    "avversario",
+    "debugger",
+    "garante",
+    "logico"
+   ],
+   "stato": "REVISIONE"
+  }
+ },
+ "giro": 0,
+ "giurati": [
+  "garante",
+  "avversario",
+  "logico",
+  "debugger",
+  "statistico"
+ ],
+ "limite_giri": 3,
+ "n": 5,
+ "protocollo": "G2",
+ "sha_giuria": "943d1ff9a5d0e2ff9abf52931505db91091d38b0fdc89ad178e9a32eb930cc4a",
+ "sha_voti": {
+  "avversario": "402c662981eaf141aa11e1b7a16a06ab5f6896976f45fe2af6bd012e5d8b130e",
+  "debugger": "402c662981eaf141aa11e1b7a16a06ab5f6896976f45fe2af6bd012e5d8b130e",
+  "garante": "402c662981eaf141aa11e1b7a16a06ab5f6896976f45fe2af6bd012e5d8b130e",
+  "logico": "402c662981eaf141aa11e1b7a16a06ab5f6896976f45fe2af6bd012e5d8b130e",
+  "statistico": "699f24993bd06f3c1d87e0ba9bf45881f8947549fce9e47b80755a284022ec82"
+ }
+}

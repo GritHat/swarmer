@@ -4,18 +4,18 @@ labels: ["professional-request"]
 body:
   - type: input
     id: code
-    attributes: {label: "Code name / Sigla (lowercase, words joined by -)"}
+    attributes: {label: "Role id / Sigla (lowercase, words joined by -)"}
     validations: {required: true}
   - type: dropdown
     id: kind
     attributes:
-      label: "Kind / Tipo"
-      options: ["professional / professionista", "sub-professional / sottoprofessionista"]
+      label: "Type / Tipo"
+      options: ["professional / professionista", "subprofessional / sottoprofessionista"]
     validations: {required: true}
   - type: input
     id: parent
     attributes: {label: "Parent (for a sub-professional) / Genitore (per un sottoprofessionista)"}
   - type: textarea
     id: why
-    attributes: {label: "Why: which roles you checked and why they do not cover it / Motivo: quali ruoli hai guardato e perché non bastano"}
+    attributes: {label: "Reason: which roles you checked and why they do not cover it / Motivo: quali ruoli hai guardato e perché non bastano"}
     validations: {required: true}

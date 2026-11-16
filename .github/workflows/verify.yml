@@ -1,0 +1,32 @@
+name: verify
+on: [push, pull_request]
+jobs:
+  verify:
+    runs-on: ubuntu-22.04
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+    strategy:
+      matrix:
+        python: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: public database, English complete in every entry
+        run: python -I -B engine/professionals.py validate
+      - name: database, languages, secrets
+        run: python -I -B engine/swarmer.py --swarm . verify --publication
+      - name: swarmer.sh and sciame.sh up to date
+        run: python -I -B engine/swarmer.py --swarm . build --output swarmer.sh --check
+      - name: help from an empty project
+        run: |
+          mkdir -p "$RUNNER_TEMP/empty"
+          cd "$RUNNER_TEMP/empty"
+          bash "$GITHUB_WORKSPACE/swarmer.sh" help > /dev/null
+          bash "$GITHUB_WORKSPACE/sciame.sh" aiuto > /dev/null
+      - name: test batteries
+        run: |
+          git config --global user.name ci
+          git config --global user.email ci@example.org
+          for t in tests/test_*.py; do python -I -B "$t" || exit 1; done

@@ -1,9 +1,15 @@
 __pycache__/
 *.pyc
+_work/
 _lavoro/
 _v31/
+local/
 locale/
+proposals/
 proposte/
+EXPERT_REQUESTS.md
 RICHIESTE_ESPERTI.md
+*.new
 *.nuovo
+.swarmer/
 .sciame/

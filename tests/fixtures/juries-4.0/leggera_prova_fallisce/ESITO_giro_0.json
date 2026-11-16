@@ -1,0 +1,47 @@
+{
+ "decisioni": {
+  "D1": {
+   "classe_plenaria": [],
+   "condizioni_dei_si": {
+    "avversario": "nessuna",
+    "garante": "nessuna",
+    "prestazioni": "nessuna"
+   },
+   "dipende": [],
+   "dispositivo": "si fa (a)",
+   "giro_del_testo": 0,
+   "motivo": "la prova veloce fallisce",
+   "no": [],
+   "opzione": "(a)",
+   "preferenze": {},
+   "prova": {
+    "esito": "fallisce",
+    "testo": "python3 -I prova_veloce.py (atteso: rc 0)"
+   },
+   "revisioni_chieste": {},
+   "sha_proposta": "fb11088d6743cd8eac404550c8a5b84cb06c9cb9492bf6e76f3f538d091fe549",
+   "si": [
+    "avversario",
+    "garante",
+    "prestazioni"
+   ],
+   "stato": "RESPINTA"
+  }
+ },
+ "forma": "leggera",
+ "giro": 0,
+ "giurati": [
+  "garante",
+  "avversario",
+  "prestazioni"
+ ],
+ "limite_giri": 1,
+ "n": 3,
+ "protocollo": "G2",
+ "sha_giuria": "44d1e805484b7dc6032bc9a4dcbd9f4279cf68ab296b0a1f853cadd82b742f38",
+ "sha_voti": {
+  "avversario": "6442f12619bc79b8533c6ab4b7beb55504dab6f2bdd391de7944c82398ab899e",
+  "garante": "6442f12619bc79b8533c6ab4b7beb55504dab6f2bdd391de7944c82398ab899e",
+  "prestazioni": "6442f12619bc79b8533c6ab4b7beb55504dab6f2bdd391de7944c82398ab899e"
+ }
+}

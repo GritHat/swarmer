@@ -1,7 +1,7 @@
 {
- "name": "sciame",
- "owner": {"name": "the sciame authors"},
+ "name": "swarmer",
+ "owner": {"name": "the swarmer authors"},
  "plugins": [
-  {"name": "sciame", "source": "./", "description": "Agent swarm for Claude Code: install it into a project with /sciame-installa, then convene it with /sciame-singolo, /sciame-classica, /sciame-giuria, /sciame-plenaria and the other strategies."}
+  {"name": "swarmer", "source": "./", "description": "Agent swarm for Claude Code: install it into a project with /swarmer-install, then convene it with /swarmer-single, /swarmer-classic, /swarmer-jury, /swarmer-plenary and the other strategies."}
  ]
 }

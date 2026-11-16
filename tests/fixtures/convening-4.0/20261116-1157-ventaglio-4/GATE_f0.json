@@ -1,0 +1,9 @@
+{
+ "fase": "f0",
+ "ora": "2026-11-16T11:57:56+01:00",
+ "note": "contratto compilato",
+ "non_consegnati": [],
+ "impronte": {
+  "@FIXTURE_ROOT@/20261116-1157-ventaglio-4/CONTRATTO.md": "2a654646631972108abe05649b9ddaa7ca8e1dddc0810ee74b9003189f6309c5"
+ }
+}

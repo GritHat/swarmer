@@ -1,0 +1,48 @@
+{
+ "decisioni": {
+  "D1": {
+   "classe_plenaria": [],
+   "condizioni_dei_si": {
+    "avversario": "nessuna",
+    "debugger": "nessuna",
+    "garante": "nessuna",
+    "logico": "nessuna",
+    "statistico": "nessuna"
+   },
+   "dipende": [],
+   "dispositivo": "si fa (a)",
+   "giro_del_testo": 0,
+   "no": [],
+   "opzione": "(a)",
+   "preferenze": {},
+   "revisioni_chieste": {},
+   "sha_proposta": "dfbd6d9590c0d553924b5b980143e553cfeea1a3d8ab9c90da3c8115b9576396",
+   "si": [
+    "avversario",
+    "debugger",
+    "garante",
+    "logico",
+    "statistico"
+   ],
+   "stato": "APPROVATA"
+  }
+ },
+ "giro": 0,
+ "giurati": [
+  "garante",
+  "avversario",
+  "logico",
+  "debugger",
+  "statistico"
+ ],
+ "limite_giri": 3,
+ "n": 5,
+ "sha_giuria": "c5efa3c011616ad377a6498ed57b3e930aa6e0927c1287858ab9bce858811147",
+ "sha_voti": {
+  "avversario": "402c662981eaf141aa11e1b7a16a06ab5f6896976f45fe2af6bd012e5d8b130e",
+  "debugger": "402c662981eaf141aa11e1b7a16a06ab5f6896976f45fe2af6bd012e5d8b130e",
+  "garante": "402c662981eaf141aa11e1b7a16a06ab5f6896976f45fe2af6bd012e5d8b130e",
+  "logico": "402c662981eaf141aa11e1b7a16a06ab5f6896976f45fe2af6bd012e5d8b130e",
+  "statistico": "402c662981eaf141aa11e1b7a16a06ab5f6896976f45fe2af6bd012e5d8b130e"
+ }
+}

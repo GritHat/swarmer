@@ -1,0 +1,77 @@
+{
+ "decisioni": {
+  "D1": {
+   "classe_plenaria": [],
+   "condizioni_dei_si": {
+    "avversario": "nessuna",
+    "garante": "nessuna",
+    "logico": "nessuna"
+   },
+   "dipende": [],
+   "dispositivo": "si fa (a)",
+   "giro_del_testo": 0,
+   "no": [
+    "debugger",
+    "statistico"
+   ],
+   "opzione": "(a)",
+   "preferenze": {},
+   "revisioni_chieste": {
+    "debugger": "togliere la clausola 2",
+    "statistico": "togliere la clausola 2"
+   },
+   "sha_proposta": "3438c9109c44ca768b9c315f5afe987c2ea6ee9b885798343f4070a44dce158b",
+   "si": [
+    "avversario",
+    "garante",
+    "logico"
+   ],
+   "stato": "REVISIONE"
+  },
+  "D2": {
+   "classe_plenaria": [],
+   "condizioni_dei_si": {
+    "avversario": "nessuna",
+    "debugger": "nessuna",
+    "garante": "nessuna",
+    "logico": "nessuna",
+    "statistico": "nessuna"
+   },
+   "dipende": [],
+   "dispositivo": "si fa (b)",
+   "giro_del_testo": 0,
+   "no": [],
+   "opzione": "(b)",
+   "preferenze": {},
+   "revisioni_chieste": {},
+   "sha_proposta": "3438c9109c44ca768b9c315f5afe987c2ea6ee9b885798343f4070a44dce158b",
+   "si": [
+    "avversario",
+    "debugger",
+    "garante",
+    "logico",
+    "statistico"
+   ],
+   "stato": "RACCOMANDATA"
+  }
+ },
+ "giro": 0,
+ "giurati": [
+  "garante",
+  "avversario",
+  "logico",
+  "debugger",
+  "statistico"
+ ],
+ "limite_giri": 3,
+ "n": 5,
+ "protocollo": "G2",
+ "sha_giuria": "9ce8371e60ea66df792d9a9fe05f3c654956e9826a738497205325ec3b780283",
+ "sha_voti": {
+  "avversario": "ae28fbe59d7d702f20ef9ab5ab31788be54159d7eb74e34c7262499a3e0b4e5b",
+  "debugger": "4f319e1701f5c48faac19ee3e63fe06ffb2eace4baa5b03157d4bc3b535de67d",
+  "garante": "ae28fbe59d7d702f20ef9ab5ab31788be54159d7eb74e34c7262499a3e0b4e5b",
+  "logico": "ae28fbe59d7d702f20ef9ab5ab31788be54159d7eb74e34c7262499a3e0b4e5b",
+  "statistico": "4f319e1701f5c48faac19ee3e63fe06ffb2eace4baa5b03157d4bc3b535de67d"
+ }
+}

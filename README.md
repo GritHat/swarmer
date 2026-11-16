@@ -1,77 +1,104 @@
-# sciame — an agent swarm for Claude Code
+# swarmer — an agent swarm for Claude Code
 
 *[Italiano](README.it.md)*
 
-**sciame** (Italian for *swarm*) is a team of specialist agents for Claude Code that a coordinator convenes for one
-request, with one of eight strategies. The roles are **professionals** (general skills) and **sub-professionals**
-(their specialisations), kept in one database in every language the skill supports. The whole skill — documents,
-database and engine — fits in a single file, `sciame.sh`, using only bash and the Python standard library.
+**swarmer** is a team of specialist agents for Claude Code that a coordinator convenes for one request, with one of
+eight strategies. The roles are **professionals** (general skills) and **sub-professionals** (their
+specialisations), kept in one database, in English and optionally in the other languages of the skill. The whole skill — documents, database
+and engine — fits in a single file, `swarmer.sh`, using only bash and the Python standard library. Version 5.0 is the
+successor of `sciame` 4.0, which it updates in place.
 
 ## Install
 
 ```
 # one file, into any project
-curl -fsSLO https://raw.githubusercontent.com/GritHat/swarmer/main/sciame.sh
-bash sciame.sh installa --lingua en          # or --lingua it
+curl -fsSLO https://raw.githubusercontent.com/GritHat/swarmer/main/swarmer.sh
+bash swarmer.sh install                      # English; --language it for Italian
 
 # or as a Claude Code plugin
 /plugin marketplace add GritHat/swarmer
-/plugin install sciame
-/sciame-installa en
+/plugin install swarmer
+/swarmer-install en
 ```
 
 Then reopen the Claude Code session and convene the swarm:
 
 | strategy | skill | for | agents |
 |---|---|---|---|
-| single | `/sciame-singolo` | one clear question in one field | 1 |
-| fan-out | `/sciame-ventaglio` | divisible work in parallel slices, or a race with a selection rule declared first | 2–16 |
-| classic | `/sciame-classica` | decide, design, fix, prove, measure: blind lanes, triage, falsifier tournament, branches, verdicts | 6–15 |
-| jury | `/sciame-giuria` | decide a prepared proposal: unanimity approves, majority revises (≤ 3 rounds, no regressions), minority rejects | 7–11 |
-| light jury | `/sciame-giuria-leggera` | small, low-influence decisions, or where a quick test exposes a mistake: three jurors, test before the vote, one round, then the ordinary jury | 5 |
-| full | `/sciame-completa` | strategic or open questions: every professional, blind, no vote, then a classic | all + classic |
-| plenary | `/sciame-plenaria` | phase transitions and enormously important choices: full, usual convening, critical pass, two arbiters, final vote | 60–80+ |
-| new expert | `/sciame-esperto` | a skill the swarm lacks: provisional card, request logged, role created at the threshold | 1 |
-| auto | `/sciame` | the coordinator picks the cheapest strategy that suffices, and says so | — |
+| single | `/swarmer-single` | one clear question in one field | 1 |
+| fan-out | `/swarmer-fan-out` | divisible work in parallel slices, or a race with a selection rule declared first | 2–16 |
+| classic | `/swarmer-classic` | decide, design, fix, prove, measure: blind lanes, triage, falsifier tournament, branches, verdicts | 6–15 |
+| jury | `/swarmer-jury` | decide a prepared proposal: unanimity approves, majority revises (≤ 3 rounds, no regressions), minority rejects | 7–11 |
+| light jury | `/swarmer-light-jury` | small, low-influence decisions, or where a quick test exposes a mistake: three jurors, test before the vote, one round, then the ordinary jury | 5 |
+| full | `/swarmer-full` | strategic or open questions: every professional, blind, no vote, then a classic | all + classic |
+| plenary | `/swarmer-plenary` | phase transitions and enormously important choices: full, usual convening, critical pass, two arbiters, final vote | 60–80+ |
+| new expert | `/swarmer-expert` | a skill the swarm lacks: provisional card, request logged, role created at the threshold | 1 |
+| auto | `/swarmer` | the coordinator picks the cheapest strategy that suffices, and says so | — |
 
-From the shell: `bash sciame/sciame.sh <strategy> "request"`; English aliases work (`single`, `fan-out`, `classic`,
-`jury`, `full`, `plenary`, `expert`). `bash sciame/sciame.sh help` lists every command.
+From the shell: `bash swarmer/swarmer.sh <strategy> "request"`. `bash swarmer/swarmer.sh help` lists every command.
+Every command, option and value also has an Italian name (`installa`, `singolo`, `--cartella`, …), accepted in every
+installation; abbreviated options are not accepted.
 
 ## What makes it different
 
 - **Every brief is self-contained**: goal and done criterion, inputs, writable and forbidden scope, the check to run,
   and an answer that starts with DONE, ISSUES or BLOCKED. Agent reports are evidence, not proof: the coordinator
   re-runs the promised checks on the integrated result.
-- **Decisions are verifiable**: jury votes are sealed (sha256), blind, recounted from the files by `giuria.py`, with a
+- **Decisions are verifiable**: jury votes are sealed (sha256), blind, recounted from the files by `jury.py`, with a
   goal clause (target, chain, counterfactual, cost) that every proposal must pass.
 - **The swarm grows when it must**: missing skills are requested with a reason; three requesters in one convening, or
-  three requests across two convenings, make a new professional — added to the database, the agents and `sciame.sh`.
-- **Local overrides**: a project's own cards live in `sciame/locale/`, always take priority over the generic roles,
+  three requests across two convenings, make a new professional — added to the database, the agents and `swarmer.sh`.
+- **Local overrides**: a project's own cards live in `swarmer/local/`, always take priority over the generic roles,
   may contain private project details, and are never published.
 - **Honest about the host**: no sub-agents, no shell or no writes? The coordinator keeps the steps and says what was
-  reduced (`AMBIENTE.md`).
+  reduced (`ENVIRONMENT.md`).
 
 ## Languages
 
-Italian and English. Switch with `bash sciame/sciame.sh lingua en` (agents, skills and documents are regenerated),
-or per convening with `lingua=en`. New languages are welcome as pull requests: see [CONTRIBUTING.md](CONTRIBUTING.md).
+English (the default) and Italian. Switch with `bash swarmer/swarmer.sh language it` (agents, skills and documents
+are regenerated with the names of the language), or per convening with `language=it`. In an Italian installation
+everything written into the project is Italian: the `sciame/` folder, `sciame-*` agents and skills, `GIURIA.md`,
+the Italian protocol lines. The protocol lines of juries and convenings are read in both languages. New languages are
+welcome as pull requests: see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Updating from sciame 4.0
+
+```
+curl -fsSLO https://raw.githubusercontent.com/GritHat/swarmer/main/swarmer.sh
+bash swarmer.sh -C <project> update
+```
+
+The old `sciame.sh aggiorna`, downloaded again, does the same. The update renames only what belongs to the swarm (the
+engine, the database, the internal state: `FABBRICA.json` → `FACTORY.json`, `catalogo.json` → `catalog.json`, …) and
+never the project's files: configuration, local cards, expert register, forbidden words, convenings and juries keep
+their names, and every jury outcome already voted is recounted byte for byte. An Italian 4.0 stays Italian, with the
+same `sciame-*` agents and skills; an English 4.0 moves to `swarmer-*` and English names, with `sciame.sh`,
+`convoca.py` and `giuria.py` kept as aliases. An interrupted update resumes with the same command.
+
+**Going back to 4.0 is not supported**: a 4.0 `sciame.sh` does not recognise `FACTORY.json`, `engine/` or the 5.0
+markers. Other breaking changes: abbreviated options are rejected; new juries also read English protocol lines, and
+almost-conforming lines in `SEALS.md`, `DELEGATION.md` and `RELEVANCE.md`, or round tokens that name no round, are
+errors.
 
 ## Propose a new professional
 
-Open a pull request that adds an entry to `db/professionisti.json` with texts in every language of the repository
+Open a pull request that adds an entry to `db/professionals.json` with complete English texts (mandatory; the other
+languages are optional, and an installation translates a missing one at its first use)
 (template: `.github/PULL_REQUEST_TEMPLATE/new_professional.md`), or from a project with the swarm installed:
-`bash sciame/sciame.sh approva card.json` then `bash sciame/sciame.sh proponi <code> --invia`.
+`bash swarmer/swarmer.sh approve card.json` then `bash swarmer/swarmer.sh propose <id> --send`.
 
 ## Repository layout
 
 | path | content |
 |---|---|
-| `db/` | the single database of professionals, sub-professionals and cores |
-| `documenti/<lang>/` | the documents, one folder per language |
-| `i18n/<lang>.json` | generator and command texts |
-| `motore/` | the engine: `sciame.py` (CLI), `genera.py`, `professionisti.py`, `convoca.py`, `giuria.py`, `testa.sh` |
-| `prove/` | the test batteries |
-| `sciame.sh` | the single-file build: `python3 -I motore/sciame.py --sciame . costruisci --uscita sciame.sh` |
-| `skills/`, `.claude-plugin/` | the Claude Code plugin (installer skill and manifests) |
+| `db/` | the single database of professionals, sub-professionals and cores (`professionals.json`, `cores.json`) |
+| `docs/<lang>/` | the documents, one folder per language, under their canonical names |
+| `i18n/<lang>.json` | generator and command texts, and the localized names of commands, options, values and files |
+| `engine/` | the engine: `swarmer.py` (CLI), `generate.py`, `professionals.py`, `convene.py`, `jury.py`, `compat.py` (the Italian names and the 4.0 formats), `head.sh` |
+| `wrappers/` | `convene.py` and `jury.py`, copied to the root of an installation |
+| `tests/` | the test batteries |
+| `swarmer.sh` | the single-file build: `python3 -I -B engine/swarmer.py --swarm . build --output swarmer.sh` |
+| `sciame.sh` | a byte-for-byte copy of `swarmer.sh`, so the 4.0 download URL keeps working |
+| `skills/`, `.claude-plugin/` | the Claude Code plugin (installer skills `swarmer-install` and `sciame-installa`, manifests) |
 
 License: MIT.

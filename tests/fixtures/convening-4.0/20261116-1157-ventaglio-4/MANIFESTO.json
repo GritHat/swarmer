@@ -1,0 +1,28 @@
+{
+ "versione": "4.0",
+ "nome": "ventaglio-4",
+ "strategia": "ventaglio",
+ "profilo": "codice",
+ "domanda": "rendere più veloce il parser",
+ "seme": 7,
+ "creato": "2026-11-16T11:57:56+01:00",
+ "f1": {
+  "agente-1": {
+   "cartella": "@FIXTURE_ROOT@/20261116-1157-ventaglio-4/f1/agente-1",
+   "corsia": "fette",
+   "ruolo": "architetto"
+  },
+  "agente-2": {
+   "cartella": "@FIXTURE_ROOT@/20261116-1157-ventaglio-4/f1/agente-2",
+   "corsia": "fette",
+   "ruolo": "architetto"
+  }
+ },
+ "selezionate": [],
+ "radicale": null,
+ "ventaglio": {
+  "n": 2,
+  "forma": "fette",
+  "regola": null
+ }
+}

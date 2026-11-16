@@ -1,24 +1,39 @@
 ---
 name: sciame-installa
-description: "Installs (or updates) the sciame agent swarm into the current project: role agents, the convening skills and the swarm documents. Use it only when the user asks to install, update or set up the swarm. / Installa o aggiorna lo sciame di agenti nel progetto corrente."
+description: "Installa (o aggiorna) lo sciame di agenti (swarmer) nel progetto corrente: gli agenti dei ruoli, le skill di convocazione e i documenti dello sciame. Aggiorna sul posto anche un'installazione 4.0. Usala solo quando l'utente chiede di installare, aggiornare o predisporre lo sciame. Alias italiano di swarmer-install."
 argument-hint: "[it|en] [--istruzioni] [--cartella DIR --locale DIR --gestiti-dal-progetto]"
 disable-model-invocation: true
 ---
 
-# Install the swarm / Installare lo sciame
+# Installare lo sciame
 
-1. The plugin folder is `${CLAUDE_PLUGIN_ROOT}` (the folder that holds `skills/` and `sciame.sh`).
-2. Read the arguments: a bare `it` or `en` is the language (default: the language of the conversation); the other
-   options are passed as they are. Then, in the project root, run (each argument quoted on its own):
+1. La cartella del plugin è `${CLAUDE_PLUGIN_ROOT}` (quella che contiene `skills/` e `swarmer.sh`).
+2. Leggi gli argomenti: un `it` o un `en` da solo è la lingua; le altre opzioni si passano così come sono.
+3. Cerca un'installazione già presente alla radice del progetto: una cartella (di solito `sciame/` o `swarmer/`, oppure
+   quella indicata in `.sciame/config.json` o `.swarmer/config.json`) che contiene `FABBRICA.json` o `FACTORY.json`.
+   - **Nessuna:** lancia, alla radice del progetto (ogni argomento fra virgolette a sé; la lingua, se manca, è `it`):
 
-   ```
-   bash "${CLAUDE_PLUGIN_ROOT}/sciame.sh" -C "$PWD" installa --lingua "<it|en>" [the other options]
-   ```
+     ```
+     bash "${CLAUDE_PLUGIN_ROOT}/swarmer.sh" -C "$PWD" installa --lingua "<it|en>" [le altre opzioni]
+     ```
 
-   If the project already has a `sciame/` folder that is not this swarm, the installer refuses and changes nothing:
-   tell the user, and suggest `--cartella sciame/skill --locale sciame --gestiti-dal-progetto`, which installs the
-   swarm next to it and takes the project's cards as local overrides.
-3. Run `bash <folder>/sciame.sh controlla` and report the result. Tell the user that the new agents and skills become
-   visible after reopening the Claude Code session, and that `bash <folder>/sciame.sh aiuto` lists every command.
+   - **Una trovata** (anche un'installazione 4.0, che si migra): lancia `aggiorna` al posto di `installa`, e passa
+     `--lingua` solo se l'utente ne ha data una, così l'installazione tiene la sua:
 
-Never commit, never publish, and never touch files of the project outside what the installer writes.
+     ```
+     bash "${CLAUDE_PLUGIN_ROOT}/swarmer.sh" -C "$PWD" aggiorna [--lingua "<it|en>"] [le altre opzioni]
+     ```
+
+     Riferisci i file che l'aggiornamento elenca come lasciati al loro posto perché modificati nel progetto, e la sua
+     nota su `CLAUDE.md`; il ritorno alla 4.0 non è supportato.
+
+   Se il progetto ha già una cartella `sciame/` che non è questo sciame, l'installatore rifiuta e non cambia niente:
+   dillo all'utente, e suggerisci `--cartella sciame/skill --locale sciame --gestiti-dal-progetto`, che installa lo
+   sciame accanto e prende le schede del progetto come override locali.
+4. Lancia `bash <cartella>/swarmer.sh controlla` e riferisci l'esito. Se elenca traduzioni in attesa (ruoli del
+   database pubblico senza la lingua dell'installazione, generati dall'inglese con il segno `translation-pending`), di'
+   che il coordinatore traduce ciascuno la prima volta che lo convoca; adesso non serve fare niente. Di' all'utente che gli agenti e le skill nuovi si
+   vedono dopo aver riaperto la sessione di Claude Code, e che `bash <cartella>/swarmer.sh aiuto` elenca tutti i comandi
+   (in un'installazione italiana vale anche `sciame.sh`).
+
+Non fare commit, non pubblicare niente e non toccare file del progetto oltre a quelli che scrive l'installatore.

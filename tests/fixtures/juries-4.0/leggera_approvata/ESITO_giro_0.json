@@ -1,0 +1,46 @@
+{
+ "decisioni": {
+  "D1": {
+   "classe_plenaria": [],
+   "condizioni_dei_si": {
+    "avversario": "nessuna",
+    "garante": "nessuna",
+    "prestazioni": "nessuna"
+   },
+   "dipende": [],
+   "dispositivo": "si fa (a)",
+   "giro_del_testo": 0,
+   "no": [],
+   "opzione": "(a)",
+   "preferenze": {},
+   "prova": {
+    "esito": "passa",
+    "testo": "python3 -I prova_veloce.py (atteso: rc 0)"
+   },
+   "revisioni_chieste": {},
+   "sha_proposta": "1f57dc2bb8f7264b35f17e668059136cfba947508d9b760976f68d267049aa18",
+   "si": [
+    "avversario",
+    "garante",
+    "prestazioni"
+   ],
+   "stato": "RACCOMANDATA"
+  }
+ },
+ "forma": "leggera",
+ "giro": 0,
+ "giurati": [
+  "garante",
+  "avversario",
+  "prestazioni"
+ ],
+ "limite_giri": 1,
+ "n": 3,
+ "protocollo": "G2",
+ "sha_giuria": "7ccbb5c9eee8da5bbd6f8c2c0a1aa95a74bdda8474109d986fff2dfd18a64bb7",
+ "sha_voti": {
+  "avversario": "6442f12619bc79b8533c6ab4b7beb55504dab6f2bdd391de7944c82398ab899e",
+  "garante": "6442f12619bc79b8533c6ab4b7beb55504dab6f2bdd391de7944c82398ab899e",
+  "prestazioni": "6442f12619bc79b8533c6ab4b7beb55504dab6f2bdd391de7944c82398ab899e"
+ }
+}

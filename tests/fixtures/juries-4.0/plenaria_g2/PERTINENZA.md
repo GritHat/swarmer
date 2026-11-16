@@ -1,0 +1,8 @@
+PERTINENTE garante
+PERTINENTE avversario
+PERTINENTE logico
+PERTINENTE debugger
+PERTINENTE statistico
+PERTINENTE rovesciatore
+PERTINENTE creativo
+sha256 dei byte che precedono questa riga: d0eca911dc0106ae96e93b60ef171183b99aecb192b714ac42170f7b03e3d2fb

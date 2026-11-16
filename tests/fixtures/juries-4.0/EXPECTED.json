@@ -1,0 +1,83 @@
+{
+ "roles": [
+  "garante",
+  "avversario",
+  "logico",
+  "debugger",
+  "statistico",
+  "rovesciatore",
+  "creativo",
+  "formalista",
+  "fonti",
+  "metrologo",
+  "arbitro",
+  "scelta-sociale",
+  "prestazioni",
+  "sviluppatore",
+  "architetto",
+  "motivo"
+ ],
+ "juries": {
+  "ordinaria_regressiva": {
+   "rounds": [
+    0,
+    1,
+    2
+   ]
+  },
+  "leggera_approvata": {
+   "rounds": [
+    0
+   ]
+  },
+  "leggera_prova_fallisce": {
+   "rounds": [
+    0
+   ]
+  },
+  "leggera_ordinaria": {
+   "rounds": [
+    0
+   ]
+  },
+  "plenaria_g2": {
+   "rounds": [
+    0
+   ]
+  },
+  "g11_senza_protocollo": {
+   "rounds": [
+    0
+   ]
+  },
+  "riproporre_1": {
+   "rounds": [
+    0
+   ]
+  },
+  "riproporre_2": {
+   "rounds": [
+    0
+   ]
+  },
+  "vincolante_delega": {
+   "rounds": [
+    0
+   ]
+  },
+  "ruolo_motivo": {
+   "rounds": [
+    0
+   ]
+  },
+  "voto_con_testo_inglese": {
+   "rounds": [
+    0
+   ]
+  },
+  "rifiutata_voto_doppio": {
+   "rounds": [],
+   "refused": 0
+  }
+ }
+}
