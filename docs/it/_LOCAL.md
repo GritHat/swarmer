@@ -3,7 +3,10 @@
 Questa cartella è del progetto e **non va mai** nel repository pubblico dello sciame. Qui stanno:
 - `AGENTI.md`: schede nel formato di `sciame/AGENTI.md` (titolo `### N. Nome — `sciame-sigla``, righe **In breve**,
   **Nucleo**, **Parole chiave**). Per la stessa sigla una scheda locale ha **sempre** la priorità sul ruolo generico;
-  una sigla che c'è solo qui è un ruolo solo locale. Le schede possono contenere i dettagli del progetto.
+  una sigla che c'è solo qui è un ruolo solo locale. Le schede possono contenere i dettagli del progetto. Il loro testo
+  va anche negli agenti generati per ogni destinazione attiva (`.claude/agents/`, `.codex/agents/`, `.agents/agents/`,
+  `.gemini/agents/`): quei file hanno la stessa riservatezza di questa cartella, e `.agents/` lo leggono molti
+  strumenti.
 - `GIURIA.md`, `PIPELINE.md`, `PREAMBOLO.md`: regole proprie del progetto, che si aggiungono a quelle generiche o le
   sostituiscono, dichiarandolo.
 - `USCITE.md`: i criteri d'uscita delle fasi del progetto, che la clausola dell'obiettivo delle giurie cita.

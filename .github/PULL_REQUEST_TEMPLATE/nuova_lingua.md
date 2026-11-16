@@ -7,3 +7,4 @@
 - [ ] Le etichette delle schede per `<codice>` in `engine/compat.py` (`LABELS`); le righe del protocollo si leggono in
       inglese e in italiano.
 - [ ] `verifica` e le batterie passano; `swarmer.sh` e `sciame.sh` ricostruiti.
+- [ ] I testi della lingua nominano ogni destinazione, non un solo strumento (vedi `docs/it/ENVIRONMENT.md`).

@@ -1,9 +1,23 @@
 {
  "name": "swarmer",
- "version": "5.0.0",
- "description": "A swarm of specialist agents for Claude Code: professionals and sub-professionals, eight convening strategies (single, fan-out, classic, jury and light jury, full, plenary, new expert, auto), local overrides, English and Italian.",
- "author": {"name": "the swarmer authors"},
+ "version": "5.1.0",
+ "description": "A universal swarm of specialist agents for coding agents (Claude Code, Codex, Antigravity, Gemini CLI and any tool that reads AGENTS.md and Agent Skills); this plugin is one of the ways to install it in Claude Code. Professionals and sub-professionals, eight convening strategies (single, fan-out, classic, jury and light jury, full, plenary, new expert, auto), local overrides, English and Italian.",
+ "author": {
+  "name": "the swarmer authors"
+ },
  "license": "MIT",
- "keywords": ["agents", "swarm", "multi-agent", "jury", "review", "subagents"],
+ "keywords": [
+  "agents",
+  "swarm",
+  "multi-agent",
+  "jury",
+  "review",
+  "subagents",
+  "codex",
+  "gemini-cli",
+  "antigravity",
+  "agents-md",
+  "agent-skills"
+ ],
  "skills": "./skills/"
 }

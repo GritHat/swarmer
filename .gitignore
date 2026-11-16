@@ -13,3 +13,11 @@ RICHIESTE_ESPERTI.md
 *.nuovo
 .swarmer/
 .sciame/
+# what an installation writes at the root of a project (agents, skills, instructions): never published
+/.claude/
+/.codex/
+/.agents/
+/.gemini/
+/AGENTS.md
+/GEMINI.md
+/CLAUDE.md

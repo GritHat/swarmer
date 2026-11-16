@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""swarmer 5.0: the command line. Usually run as `bash swarmer/swarmer.sh <command>`; `help` says everything.
+"""swarmer 5.1: the command line. Usually run as `bash swarmer/swarmer.sh <command>`; `help` says everything.
 
-Standard library only. It launches no agent: it starts Claude Code with the skill of the strategy, or prepares,
+Standard library only. It launches no agent: it starts the coding agent of the project (Claude Code, Codex,
+Antigravity or Gemini CLI) with the skill of the strategy, or prepares,
 counts and checks. Actions towards the outside (a pull request) happen only on an explicit, confirmed command, and
 never with the local files. No write follows a symbolic link, and no file of the project that is not the swarm's is
 overwritten (paths.py). Commands, options and values have aliases in every language of i18n/ (aliases.py).
@@ -38,8 +39,10 @@ ROOT_WRAPPERS = {"convene.py": "wrappers/convene.py", "jury.py": "wrappers/jury.
 HEAD = "engine/head.sh"
 BLOCK_BEGIN, BLOCK_END = "# @aliases-begin\n", "# @aliases-end\n"
 BASH_COMMANDS = ("install", "update", "help", "tests")
-INSTALL_OPTIONS = ("--folder", "--language", "--local", "--instructions", "--force", "--project-managed")
+INSTALL_OPTIONS = ("--folder", "--language", "--local", "--instructions", "--force", "--project-managed", "--targets")
 STATE = tuple(C.STATE_NAMES)   # ROOT, LANGUAGE, FACTORY.json, VERSION, catalog.json
+# What an installation writes at the root of a project: never part of the repository (verify --publication, .gitignore).
+TARGET_TREES = (".claude", ".codex", ".agents", ".gemini", "AGENTS.md", "GEMINI.md", "CLAUDE.md")
 
 
 class Error(C.Error):
@@ -192,12 +195,14 @@ def distributed_content(swarm: Path, rel: str, cache: dict) -> str:
 
 # --- generation ---
 
-def regenerate(swarm: Path, replaceable=frozenset(), lang: str | None = None) -> tuple[dict, list[str]]:
+def regenerate(swarm: Path, replaceable=frozenset(), lang: str | None = None, clean=()) -> tuple[dict, list[str]]:
+    """Generates again. `clean`: targets removed explicitly, whose generated files go; the other inactive targets are
+    neither touched nor examined."""
     require_installed(swarm)
     root = root_of(swarm)
     data = G.catalog(swarm, root, lang or language(swarm))
     check_collisions(data)
-    out = G.write(swarm, root, data, replaceable)
+    out = G.write(swarm, root, data, replaceable, clean)
     warn_reserved(swarm, data)
     return data, out
 
@@ -221,11 +226,22 @@ def check(swarm: Path) -> int:
     require_installed(swarm)
     root = root_of(swarm)
     print(f"python3: {sys.version.split()[0]}")
-    if shutil.which("claude"):
-        r = subprocess.run(["claude", "--version"], capture_output=True, text=True, stdin=subprocess.DEVNULL)
-        print("claude: " + ((r.stdout.strip().splitlines() or ["?"])[0]))
-    else:
-        print("claude: " + msg(swarm, "cli_missing_claude"))
+    try:
+        targets = G.targets_of(root)
+    except C.Error as e:
+        print(f"{msg(swarm, 'cli_prefix')}{e}")
+        return 1
+    print(msg(swarm, "cli_targets", targets=", ".join(targets)))
+    if "claude" in targets:
+        if shutil.which("claude"):
+            r = subprocess.run(["claude", "--version"], capture_output=True, text=True, stdin=subprocess.DEVNULL)
+            print("claude: " + ((r.stdout.strip().splitlines() or ["?"])[0]))
+        else:
+            print("claude: " + msg(swarm, "cli_missing_claude"))
+    for cli, tg in G.CLIS.items():   # the other tools are only looked for, never started
+        if tg in targets and cli != "claude":
+            print(f"{cli}: " + (msg(swarm, "cli_found") if shutil.which(cli) else
+                                msg(swarm, "cli_missing_cli", cli=cli, clis=", ".join(G.CLIS))))
     try:
         data = G.catalog(swarm, root, language(swarm))
         check_collisions(data)
@@ -235,6 +251,8 @@ def check(swarm: Path) -> int:
         print(f"{msg(swarm, 'cli_prefix')}{e}")
         return 1
     pending_translations(swarm, data)
+    for line in G.override_notes(root, data):
+        print(line)
     if different:
         print("\n".join(different))
         print(msg(swarm, "cli_not_aligned"))
@@ -273,7 +291,7 @@ def command_line(swarm: Path, command: str, *args: str) -> str:
 def known_roles_ok() -> None:
     """The same id with agents of the two prefixes and different bodies is an error (C.8)."""
     import jury
-    if jury.agents_dir().is_dir():
+    if jury.agents_dirs():
         jury.known_roles()
 
 
@@ -323,16 +341,20 @@ def _load_entries(p: Path) -> dict:
 
 
 def install(src: Path, root: Path, folder: str | None, lang_arg: str | None, force: bool, local: str | None,
-            managed: bool) -> Path:
+            managed: bool, targets_arg: str | None = None) -> Path:
     """Copies the factory files from `src` into <root>/<folder>, and migrates a 4.0 installation (E).
     - A folder that exists and is not a swarm (neither a factory nor a 3.x VERSION) is refused, unless --force, which
       first makes a backup copy.
     - A file that exists and differs from the registered factory one, or that is not registered, is not
       overwritten: the new version goes next to it with the suffix .new (localized), except the database, which is
       merged.
-    - No write follows a symbolic link."""
+    - No write follows a symbolic link.
+    - The targets (5.1): --targets, otherwise the key of config.json; a new installation without either gets the
+      targets detected in the project (auto); an existing one without either stays Claude Code only."""
     root = root.resolve()
     S.config(root)   # before any write (E): a configuration that cannot be read stops here, with the tree untouched
+    wanted = G.parse_targets(targets_arg) if targets_arg else False   # False: not given; None: auto
+    detected = G.detect_targets(root)   # before the installation writes anything in the project
     folder = folder or detect_folder(root, lang_arg)
     swarm = S.valid_folder(root, folder)
     folder = swarm.relative_to(root).as_posix()   # the normalized form, the one head.sh reads
@@ -349,6 +371,22 @@ def install(src: Path, root: Path, folder: str | None, lang_arg: str | None, for
         raise Error(f"{swarm} exists and is not a swarm: not touching it. Choose another --folder (for instance "
                     f"{folder}/skill, with --local {folder} if it holds its own cards) or use --force, which first "
                     "makes a backup copy")
+    # every check before the first write: the targets it will write (and those removed explicitly), the links
+    if wanted is not False:
+        final = detected if wanted is None else wanted
+    elif not known and S.config(root).get("targets") is None:
+        final = detected
+    else:
+        final = G.targets_of(root)
+    clean = [x for x in G.targets_of(root) if x not in final] if known and wanted is not False else []
+    S.no_links(root, swarm)
+    for rel in factory_files(src) + list(ROOT_WRAPPERS) + list(C.ALIAS_STUBS) + ["swarmer.sh", "UPSTREAM"] \
+            + list(STATE) + list(C.STATE_NAMES.values()):
+        S.no_links(swarm, swarm / rel)
+    try:
+        G.preflight(root, final, clean)
+    except C.Error as e:
+        raise Error(str(e))
     if swarm.exists() and any(swarm.iterdir()) and ((force and not known) or is31):
         copy = root / f"{folder.replace('/', '_')}.before-{datetime.datetime.now():%Y%m%d-%H%M%S}"
         shutil.copytree(swarm, copy, symlinks=True)
@@ -456,9 +494,11 @@ def install(src: Path, root: Path, folder: str | None, lang_arg: str | None, for
         new["project_managed"] = True
     if "folder" in cfg or detect_folder(root, lang) != folder:
         new["folder"] = folder
+    if wanted is not False or (not known and cfg.get("targets") is None):
+        new["targets"] = final   # chosen, or a new installation: the targets of the project
     S.write_config(root, new, lang)
     # 5. regenerate
-    data, done = regenerate(swarm, replaceable, lang)
+    data, done = regenerate(swarm, replaceable, lang, clean)
     # 6 (second half). the old internal state goes, then the marker
     for canon, o in C.STATE_NAMES.items():
         p = swarm / o
@@ -468,8 +508,9 @@ def install(src: Path, root: Path, folder: str | None, lang_arg: str | None, for
         S.remove_file(swarm, marker)
     skipped = [f for f in done if f.startswith("skipped")]
     print(msg(swarm, "cli_installed", version=G.VERSION, root=root, language=data["language"],
-              agents=sum(1 for f in done if f.startswith(".claude/agents/")),
-              skills=sum(1 for f in done if f.startswith(".claude/skills/"))))
+              agents=len({Path(f).stem for f in done if any(f.startswith(d + "/") for d, _e in G.agent_dirs())}),
+              skills=len({Path(f).parent.name for f in done if any(f.startswith(d + "/") for d in G.skill_dirs())})))
+    print(msg(swarm, "cli_targets", targets=", ".join(data["targets"])))
     if skipped:
         print(msg(swarm, "cli_skipped", n=len(skipped)))
     pending_translations(swarm, data)
@@ -551,19 +592,59 @@ def launch(swarm: Path, strategy: str, ns) -> None:
         raise Error(msg(swarm, "cli_language_unknown", language=ns.language, languages=", ".join(langs)))
     lang = language(swarm)
     root = root_of(swarm)
+    cli = choose_cli(swarm, root, ns.cli)
+    target = G.CLIS[cli]
+    if target not in G.targets_of(root):
+        raise Error(msg(swarm, "cli_target_inactive", cli=cli, target=target,
+                        command=command_line(swarm, "targets", "--add", target)))
     skill = G.skill_names(lang, G.prefix_of(root, lang))[strategy]
-    if not (root / ".claude" / "skills" / skill / "SKILL.md").is_file():
+    skill_file = f"{G.TARGETS[target]['skills']}/{skill}/SKILL.md"
+    if not (root / skill_file).is_file():
         raise Error(f"the skill {skill} is missing: bash {swarm.name}/swarmer.sh regenerate")
-    text = f"/{skill}" + (f" profile={profile}" if profile else "") + (f" roles={','.join(roles)}" if roles else "") \
-        + (f" language={ns.language}" if ns.language else "") + f" {request}"
-    command = ["claude"] + (["--model", ns.model] if ns.model else []) + (["-p"] if ns.print else []) + [text] + ns.rest
+    args = (f"profile={profile} " if profile else "") + (f"roles={','.join(roles)} " if roles else "") \
+        + (f"language={ns.language} " if ns.language else "")
+    command = launch_command(swarm, cli, skill, skill_file, args + request, ns)
     if ns.show:
         print(f"cd {shlex.quote(str(root))} && " + " ".join(shlex.quote(x) for x in command))
         return
-    if not shutil.which("claude"):
-        raise Error(msg(swarm, "cli_missing_claude"))
+    if not shutil.which(cli):
+        raise Error(msg(swarm, "cli_missing_claude") if cli == "claude" else
+                    msg(swarm, "cli_missing_cli", cli=cli, clis=", ".join(G.CLIS)))
     os.chdir(root)
-    os.execvp("claude", command)
+    os.execvp(cli, command)
+
+
+def choose_cli(swarm: Path, root: Path, given: str | None) -> str:
+    """The tool that `start` opens: --cli, otherwise the key «cli» of config.json, otherwise the first of claude,
+    codex, agy, gemini whose target is active and that is found in the PATH, otherwise the first whose target is
+    active (claude if none: the generic target alone has no tool)."""
+    cli = given or S.config(root).get("cli")
+    if not cli:
+        active = G.targets_of(root)
+        usable = [c for c in G.CLIS if G.CLIS[c] in active]
+        cli = next((c for c in usable if shutil.which(c)), usable[0] if usable else "claude")
+    if cli not in G.CLIS:
+        raise Error(msg(swarm, "cli_unknown_cli", cli=cli, clis=", ".join(G.CLIS)))
+    return cli
+
+
+def launch_command(swarm: Path, cli: str, skill: str, skill_file: str, request: str, ns) -> list[str]:
+    """The command line that opens the tool with the skill and the request: interactive, or with --print without
+    interaction. Claude Code receives the skill as a slash command; the other tools a prompt that names the skill and
+    its file (they find it in .agents/skills)."""
+    if cli == "claude":
+        return (["claude"] + (["--model", ns.model] if ns.model else []) + (["-p"] if ns.print else [])
+                + [f"/{skill} {request}"] + ns.rest)
+    prompt = G.fmt(G.i18n(swarm, language(swarm)).get("launch_prompt", "{skill} {request}"), skill=skill,
+                   path=skill_file, request=request)
+    if cli == "codex":
+        return ["codex"] + (["exec"] if ns.print else []) + (["--model", ns.model] if ns.model else []) + [prompt] + ns.rest
+    if cli == "gemini":
+        return ["gemini"] + (["--model", ns.model] if ns.model else []) + (["-p"] if ns.print else ["-i"]) + [prompt] \
+            + ns.rest
+    if ns.model:   # agy: the model of the session is chosen in Antigravity
+        raise Error(msg(swarm, "cli_option_unsupported", option="--model", cli=cli))
+    return ["agy"] + (["-p"] if ns.print else ["-i"]) + [prompt] + ns.rest
 
 
 # --- new professionals: approval and proposal to the repository ---
@@ -1275,10 +1356,14 @@ def verify(swarm: Path, publication: bool = False, extra_words: list[str] | None
         for name in npub + ("engine/__pycache__", "tests/__pycache__"):
             if (swarm / name).exists():
                 errors.append(f"{name}: must not be in the tree to publish")
+        if not installed(swarm):   # the repository: what an installation writes in a project is never published
+            for name in TARGET_TREES:
+                if (swarm / name).exists() or (swarm / name).is_symlink():
+                    errors.append(f"{name}: a file of a target (agents, skills, instructions) must not be published")
     return errors
 
 
-# --- the paragraph for CLAUDE.md ---
+# --- the paragraph for the instruction files (CLAUDE.md, AGENTS.md, GEMINI.md) ---
 
 def instructions(swarm: Path, file: Path, remove: bool = False) -> str:
     root = root_of(swarm)
@@ -1302,7 +1387,10 @@ def instructions(swarm: Path, file: Path, remove: bool = False) -> str:
         return "not there"
     if remove:
         t = t[:i].rstrip("\n") + ("\n" if t[:i].strip() else "") + t[j + len(end):].lstrip("\n")
-        S.write(root, file, t)
+        if not t.strip():   # only the paragraph of the swarm was there: the file goes
+            S.remove_file(root, file)
+        else:
+            S.write(root, file, t)
         return "removed"
     par = (swarm / "docs" / lang / "_CLAUDE.md").read_text(encoding="utf-8")
     par = G.adapt({"names": {"swarm": S.localized_name(swarm, "swarmer", lang),
@@ -1317,6 +1405,44 @@ def instructions(swarm: Path, file: Path, remove: bool = False) -> str:
         return "written"
     S.write(root, file, (t.rstrip("\n") + "\n\n" if t.strip() else "") + begin + "\n" + par.strip() + "\n" + end + "\n")
     return "written"
+
+
+def instruction_files(swarm: Path, targets: list[str] | None = None) -> list[Path]:
+    """The instruction files of the targets (CLAUDE.md, AGENTS.md, GEMINI.md), each once."""
+    root = root_of(swarm)
+    targets = G.targets_of(root) if targets is None else targets
+    return [root / n for n in dict.fromkeys(G.TARGETS[tg]["instructions"] for tg in targets)]
+
+
+def all_instructions(swarm: Path, remove: bool = False) -> None:
+    """The paragraph in the instruction file of every active target; with remove, out of every file that has it."""
+    files = instruction_files(swarm, list(G.TARGETS) if remove else None)
+    for f in files:
+        if remove and not f.is_file():
+            continue
+        print(f"{f.name}: {instructions(swarm, f, remove)}")
+
+
+def change_targets(swarm: Path, new: list[str], named=()) -> list[str]:
+    """Writes the targets in config.json and regenerates: the generated files of a target removed go (only those
+    with the note), and so does the paragraph of its instruction file, if no active target still reads that file.
+    `named`: the targets the user removes by name, active or not (their generated files go too). Every folder is
+    checked before the first write."""
+    root = root_of(swarm)
+    old = G.targets_of(root)
+    clean = [x for x in G.TARGETS if (x in old or x in named) and x not in new]
+    try:
+        G.preflight(root, new, clean)
+    except C.Error as e:
+        raise Error(str(e))
+    cfg = S.config(root)
+    S.write_config(root, dict(cfg, targets=new), language(swarm))
+    regenerate(swarm, clean=clean)
+    keep = {f.name for f in instruction_files(swarm, new)}
+    for f in instruction_files(swarm, old):
+        if f.name not in keep and f.is_file():
+            instructions(swarm, f, remove=True)
+    return new
 
 
 def _inside(swarm: Path, root: Path) -> bool:
@@ -1345,6 +1471,7 @@ def build_parser(al: dict) -> argparse.ArgumentParser:
         A.arg(q, al, "--local", help="the folder (or the AGENTS.md file) of the local overrides, relative to the root")
         A.arg(q, al, "--project-managed", action="store_true",
               help="the agents of the overrides are generated by the project: the swarm does not write them")
+        A.arg(q, al, "--targets", help="claude,codex,antigravity,gemini,agents or auto")
     for s in G.STRATEGIES:
         q = add(s)
         q.add_argument("request", nargs="?")
@@ -1355,7 +1482,8 @@ def build_parser(al: dict) -> argparse.ArgumentParser:
         A.arg(q, al, "--language")
         A.arg(q, al, "--print", action="store_true")
         A.arg(q, al, "--show", action="store_true")
-        q.add_argument("rest", nargs=argparse.REMAINDER)
+        A.arg(q, al, "--cli", help="claude, codex, agy or gemini")
+        q.set_defaults(rest=[])   # what follows «--» goes to the tool (split_rest)
     add("help")
     q = add("language")
     q.add_argument("code", nargs="?")
@@ -1363,8 +1491,13 @@ def build_parser(al: dict) -> argparse.ArgumentParser:
     q.add_argument("question", nargs="?")
     add("professionals")
     add("check")
-    add("regenerate")
+    q = add("regenerate")
+    A.arg(q, al, "--targets", help="claude,codex,antigravity,gemini,agents or auto")
     add("remove")
+    q = add("targets")
+    q.add_argument("value", nargs="?", help="the list of the targets, comma-separated, or auto")
+    A.arg(q, al, "--add")
+    A.arg(q, al, "--remove")
     q = add("instructions")
     A.arg(q, al, "--remove", action="store_true")
     q = add("models")
@@ -1411,6 +1544,29 @@ def _swarm_from_argv(argv: list[str]) -> Path:
     return SWARM
 
 
+def split_rest(argv: list[str], al: dict) -> tuple[list[str], list[str]]:
+    """For a strategy: the options of the swarm may come before or after the request; only what follows the first
+    «--» after the command goes to the tool. Any other command: argv as it is."""
+    names = A.option_strings(al, "--swarm")
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a in names:
+            i += 2
+            continue
+        if any(a.startswith(n + "=") for n in names):
+            i += 1
+            continue
+        break
+    if i >= len(argv):
+        return argv, []
+    strategies = set(G.STRATEGIES) | {x for s in G.STRATEGIES for x in A.command_aliases(al, s)}
+    if argv[i] not in strategies or "--" not in argv[i + 1:]:
+        return argv, []
+    j = argv.index("--", i + 1)
+    return argv[:j], argv[j + 1:]
+
+
 def main(argv=None) -> None:
     argv = list(sys.argv[1:] if argv is None else argv)
     pre = _swarm_from_argv(argv).resolve()
@@ -1420,18 +1576,19 @@ def main(argv=None) -> None:
         print(msg(pre, "cli_prefix") + "\n".join(bad), file=sys.stderr)
         sys.exit(1)
     al = A.load(pre)
+    argv, rest = split_rest(argv, al)
     ns = build_parser(al).parse_args(argv)
+    if getattr(ns, "command", None) in G.STRATEGIES:
+        ns.rest = rest
     swarm = ns.swarm.resolve()
     try:
         c = ns.command
         if c in ("install", "update"):
             s = install(ns.src.resolve(), ns.root.resolve(), ns.folder, ns.language, ns.force, ns.local,
-                        ns.project_managed)
+                        ns.project_managed, ns.targets)
             if ns.instructions:
-                print(f"CLAUDE.md: {instructions(s, ns.root.resolve() / 'CLAUDE.md')}")
+                all_instructions(s)
         elif c in G.STRATEGIES:
-            if ns.rest and ns.rest[0] == "--":
-                ns.rest = ns.rest[1:]
             launch(swarm, c, ns)
         elif c == "help":
             lang = language(swarm)
@@ -1469,7 +1626,19 @@ def main(argv=None) -> None:
         elif c == "check":
             sys.exit(check(swarm))
         elif c == "regenerate":
-            data, done = regenerate(swarm)
+            clean = []
+            if ns.targets:
+                require_installed(swarm)
+                root = root_of(swarm)
+                wanted = G.parse_targets(ns.targets)
+                new = G.detect_targets(root) if wanted is None else wanted
+                clean = [x for x in G.targets_of(root) if x not in new]
+                try:
+                    G.preflight(root, new, clean)
+                except C.Error as e:
+                    raise Error(str(e))
+                S.write_config(root, dict(S.config(root), targets=new), language(swarm))
+            data, done = regenerate(swarm, clean=clean)
             print(msg(swarm, "cli_aligned", roles=len(data["roles"]), profiles=len(data["profiles"])))
             pending_translations(swarm, data)
             skipped = [f for f in done if f.startswith("skipped")]
@@ -1477,15 +1646,46 @@ def main(argv=None) -> None:
                 print(msg(swarm, "cli_skipped", n=len(skipped)))
         elif c == "remove":
             require_installed(swarm)
+            for f in instruction_files(swarm, list(G.TARGETS)):
+                S.no_links(root_of(swarm), f)
             removed = G.remove(root_of(swarm))
-            cl = root_of(swarm) / "CLAUDE.md"
-            if cl.is_file():
-                instructions(swarm, cl, remove=True)
+            for f in instruction_files(swarm, list(G.TARGETS)):
+                if f.is_file():
+                    instructions(swarm, f, remove=True)
             print(msg(swarm, "cli_removed", n=len(removed), path=swarm,
                       state=S.state_dir(root_of(swarm), language(swarm)).name))
         elif c == "instructions":
             require_installed(swarm)
-            print(f"CLAUDE.md: {instructions(swarm, root_of(swarm) / 'CLAUDE.md', ns.remove)}")
+            all_instructions(swarm, ns.remove)
+        elif c == "targets":
+            require_installed(swarm)
+            root = root_of(swarm)
+            now = G.targets_of(root)
+            if ns.value or ns.add or ns.remove:
+                if ns.value:
+                    wanted = G.parse_targets(ns.value)
+                    new = G.detect_targets(root) if wanted is None else wanted
+                else:
+                    new = list(now)
+                if ns.add:
+                    added = G.parse_targets(ns.add)
+                    new = G.parse_targets(sorted(set(new) | set(G.detect_targets(root) if added is None else added)))
+                gone = set()
+                if ns.remove:
+                    named = G.parse_targets(ns.remove)
+                    if named is None:
+                        raise Error(msg(swarm, "cli_targets_remove_auto"))
+                    gone = set(named)
+                    new = [x for x in new if x not in gone]
+                if not new:
+                    raise Error(msg(swarm, "cli_targets_empty"))
+                if new != now or gone:
+                    change_targets(swarm, new, sorted(gone))
+                print(msg(swarm, "cli_targets_changed", targets=", ".join(new)))
+            else:
+                print(msg(swarm, "cli_targets", targets=", ".join(now)))
+                print(msg(swarm, "cli_targets_detected", targets=", ".join(G.detect_targets(root)),
+                          all=", ".join(G.TARGETS)))
         elif c == "models":
             require_installed(swarm)
             root = root_of(swarm)

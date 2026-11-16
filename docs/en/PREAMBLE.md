@@ -93,7 +93,7 @@ causes.
   over the generic card.
 - The brief (`TASK.md`) and the contract (`CONTRACT.md`), if present, and `PIPELINE.md`.
 - In blind lanes (classic strategy, phase 1) read only your brief and the contract.
-- Of the project, what the brief indicates. The rules of the project itself (`README.md` and `CLAUDE.md` at the
+- Of the project, what the brief indicates. The rules of the project itself (`README.md` and `CLAUDE.md`, `AGENTS.md` or `GEMINI.md` at the
   root) apply to you too.
 
 ## Writes and tools

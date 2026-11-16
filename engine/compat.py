@@ -72,6 +72,9 @@ OLD_MARKS = {
 # The note of the generated files, by language; `is_generated` recognises every form.
 GENERATED_NOTES = {"en": "swarmer-5 GENERATED", "it": "sciame-5 GENERATO"}
 GENERATED_RE = re.compile(r"^<!-- (sciame|swarmer)-[45] (GENERATO|GENERATED):")
+# The same note in the files that cannot hold an HTML comment (the TOML agents of Codex): a comment on the first
+# line.
+TOML_GENERATED_RE = re.compile(r"^# (sciame|swarmer)-5 (GENERATO|GENERATED):")
 # The sign of an agent generated from another language's text, waiting for its translation (K.2): the same in
 # every language, followed by the code of the language of the installation.
 TRANSLATION_PENDING = "translation-pending"
@@ -280,6 +283,9 @@ ROLES = {'arbiter': 'arbitro',
          'formalist': 'formalista',
          'metrologist': 'metrologo'}
 AGENT_PREFIXES = ("swarmer", "sciame")
+# The folders of the agents of each target (generate.TARGETS), with their extension: Claude Code, Codex,
+# Antigravity, Gemini CLI.
+AGENT_DIRS = ((".claude/agents", ".md"), (".codex/agents", ".toml"), (".agents/agents", ".md"), (".gemini/agents", ".md"))
 
 # --- the expert register (C.9) ---
 
@@ -490,6 +496,7 @@ CONFIG_SCHEMA = Schema("config.json", {
     "folder": ("cartella",), "local": ("locale",), "project_managed": ("gestiti_dal_progetto",),
     "models": ("modelli", None, {"*": (None,)}), "prefix": ("prefisso",),
     "swarmer_sh_copies": ("copie_sciame_sh",), "local_repository": ("repository_locale",),
+    "targets": ("destinazioni",), "cli": ("cli",),
 })
 JURY_SCHEMA = Schema("jury.json", {
     "subject": ("oggetto",), "rapporteur": ("relatore",), "clerk": ("cancelliere",),

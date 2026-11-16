@@ -6,3 +6,4 @@
 - [ ] Texts in `<code>` for every entry of `db/professionals.json` and `db/cores.json`.
 - [ ] Card labels for `<code>` in `engine/compat.py` (`LABELS`); the protocol lines are read in English and Italian.
 - [ ] `verify` and the test batteries pass; `swarmer.sh` and `sciame.sh` rebuilt.
+- [ ] The texts of the language name every target, not a single tool (see `docs/en/ENVIRONMENT.md`).

@@ -46,6 +46,8 @@
  "plenary_preamble": "**La strategia di questa convocazione è la plenaria.** Prima di lanciare agenti, verifica che l'utente l'abbia confermata e dichiara il costo. Le regole complete sono in `sciame/GIURIA.md`, §5.",
  "strategy_is": "**La strategia di questa convocazione è: {strategy}.**",
  "the_request": "## La richiesta\n\n$ARGUMENTS\n\n(Se qui sopra non c'è testo, la richiesta è l'ultimo messaggio dell'utente. Se porta `lingua=<codice>` (o `language=<codice>`), rispondi in quella lingua.)",
+ "the_request_generic": "## La richiesta\n\nLa richiesta è il messaggio dell'utente che ha chiamato questa skill (il testo dopo il nome della skill, se c'è). Se comincia con `profilo=…`, `ruoli=…` o `lingua=<codice>` (o `profile=`, `roles=`, `language=`), valgono quelli; con `lingua=<codice>`, rispondi in quella lingua.",
+ "launch_prompt": "Usa la skill {skill} ({path}) per convocare lo sciame di agenti su questa richiesta: {request}",
  "cli_missing_python": "manca python3 (3.8 o più recente)",
  "cli_not_installed": "in {root} lo sciame non c'è ancora. Prima: bash sciame.sh installa",
  "cli_installed": "Sciame {version} installato in {root} ({language}): {agents} agenti, {skills} skill.",
@@ -75,6 +77,16 @@
  "cli_needs_english": "{id}: la voce non ha il testo inglese completo (texts.en), quindi resta locale: il database pubblico accetta solo voci in inglese. Traducila in inglese (nome, breve, parole, corpo, con le stesse sezioni) e registrala con: {command}",
  "cli_local_until_english": "{ids}: senza i testi inglesi la voce resta locale; proponi la rifiuta finché non li ha ({command}).",
  "cli_models_none": "tutti: inherit",
+ "cli_targets": "Destinazioni: {targets}",
+ "cli_targets_changed": "Destinazioni: {targets}. Agenti, skill e istruzioni delle destinazioni rigenerati; i file generati di una destinazione tolta non ci sono più.",
+ "cli_targets_detected": "Rilevate nel progetto: {targets}. Disponibili: {all}. Si cambiano con: destinazioni claude,codex,… (o auto), --aggiungi X, --togli X",
+ "cli_targets_empty": "serve almeno una destinazione (claude, codex, antigravity, gemini, agents)",
+ "cli_targets_remove_auto": "--togli auto non ha senso: nomina le destinazioni da togliere",
+ "cli_found": "trovato nel PATH",
+ "cli_target_inactive": "{cli} legge la destinazione {target}, che in questo progetto non è attiva: {command}",
+ "cli_unknown_cli": "strumento «{cli}» sconosciuto: gli strumenti sono {clis}",
+ "cli_missing_cli": "manca il comando {cli}: installalo, o scegli un altro strumento con --cli ({clis})",
+ "cli_option_unsupported": "{option} non è ammessa con {cli}",
  "cli_prefix": "sciame: ",
  "jury_error_prefix": "ERRORE: ",
  "jury_ambiguous_role": "il ruolo {role} ha due definizioni diverse ({a}, {b}): un giurato deve averne una sola",
@@ -208,6 +220,9 @@
   ],
   "status": [
    "stato"
+  ],
+  "targets": [
+   "destinazioni"
   ]
  },
  "options": {
@@ -330,6 +345,13 @@
   ],
   "--list": [
    "--elenco"
+  ],
+  "--targets": [
+   "--destinazioni"
+  ],
+  "--cli": [],
+  "--add": [
+   "--aggiungi"
   ]
  },
  "values": {

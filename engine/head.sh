@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-#: SWARMER, AN AGENT SWARM FOR CLAUDE CODE, version 5.0
+#: SWARMER, A UNIVERSAL AGENT SWARM FOR CODING AGENTS, version 5.1
+#: (Claude Code, Codex, Antigravity, Gemini CLI, and every tool that reads AGENTS.md and Agent Skills)
 #:
 #: One file: the swarm's documents, its database of professionals and its engine, plus the commands to install
 #: and convene it.
 #:
-#: Needs: bash, python3 >= 3.8 (standard library only), Claude Code (`claude`).
+#: Needs: bash, python3 >= 3.8 (standard library only), and a coding agent (`claude`, `codex`, `agy`, `gemini`, ...).
 #:
-#:   bash swarmer.sh install [--language en|it] [--instructions] [--force] [--folder DIR] [--local DIR]
+#:   bash swarmer.sh install [--language en|it] [--targets claude,codex,...|auto] [--instructions] [--folder DIR]
 #:   bash swarmer/swarmer.sh <single|fan-out|classic|jury|light-jury|full|plenary|expert|auto> "request"
 #:   bash swarmer/swarmer.sh help            # every command, in the chosen language
 #:
@@ -35,6 +36,7 @@ canonical_option() {
         '--instructions'|'--istruzioni') printf '%s' '--instructions' ;;
         '--force'|'--forza') printf '%s' '--force' ;;
         '--project-managed'|'--gestiti-dal-progetto') printf '%s' '--project-managed' ;;
+        '--targets'|'--destinazioni') printf '%s' '--targets' ;;
         *) printf '%s' "$1" ;;
     esac
 }
@@ -212,6 +214,7 @@ install() {
             --instructions) args+=(--instructions); shift ;;
             --force) args+=(--force); shift ;;
             --project-managed) args+=(--project-managed); shift ;;
+            --targets) [ $# -ge 2 ] || fail "$(msg sh_needs_value option "$1")"; args+=(--targets "$2"); shift 2 ;;
             *) fail "$(msg sh_unknown_option command "$typed" option "$1")" ;;
         esac
     done

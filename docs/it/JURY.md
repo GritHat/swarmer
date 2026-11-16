@@ -55,7 +55,7 @@ cambia più: `giuria.py` ne registra lo sha256 e rifiuta ogni giro contato con u
   - in una giuria vincolante, il logico, il debugger e un avversario.
 - **Campi obbligatori:** `tocca_codice` e `tocca_numeri` (sì o no), `autorita`, `delega`, `classificazione`
   (`ordinaria` o `plenaria`); ogni giuria nuova scrive anche `"lessico": 5` (§11).
-- **Ruoli ammessi:** solo le sigle dei ruoli dello sciame (`.claude/agents/sciame-*.md`), professionisti o
+- **Ruoli ammessi:** solo le sigle dei ruoli dello sciame (`sciame-*` in `.claude/agents/`, `.codex/agents/`, `.agents/agents/` o `.gemini/agents/`), professionisti o
   sottoprofessionisti. Un esperto provvisorio (§4) è
   segnato `provvisorio` e ha la scheda sigillata `SCHEDA_<ruolo>.md` nella cartella; ce ne sono al più un terzo dei
   giurati.
@@ -276,6 +276,8 @@ cominciare.
 - **Il veto.** Il veto di un solo giurato è voluto: approva solo il consenso. Nelle plenarie l'esito tipico sarà
   REVISIONE o NON_CONVERGENTE.
 - **Il voto strategico** si rende visibile (CAMBIO, PREFERISCO, CONDIZIONE), ma non si elimina.
+- **Una giuria in sequenza.** In uno strumento senza sottoagenti il coordinatore fa tutti i giurati: lì il consenso è
+  un'autoapprovazione. Il suo esito è solo una raccomandazione all'utente, mai una decisione delegata.
 
 ## 7. Le scelte di forma, che un progetto può cambiare
 

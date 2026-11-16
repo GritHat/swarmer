@@ -1,16 +1,24 @@
 
 COMANDI (bash sciame/sciame.sh <comando>; fra parentesi il nome inglese, che vale sempre)
   installa (install) [--lingua L] [--istruzioni] [--forza] [--cartella DIR] [--locale DIR] [--gestiti-dal-progetto]
+          [--destinazioni claude,codex,antigravity,gemini,agents|auto]
   aggiorna (update)            come installa, con i file di questo sciame.sh; i file modificati nel progetto restano,
                                la versione nuova va accanto con il suffisso .nuovo
   singolo (single) | ventaglio (fan-out) | classica (classic) | giuria (jury) | giuria-leggera (light-jury)
       | completa (full) | plenaria (plenary) | esperto (expert) | auto  "richiesta"
-      [--profilo P] [--ruoli a,b] [--lingua L] [--da-file FILE] [--modello M] [--stampa] [--mostra] [-- opzioni di claude]
+      [--profilo P] [--ruoli a,b] [--lingua L] [--da-file FILE] [--modello M] [--stampa] [--mostra]
+      [--cli claude|codex|agy|gemini] [-- opzioni dello strumento]
+      (le opzioni prima o dopo la richiesta; allo strumento va solo ciò che segue --)
   aiuto (help)                 questo testo
   lingua (language) [L]        la lingua dello sciame (agenti, skill, documenti); senza L la mostra
   ruoli (roles) ["domanda"]    i ruoli e i profili; con una domanda, quelli che le sue parole richiamano
   professionisti (professionals)  l'albero dei professionisti e dei sottoprofessionisti
-  controlla (check) | rigenera (regenerate) | rimuovi (remove) | istruzioni (instructions) [--togli] | prove (tests)
+  destinazioni (targets) [ELENCO|auto] [--aggiungi X] [--togli X]  gli agenti di programmazione per cui si
+                               genera: claude (.claude/), codex (.codex/agents), antigravity (.agents/agents),
+                               gemini (.gemini/agents), agents (AGENTS.md e .agents/skills, lo standard aperto);
+                               senza argomenti le mostra
+  controlla (check) | rigenera (regenerate) [--destinazioni …] | rimuovi (remove) | istruzioni (instructions)
+      [--togli] | prove (tests)
   modelli (models) [ruolo=modello …]  il modello di un ruolo, di un nucleo o di tutti (--tutti=modello)
   richieste (requests)         le competenze mancanti arrivate alla soglia di creazione
   conta (count) CARTELLA GIRO  il conto di una giuria

@@ -451,6 +451,17 @@ def battery(base: Path):
     (rep / "_work").mkdir()
     rc2, out2 = py(rep / "engine" / "swarmer.py", "--swarm", rep, "verify", "--publication")
     check("G2: verify --publication refuses the work folders", rc2 == 1 and "_work" in out2, out2)
+    (rep / "_work").rmdir()
+    (rep / ".codex" / "agents").mkdir(parents=True)
+    (rep / ".codex" / "agents" / "x.toml").write_text('name = "x"\n')
+    (rep / "GEMINI.md").write_text("# mine\n")
+    rc3, out3 = py(rep / "engine" / "swarmer.py", "--swarm", rep, "verify", "--publication")
+    check("G2 (M-2): verify --publication refuses the files of the targets at the root (.codex/, GEMINI.md)",
+          rc3 == 1 and ".codex: a file of a target" in out3 and "GEMINI.md: a file of a target" in out3, out3)
+    gi = (SOURCE / ".gitignore").read_text(encoding="utf-8").splitlines()
+    check("G2 (M-2): .gitignore excludes the trees of the targets, anchored at the root (.claude-plugin stays)",
+          all(x in gi for x in ("/.claude/", "/.codex/", "/.agents/", "/.gemini/", "/AGENTS.md", "/GEMINI.md",
+                                "/CLAUDE.md")) and ".claude-plugin" not in "\n".join(gi))
 
     # 11. the checks of the second pass
     rep = base / "rep2"

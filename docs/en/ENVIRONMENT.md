@@ -1,8 +1,20 @@
 # The environment: what the swarm does with the tools it finds
 
-The swarm was born for Claude Code, but its rules apply in any environment that can read skills in the
-`skills/<name>/SKILL.md` format. This document says how the coordinator adapts a convening to what the environment
-actually offers.
+The swarm is universal: its rules apply in every coding agent that reads skills in the `<name>/SKILL.md` format (Agent
+Skills). The installation generates the agents and the skills for the targets of the project: Claude Code, Codex,
+Antigravity, Gemini CLI, and the open standard (`AGENTS.md` and `.agents/skills/`) that many other tools read. This
+document says how the coordinator adapts a convening to what the environment actually offers.
+
+| target | agents | skills | instructions | started by `--cli` |
+|---|---|---|---|---|
+| `claude` (Claude Code) | `.claude/agents/<prefix>-<id>.md` | `.claude/skills/<name>/SKILL.md` | `CLAUDE.md` | `claude "<prompt>"` |
+| `codex` (Codex CLI) | `.codex/agents/<prefix>-<id>.toml` | `.agents/skills/<name>/SKILL.md` | `AGENTS.md` | `codex "<prompt>"` |
+| `antigravity` (Antigravity, `agy`) | `.agents/agents/<prefix>-<id>.md` | `.agents/skills/<name>/SKILL.md` | `AGENTS.md` | `agy -i "<prompt>"` |
+| `gemini` (Gemini CLI) | `.gemini/agents/<prefix>-<id>.md` | `.agents/skills/<name>/SKILL.md` | `GEMINI.md` | `gemini -i "<prompt>"` |
+| `agents` (open standard) | — | `.agents/skills/<name>/SKILL.md` | `AGENTS.md` | — |
+
+`bash swarmer/swarmer.sh targets` shows and changes them; the instruction files are written only by
+`bash swarmer/swarmer.sh instructions`.
 
 <!-- environment -->
 ## Capabilities, and what to do when they are missing
@@ -13,9 +25,9 @@ closest honest path, declaring it in the answer.
 
 | capability | if present | if missing |
 |---|---|---|
-| subagents | one agent per role, with the tool the environment offers (in Claude Code: Agent with `subagent_type: "swarmer-<id>"`) | the coordinator performs the roles one after another in the same session, each with its own brief, and writes at the top of the answer "roles performed in sequence by the coordinator: independence is reduced" |
+| subagents | one agent per role, with the tool the environment offers (Claude Code: Agent with `subagent_type: "swarmer-<id>"`; Codex: the agent spawned by name; Antigravity: `invoke_subagent`; Gemini CLI: the tool with the subagent's name; `@swarmer-<id>` is the user's syntax, not the coordinator's) | the coordinator performs the roles one after another in the same session, each with its own brief, and writes at the top of the answer "roles performed in sequence by the coordinator: independence is reduced" |
 | parallel subagents | the independent phases in the same message, at most five at a time | one after another, in the same order as the waves |
-| model choice per role | the model written in `.swarmer/config.json` (`bash swarmer/swarmer.sh models`) | the session's model, declared |
+| model choice per role | the model written in `.swarmer/config.json` (`bash swarmer/swarmer.sh models`; it goes into the Claude Code agents, the other tools use the model of the session) | the session's model, declared |
 | shell | `convene.py` and `jury.py` prepare and check | the coordinator checks the gates against the written conditions, and declares it |
 | writes | each agent in its own folder in `.swarmer/` | the briefs in the prompts; the answers are the deliverables |
 | structured questions to the user | the environment's tool (in Claude Code: AskUserQuestion), with the options and the recommended one first | a single clear question in the text |
@@ -51,10 +63,14 @@ the agent does not start: after the change, `bash swarmer/swarmer.sh check`.
 
 ## Other environments
 
-- **Plugin.** The skill's repository is also a plugin: it is added with the environment's plugin manager (in
-  Claude Code: `/plugin marketplace add <owner>/<repository>`, then `/plugin install swarmer`). The plugin brings
-  the skills and the generic agents; the local overrides stay in the project.
-- **Skills only.** Copy the `skills/` folder into the environment's skills folder: the strategies work
-  even without project agents, with the roles performed as the table above says.
+- **Limits of the tools.** A Gemini CLI subagent cannot call other agents: the coordinator, the main session,
+  launches them all. Codex agents inherit the permissions, the sandbox and the MCP servers of the session that
+  spawns them. Antigravity and Gemini CLI read the agents of their own folder; Codex and the open standard read
+  `.agents/skills/`.
+- **Plugin.** For Claude Code the repository is also a plugin, one of the ways to install it:
+  `/plugin marketplace add <owner>/<repository>`, then `/plugin install swarmer` and `/swarmer-install`. The plugin
+  brings the installer skills; the local overrides stay in the project.
+- **Skills only.** Copy the generated `.agents/skills/` (or `.claude/skills/`) folder into the environment's skills
+  folder: the strategies work even without project agents, with the roles performed as the table above says.
 - **A model via API**, without subagents: a program of your own acts as the coordinator, one call per role, with the
   texts of `swarmer/catalog.json` (see `COORDINATOR_INSTRUCTIONS.md`).

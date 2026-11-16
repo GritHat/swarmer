@@ -1,7 +1,8 @@
-# swarmer: the agent swarm for Claude Code (version 5.0)
+# swarmer: the universal agent swarm for coding agents (version 5.1)
 
 A swarm of specialist professionals and sub-professionals, which a coordinator convenes for a request with
-one of eight strategies. The coordinator is the Claude Code session open in the project; the agents are its
+one of eight strategies. The coordinator is the session of the coding agent open in the project (Claude Code, Codex,
+Antigravity, Gemini CLI, or another tool that reads `AGENTS.md` and Agent Skills); the agents are its
 `swarmer-<id>` subagents.
 
 **Setup and launch all live in `swarmer.sh`:** `bash swarmer/swarmer.sh help` prints them. In short:
@@ -19,8 +20,29 @@ bash swarmer/swarmer.sh expert     "request"         # a skill the swarm does no
 bash swarmer/swarmer.sh auto       "request"         # the coordinator chooses
 ```
 
-Inside Claude Code the same convenings are `/swarmer-single`, `/swarmer-fan-out`, `/swarmer-classic`,
-`/swarmer-jury`, `/swarmer-light-jury`, `/swarmer-full`, `/swarmer-plenary`, `/swarmer-expert` and `/swarmer`.
+From the shell, `--cli claude|codex|agy|gemini` chooses the tool to open (default: the `cli` key of
+`.swarmer/config.json`, otherwise the first one in that order whose target is active and that is found in the PATH).
+The options go before or after the request; only what follows `--` is passed to the tool. Inside the tool the same
+convenings are the skills `swarmer-single`, `swarmer-fan-out`, `swarmer-classic`, `swarmer-jury`,
+`swarmer-light-jury`, `swarmer-full`, `swarmer-plenary`, `swarmer-expert` and `swarmer` (in Claude Code also as
+slash commands, `/swarmer-single` …).
+
+## The targets
+
+The agents and the skills are generated for the targets of the project (`bash swarmer/swarmer.sh targets`):
+
+| target | agents | skills | instructions |
+|---|---|---|---|
+| `claude` | `.claude/agents/swarmer-<id>.md` | `.claude/skills/` | `CLAUDE.md` |
+| `codex` | `.codex/agents/swarmer-<id>.toml` | `.agents/skills/` | `AGENTS.md` |
+| `antigravity` | `.agents/agents/swarmer-<id>.md` | `.agents/skills/` | `AGENTS.md` |
+| `gemini` | `.gemini/agents/swarmer-<id>.md` | `.agents/skills/` | `GEMINI.md` |
+| `agents` | — | `.agents/skills/` | `AGENTS.md` |
+
+A new installation takes the targets it finds in the project (`.claude/`, `.codex/`, `.gemini/`, `.agents/`,
+`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`) plus `agents`, or every target if it finds none; `--targets` chooses them.
+An update of an installation without the `targets` key stays Claude Code only. `targets --add X`, `--remove X` or a
+list change them: the generated files of a removed target go, the project's own files never.
 
 ## The strategies
 
@@ -75,7 +97,10 @@ bash swarmer.sh install --folder swarmer/skill --local swarmer --project-managed
 ```
 
 installs the skill in a folder of its own, takes the project's cards as overrides, and neither writes nor deletes the
-agents that the project generates itself.
+agents that the project generates itself in `.claude/agents/`; in the other targets (Codex, Antigravity, Gemini CLI)
+it generates them from the local cards, unless the project has its own file there without the note. `check` reports
+an override the project has not generated. The local cards reach the agents of every target: those files have the
+confidentiality of `local/`.
 
 ## New experts
 
@@ -98,7 +123,7 @@ always in English: an entry without complete English texts is refused until `tra
 | `db/` | the single database of professionals and cores (`professionals.json`, `cores.json`) |
 | `docs/<language>/` | the documents in the skill's languages |
 | `i18n/<language>.json` | the texts of the generator and of the commands, and the names of each language |
-| `engine/` | the code: `swarmer.py` (the command line), `generate.py`, `professionals.py`, `convene.py`, `jury.py`, `compat.py` (the Italian names of 4.0) |
+| `engine/` | the code: `swarmer.py` (the command line), `generate.py` (the generators of every target), `professionals.py`, `convene.py`, `jury.py`, `compat.py` (the Italian names of 4.0) |
 | `tests/` | the test batteries: `bash swarmer/swarmer.sh tests` |
 | `AGENTS.md`, `PIPELINE.md`, `PREAMBLE.md`, `JURY.md`, `ENVIRONMENT.md`, `COORDINATOR_INSTRUCTIONS.md`, `HYPOTHESIS_CARD.md` | generated in the chosen language |
 | `convene.py`, `jury.py`, `generate_agents.py` | the usual commands, which hand over to the engine |
@@ -117,3 +142,6 @@ database take their 5.0 names, while the project's files (configuration, local c
 words, convenings and juries) are never renamed. An Italian 4.0 stays Italian, with the same agents and skills
 (`sciame-*`); an English 4.0 moves to `swarmer-*`, with `sciame.sh`, `convoca.py` and `giuria.py` kept as aliases.
 Going back to 4.0 is not supported.
+
+**From 5.0.** The update to 5.1 keeps a 5.0 installation as it was: Claude Code only, the same agents byte for
+byte, the same skills (with the new section on delegating in each tool). Other targets are added on request: `bash swarmer/swarmer.sh targets --add codex,gemini`.

@@ -1,7 +1,8 @@
-# swarmer: lo sciame di agenti per Claude Code (versione 5.0)
+# swarmer: lo sciame di agenti universale per gli agenti di programmazione (versione 5.1)
 
 Uno sciame di professionisti e sottoprofessionisti specialistici, che un coordinatore convoca per una richiesta con
-una di otto strategie. Il coordinatore è la sessione di Claude Code aperta nel progetto; gli agenti sono i suoi
+una di otto strategie. Il coordinatore è la sessione dell'agente di programmazione aperta nel progetto (Claude Code,
+Codex, Antigravity, Gemini CLI o un altro strumento che legge `AGENTS.md` e le Agent Skills); gli agenti sono i suoi
 sottoagenti `sciame-<sigla>`.
 
 **Il setup e l'avvio sono tutti in `sciame.sh`:** `bash sciame/sciame.sh aiuto` li stampa. In breve:
@@ -21,8 +22,30 @@ bash sciame/sciame.sh auto      "richiesta"     # sceglie il coordinatore
 `sciame.sh` passa a `swarmer.sh`, che contiene tutto: i due nomi valgono, come i nomi inglesi dei comandi
 (`install`, `single`, …).
 
-Dentro Claude Code le stesse convocazioni sono `/sciame-singolo`, `/sciame-ventaglio`, `/sciame-classica`,
-`/sciame-giuria`, `/sciame-giuria-leggera`, `/sciame-completa`, `/sciame-plenaria`, `/sciame-esperto` e `/sciame`.
+Dalla shell, `--cli claude|codex|agy|gemini` sceglie lo strumento da aprire (di difetto: la chiave `cli` di
+`.sciame/config.json`, altrimenti il primo, in quest'ordine, la cui destinazione è attiva e che si trova nel PATH).
+Le opzioni vanno prima o dopo la richiesta; allo strumento passa solo ciò che segue `--`. Dentro lo strumento le stesse
+convocazioni sono le skill `sciame-singolo`, `sciame-ventaglio`, `sciame-classica`, `sciame-giuria`,
+`sciame-giuria-leggera`, `sciame-completa`, `sciame-plenaria`, `sciame-esperto` e `sciame` (in Claude Code anche come
+comandi con la barra, `/sciame-singolo` …).
+
+## Le destinazioni
+
+Gli agenti e le skill si generano per le destinazioni del progetto (`bash sciame/sciame.sh destinazioni`):
+
+| destinazione | agenti | skill | istruzioni |
+|---|---|---|---|
+| `claude` | `.claude/agents/sciame-<sigla>.md` | `.claude/skills/` | `CLAUDE.md` |
+| `codex` | `.codex/agents/sciame-<sigla>.toml` | `.agents/skills/` | `AGENTS.md` |
+| `antigravity` | `.agents/agents/sciame-<sigla>.md` | `.agents/skills/` | `AGENTS.md` |
+| `gemini` | `.gemini/agents/sciame-<sigla>.md` | `.agents/skills/` | `GEMINI.md` |
+| `agents` | — | `.agents/skills/` | `AGENTS.md` |
+
+Un'installazione nuova prende le destinazioni che trova nel progetto (`.claude/`, `.codex/`, `.gemini/`, `.agents/`,
+`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`) più `agents`, o tutte se non ne trova nessuna; `--destinazioni` le sceglie.
+Un aggiornamento di un'installazione senza la chiave `destinazioni` resta solo Claude Code. `destinazioni --aggiungi
+X`, `--togli X` o un elenco le cambiano: i file generati di una destinazione tolta se ne vanno, quelli del progetto
+mai.
 
 ## Le strategie
 
@@ -76,7 +99,10 @@ bash sciame.sh installa --cartella sciame/skill --locale sciame --gestiti-dal-pr
 ```
 
 installa la skill in una cartella sua, prende le schede del progetto come override e non scrive né cancella gli
-agenti che il progetto genera da sé.
+agenti che il progetto genera da sé in `.claude/agents/`; nelle altre destinazioni (Codex, Antigravity, Gemini CLI) li
+genera dalle schede locali, salvo un file del progetto senza la nota. `controlla` segnala un override che il progetto
+non ha generato. Le schede locali arrivano negli agenti di ogni destinazione: quei file hanno la riservatezza di
+`locale/`.
 
 ## Gli esperti nuovi
 
@@ -120,3 +146,7 @@ i nomi 5.0, mentre i file del progetto (configurazione, schede locali, registro 
 convocazioni e giurie) non si rinominano mai. Una 4.0 italiana resta italiana, con gli stessi agenti e le stesse
 skill (`sciame-*`); `sciame.sh`, `convoca.py`, `giuria.py` e `genera_agenti.py` restano come alias. Il ritorno
 alla 4.0 non è supportato.
+
+**Dalla 5.0.** L'aggiornamento alla 5.1 lascia un'installazione 5.0 com'era: solo Claude Code, gli stessi agenti
+byte per byte, le stesse skill (con la sezione nuova su come delegare in ogni strumento). Le altre destinazioni si aggiungono a richiesta:
+`bash sciame/sciame.sh destinazioni --aggiungi codex,gemini`.

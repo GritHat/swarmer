@@ -10,3 +10,5 @@ Entries added to `db/professionals.json`:
 - [ ] No private project details, no secrets: `python3 -I -B engine/swarmer.py --swarm . verify` passes.
 - [ ] `swarmer.sh` rebuilt: `python3 -I -B engine/swarmer.py --swarm . build --output swarmer.sh`.
 - [ ] Why: which skill the swarm lacks, and why the neighbouring roles do not cover it.
+- [ ] The texts name no single tool: the role works in every target (Claude Code, Codex, Antigravity,
+      Gemini CLI, the open standard); `python3 -I -B tests/test_targets.py` passes.

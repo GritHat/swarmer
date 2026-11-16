@@ -1,12 +1,14 @@
-# swarmer — uno sciame di agenti per Claude Code
+# swarmer — uno sciame di agenti universale per gli agenti di programmazione
 
 *[English](README.md)*
 
-**swarmer** (nella 4.0 *sciame*) è una squadra di agenti specialistici per Claude Code che un coordinatore convoca per
-una richiesta, con una di otto strategie. I ruoli sono **professionisti** (le competenze generali) e
+**swarmer** (nella 4.0 *sciame*) è una squadra di agenti specialistici per gli agenti di programmazione — Claude Code,
+Codex, Antigravity, Gemini CLI e ogni strumento che legge `AGENTS.md` e le Agent Skills — che un coordinatore convoca
+per una richiesta, con una di otto strategie. I ruoli sono **professionisti** (le competenze generali) e
 **sottoprofessionisti** (le loro specializzazioni), in un database unico, in inglese e, se si vuole, nelle altre lingue della skill. Tutta la skill
 (documenti, database e motore) sta in un file solo, `swarmer.sh`, con la sola bash e la libreria standard di Python.
-La versione 5.0 succede a `sciame` 4.0 e la aggiorna sul posto.
+La versione 5.1 la rende universale (la 5.0 era solo per Claude Code, e succedeva a `sciame` 4.0, che aggiorna sul
+posto).
 
 ## Installare
 
@@ -14,15 +16,17 @@ La versione 5.0 succede a `sciame` 4.0 e la aggiorna sul posto.
 # un file solo, in qualunque progetto
 curl -fsSLO https://raw.githubusercontent.com/GritHat/swarmer/main/sciame.sh
 bash sciame.sh installa --lingua it          # senza --lingua l'installazione è in inglese
+bash sciame.sh installa --lingua it --destinazioni codex,gemini   # solo alcuni strumenti (di difetto: quelli del progetto)
 
-# oppure come plugin di Claude Code
+# oppure, in Claude Code, come plugin (uno dei modi d'installazione)
 /plugin marketplace add GritHat/swarmer
 /plugin install swarmer
 /sciame-installa it
 ```
 
-`sciame.sh` è una copia identica di `swarmer.sh`: i due URL valgono. Poi riapri la sessione di Claude Code e convoca
-lo sciame (in un'installazione italiana le skill hanno i nomi di sempre):
+`sciame.sh` è una copia identica di `swarmer.sh`: i due URL valgono. Poi riapri la sessione del tuo agente di
+programmazione e convoca lo sciame con una skill (in Claude Code anche come comando con la barra; in Codex, Antigravity
+e Gemini CLI nominando la skill nel prompt; in un'installazione italiana le skill hanno i nomi di sempre):
 
 | strategia | skill | per | agenti |
 |---|---|---|---|
@@ -36,9 +40,35 @@ lo sciame (in un'installazione italiana le skill hanno i nomi di sempre):
 | esperto | `/sciame-esperto` | una competenza che manca: scheda provvisoria, richiesta registrata, ruolo creato alla soglia | 1 |
 | auto | `/sciame` | sceglie il coordinatore la strategia più economica che basta, e lo dice | — |
 
-Dalla shell: `bash sciame/sciame.sh <strategia> "richiesta"`; `bash sciame/sciame.sh aiuto` elenca tutti i comandi.
+Dalla shell: `bash sciame/sciame.sh <strategia> "richiesta" [--cli claude|codex|agy|gemini]` apre lo strumento con
+la skill. Le opzioni dello sciame vanno prima o dopo la richiesta; allo strumento passa solo ciò che segue `--`
+(`… singolo "richiesta" --cli claude -- --permission-mode plan`), e ogni altra parola in più è un errore.
+`bash sciame/sciame.sh aiuto` elenca tutti i comandi.
 Ogni comando, opzione e valore ha anche il nome inglese (`install`, `single`, `--folder`, …), che vale in ogni
 installazione; le opzioni abbreviate non valgono più.
+
+## Con quali strumenti funziona
+
+swarmer non è legato a un solo strumento: genera i suoi agenti e le sue skill per ogni **destinazione** del progetto,
+e il coordinatore è l'agente di programmazione che vi apri.
+
+| destinazione | strumento | agenti | skill | istruzioni | si apre con |
+|---|---|---|---|---|---|
+| `claude` | Claude Code | `.claude/agents/sciame-<sigla>.md` | `.claude/skills/<skill>/SKILL.md` | `CLAUDE.md` | `claude` |
+| `codex` | Codex CLI (OpenAI) | `.codex/agents/sciame-<sigla>.toml` | `.agents/skills/<skill>/SKILL.md` | `AGENTS.md` | `codex` |
+| `antigravity` | Antigravity (app e `agy`) | `.agents/agents/sciame-<sigla>.md` | `.agents/skills/<skill>/SKILL.md` | `AGENTS.md` | `agy` |
+| `gemini` | Gemini CLI | `.gemini/agents/sciame-<sigla>.md` | `.agents/skills/<skill>/SKILL.md` | `GEMINI.md` | `gemini` |
+| `agents` | ogni strumento che legge lo standard aperto | — | `.agents/skills/<skill>/SKILL.md` | `AGENTS.md` | — |
+
+Un'installazione nuova prende le destinazioni che trova nel progetto (`.claude/`, `.codex/`, `.gemini/`, `.agents/`,
+`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`) più `agents`, o tutte in un progetto vuoto; `--destinazioni claude,codex,…` le
+sceglie, e `bash sciame/sciame.sh destinazioni [--aggiungi X] [--togli X]` le cambia dopo (i file generati di una
+destinazione tolta se ne vanno, quelli del progetto mai; una destinazione inattiva non si tocca né si esamina).
+`disable-model-invocation` (completa, plenaria) c'è solo in Claude Code: nelle skill comuni il divieto sta nella
+descrizione. Le skill comuni a Codex, Antigravity, Gemini CLI e allo
+standard aperto si scrivono una volta sola, in `.agents/skills/`. In uno strumento senza sottoagenti il coordinatore
+svolge i ruoli in sequenza e lo dice. `istruzioni` scrive il paragrafo dello sciame nel file di istruzioni di ogni
+destinazione attiva, solo quando lo si chiede.
 
 ## Che cosa la distingue
 
@@ -54,7 +84,8 @@ installazione; le opzioni abbreviate non valgono più.
 - **Gli override locali**: le schede proprie di un progetto stanno in `sciame/locale/`, hanno sempre la priorità sui
   ruoli generici, possono contenere i dettagli privati del progetto e non si pubblicano mai.
 - **Onesto sull'ambiente**: senza sottoagenti, shell o scritture, il coordinatore tiene le fasi e dice che cosa si è
-  ridotto (`AMBIENTE.md`).
+  ridotto (`AMBIENTE.md`). Sa come delega ogni strumento (Agent in Claude Code, l'avvio per nome in Codex,
+  `invoke_subagent` in Antigravity, lo strumento del sottoagente in Gemini CLI, dove `@nome` è la scorciatoia dell'utente) e i suoi limiti.
 
 ## Lingue
 
@@ -78,6 +109,13 @@ riconta identico byte per byte. Una 4.0 italiana resta italiana, con gli stessi 
 una 4.0 inglese passa a `swarmer-*` e ai nomi inglesi, con `sciame.sh`, `convoca.py` e `giuria.py` come alias. Un
 aggiornamento interrotto riprende con lo stesso comando.
 
+## Aggiornare dalla 5.0
+
+Lo stesso `aggiorna` lascia un'installazione 5.0 com'era: solo Claude Code, gli stessi agenti byte per byte, le
+stesse skill (il loro testo guadagna la sezione su come delegare in ogni strumento), la configurazione intatta; le
+cartelle degli altri strumenti non si toccano né si esaminano. Gli altri strumenti si aggiungono quando servono:
+`bash sciame/sciame.sh destinazioni --aggiungi codex,gemini`.
+
 **Il ritorno alla 4.0 non è supportato**: un `sciame.sh` 4.0 non riconosce `FACTORY.json`, `engine/` né i segni della
 5.0. Le altre rotture: le opzioni abbreviate si rifiutano; le giurie nuove leggono anche le righe inglesi, e le righe
 quasi conformi in `SIGILLI.md`, `DELEGA.md` e `PERTINENZA.md`, o un gettone di giro che non nomina un giro, sono
@@ -97,11 +135,12 @@ altre lingue sono facoltative, e un'installazione traduce quella che manca al pr
 | `db/` | il database unico dei professionisti, dei sottoprofessionisti e dei nuclei (`professionals.json`, `cores.json`) |
 | `docs/<lingua>/` | i documenti, una cartella per lingua, con i nomi canonici inglesi |
 | `i18n/<lingua>.json` | i testi del generatore e dei comandi, e i nomi localizzati di comandi, opzioni, valori e file |
-| `engine/` | il motore: `swarmer.py` (la riga di comando), `generate.py`, `professionals.py`, `convene.py`, `jury.py`, `compat.py` (i nomi italiani e i formati della 4.0), `head.sh` |
+| `engine/` | il motore: `swarmer.py` (la riga di comando), `generate.py` (i generatori di ogni destinazione), `professionals.py`, `convene.py`, `jury.py`, `compat.py` (i nomi italiani e i formati della 4.0), `head.sh` |
 | `wrappers/` | `convene.py` e `jury.py`, copiati alla radice dell'installazione (in italiano anche `convoca.py`, `giuria.py`) |
 | `tests/` | le batterie |
 | `swarmer.sh` | il file unico: `python3 -I -B engine/swarmer.py --swarm . build --output swarmer.sh` |
 | `sciame.sh` | la copia byte per byte di `swarmer.sh`, per l'URL della 4.0 |
-| `skills/`, `.claude-plugin/` | il plugin di Claude Code (le skill d'installazione `swarmer-install` e `sciame-installa`, i manifesti) |
+| `skills/` | le skill d'installazione `swarmer-install` e `sciame-installa` (formato Agent Skills: ogni strumento che legge le skill) |
+| `.claude-plugin/` | i manifesti del plugin di Claude Code, uno dei modi d'installazione |
 
 Licenza: MIT.

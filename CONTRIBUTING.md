@@ -2,7 +2,8 @@
 
 *[Italiano](CONTRIBUTING.it.md)*
 
-Three kinds of contribution are welcome, each as a pull request.
+swarmer is a universal agent swarm for coding agents (Claude Code, Codex, Antigravity, Gemini CLI and every tool
+that reads `AGENTS.md` and Agent Skills). Four kinds of contribution are welcome, each as a pull request.
 
 ## 1. A new professional or sub-professional
 
@@ -53,7 +54,17 @@ The protocol lines of juries and convenings (`VOTE`, `OPTION`, `REVISION`, … a
 programs: a language that wants its own words adds them to `engine/compat.py`, with the tests. `verify` checks that
 blocks, keys and placeholders match across languages and that no alias collides.
 
-## 3. Fixes and improvements
+## 3. A new target (another coding agent)
+
+A tool that reads its agents from a folder of its own becomes a target: add it to `TARGETS` in `engine/generate.py`
+(folder and extension of the agents, skills folder, instruction file, command) and to `AGENT_DIRS` in
+`engine/compat.py`, its format in `generate.agent`, its launch line in `swarmer.launch_command` if it has a command
+line, its delegation in the `delegation` block of `docs/*/COORDINATOR_INSTRUCTIONS.md`, a row in the tables of the
+READMEs and of `docs/*/ENVIRONMENT.md`, and its checks in `tests/test_targets.py` (format, precedence, removal).
+Cite the official documentation of the tool in the pull request. A tool that reads `AGENTS.md` and
+`.agents/skills/` already works with the `agents` target.
+
+## 4. Fixes and improvements
 
 Engine changes come with a test in `tests/` that fails before and passes after. Keep the standard library only;
 code, comments and messages are in English, and every user message comes from `i18n/`. Italian words in code live only

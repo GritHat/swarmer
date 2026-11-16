@@ -400,6 +400,13 @@ def commands(base: Path):
         same("models --all", ["models", "--all", "inherit"], compare_trees=True)
         same("instructions", ["instructions"], compare_trees=True)
         same("instructions --remove", ["instructions", "--remove"], compare_trees=True)
+        same("targets", ["targets"])
+        same("targets --remove", ["targets", "--remove", "codex"], compare_trees=True)
+        same("targets --add", ["targets", "--add", "codex"], compare_trees=True)
+        same("targets LIST", ["targets", "claude,codex,agents"], compare_trees=True)
+        same("single --show --cli", ["single", "--show", "--cli", "codex", "x"])
+        same("regenerate --targets", ["regenerate", "--targets", "claude,codex,antigravity,gemini,agents"],
+             compare_trees=True)
         entry = base / f"m3_entry_{lang}.json"
         entry.write_text(json.dumps({"id": "m3-entry", "type": "professional", "core": "critico",
                                      "texts": {l: {"name": "M3", "short": "an entry.", "keywords": ["m3"],
@@ -449,10 +456,10 @@ def commands(base: Path):
         same("generate_agents --install", ["--install"], program="generate_agents.py", compare_trees=True)
         same("remove", ["remove"], compare_trees=True)
         x = py(ENGINE, "install", "--from", SOURCE, "--root", base / f"m3i_{lang}_a", "--folder", "sw", "--language",
-               lang, "--local", "sw/loc", "--project-managed", "--instructions", "--force")
+               lang, "--local", "sw/loc", "--project-managed", "--instructions", "--force", "--targets", "claude,gemini")
         y = py(ENGINE, *alias_args(["install", "--from", SOURCE, "--root", base / f"m3i_{lang}_b", "--folder", "sw",
                                     "--language", lang, "--local", "sw/loc", "--project-managed", "--instructions",
-                                    "--force"]))
+                                    "--force", "--targets", "claude,gemini"]))
         ta, tb = tree(base / f"m3i_{lang}_a"), tree(base / f"m3i_{lang}_b")
         diff = sorted(k for k in set(ta) | set(tb) if ta.get(k) != tb.get(k))
         check(f"M3 [{lang}]: install and all its options: canonical and alias give the same tree",

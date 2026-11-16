@@ -529,8 +529,8 @@ field by field, with references to the branch's files. An empty field is written
 
 ## How it runs in different environments
 
-- **In a project, with files.** The coordinator is the Claude Code session opened at the root of the project, and
-  the agents are its `swarmer-<id>` subagents.
+- **In a project, with files.** The coordinator is the session of the coding agent (Claude Code, Codex,
+  Antigravity, Gemini CLI, …) opened at the root of the project, and the agents are its `swarmer-<id>` subagents.
   - The convening lives in `.swarmer/<YYYYMMDD-HHMM>-<name>/` inside the project.
   - `swarmer/convene.py` prepares the skeleton and checks the gates.
   - The complete documents are in `swarmer/`.
@@ -580,7 +580,7 @@ field by field, with references to the branch's files. An empty field is written
 - **The environment** (`ENVIRONMENT.md`): what to do when an environment lacks subagents, the shell or writes.
 
 **Compared with 3.0.**
-- **It is portable.** Everything lives in the project's `swarmer/` folder. The agents and the skills are generated in `.claude/`.
+- **It is portable.** Everything lives in the project's `swarmer/` folder. The agents and the skills are generated in `.claude/` (and, since 5.1, for the other targets too).
 - **The perception core.** Eleven roles and seven profiles: `perception`, `motion`, `estimation`, `tracking`,
   `localization`, `sensors`, `latency`.
 - **`convene.py`.** The `roles` command and the `--owner` option of `select`.

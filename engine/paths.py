@@ -297,16 +297,23 @@ def note(text: str, lang: str = "en") -> str:
     return f"<!-- {C.GENERATED_NOTES.get(lang, GENERATED)}: {text} -->"
 
 
+def toml_note(text: str, lang: str = "en") -> str:
+    """The GENERATED note of a TOML file (a Codex agent): a comment on the first line."""
+    return f"# {C.GENERATED_NOTES.get(lang, GENERATED)}: {text}"
+
+
 def is_generated(p: Path) -> bool:
     """True only if the GENERATED note is in the exact place: the first line after the YAML head (agents and skills),
-    or the first line (documents). A note elsewhere, for instance inside an «in short», does not count. The notes of
-    4.0 and 5.0, in both languages, are recognised."""
+    or the first line (documents; in a TOML file, a comment). A note elsewhere, for instance inside an «in short», does
+    not count. The notes of 4.0 and 5.0, in both languages, are recognised."""
     try:
         if not p.is_file() or p.is_symlink():
             return False
         lines = p.read_text(encoding="utf-8").splitlines()
     except (OSError, UnicodeDecodeError):
         return False
+    if p.suffix == ".toml":   # a Codex agent: the note is the comment of the first line
+        return bool(lines) and bool(C.TOML_GENERATED_RE.match(lines[0]))
     i = 0
     if lines and lines[0] == "---":
         try:

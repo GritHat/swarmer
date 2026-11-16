@@ -1,8 +1,20 @@
 # L'ambiente: che cosa fa lo sciame con gli strumenti che trova
 
-Lo sciame nasce per Claude Code, ma le sue regole valgono in ogni ambiente che sa leggere le skill nel formato
-`skills/<nome>/SKILL.md`. Questo documento dice come il coordinatore adatta una convocazione a ciò che l'ambiente
-offre davvero.
+Lo sciame è universale: le sue regole valgono in ogni agente di programmazione che legge le skill nel formato
+`<nome>/SKILL.md` (Agent Skills). L'installazione genera gli agenti e le skill per le destinazioni del progetto: Claude
+Code, Codex, Antigravity, Gemini CLI e lo standard aperto (`AGENTS.md` e `.agents/skills/`) che leggono molti altri
+strumenti. Questo documento dice come il coordinatore adatta una convocazione a ciò che l'ambiente offre davvero.
+
+| destinazione | agenti | skill | istruzioni | avvio con `--cli` |
+|---|---|---|---|---|
+| `claude` (Claude Code) | `.claude/agents/<prefisso>-<sigla>.md` | `.claude/skills/<nome>/SKILL.md` | `CLAUDE.md` | `claude "<prompt>"` |
+| `codex` (Codex CLI) | `.codex/agents/<prefisso>-<sigla>.toml` | `.agents/skills/<nome>/SKILL.md` | `AGENTS.md` | `codex "<prompt>"` |
+| `antigravity` (Antigravity, `agy`) | `.agents/agents/<prefisso>-<sigla>.md` | `.agents/skills/<nome>/SKILL.md` | `AGENTS.md` | `agy -i "<prompt>"` |
+| `gemini` (Gemini CLI) | `.gemini/agents/<prefisso>-<sigla>.md` | `.agents/skills/<nome>/SKILL.md` | `GEMINI.md` | `gemini -i "<prompt>"` |
+| `agents` (standard aperto) | — | `.agents/skills/<nome>/SKILL.md` | `AGENTS.md` | — |
+
+`bash sciame/sciame.sh destinazioni` le mostra e le cambia; i file di istruzioni li scrive solo
+`bash sciame/sciame.sh istruzioni`.
 
 <!-- environment -->
 ## Le capacità, e che cosa fare quando mancano
@@ -13,9 +25,9 @@ strada più vicina onesta, dichiarandola nella risposta.
 
 | capacità | se c'è | se manca |
 |---|---|---|
-| sottoagenti | un agente per ruolo, con lo strumento che l'ambiente offre (in Claude Code: Agent con `subagent_type: "sciame-<sigla>"`) | il coordinatore fa i ruoli uno dopo l'altro nella stessa sessione, ciascuno con la sua consegna, e scrive in testa alla risposta «ruoli svolti in sequenza dal coordinatore: l'indipendenza è ridotta» |
+| sottoagenti | un agente per ruolo, con lo strumento che l'ambiente offre (Claude Code: Agent con `subagent_type: "sciame-<sigla>"`; Codex: l'agente avviato per nome; Antigravity: `invoke_subagent`; Gemini CLI: lo strumento con il nome del sottoagente; `@sciame-<sigla>` è la sintassi dell'utente, non del coordinatore) | il coordinatore fa i ruoli uno dopo l'altro nella stessa sessione, ciascuno con la sua consegna, e scrive in testa alla risposta «ruoli svolti in sequenza dal coordinatore: l'indipendenza è ridotta» |
 | sottoagenti in parallelo | le fasi indipendenti nello stesso messaggio, al più cinque alla volta | in fila, con lo stesso ordine delle ondate |
-| scelta del modello per ruolo | il modello scritto in `.sciame/config.json` (`bash sciame/sciame.sh modelli`) | il modello della sessione, dichiarato |
+| scelta del modello per ruolo | il modello scritto in `.sciame/config.json` (`bash sciame/sciame.sh modelli`; va negli agenti di Claude Code, gli altri strumenti usano il modello della sessione) | il modello della sessione, dichiarato |
 | shell | `convoca.py` e `giuria.py` preparano e controllano | i cancelli li controlla il coordinatore con le condizioni scritte, e lo dichiara |
 | scritture | ogni agente nella sua cartella in `.sciame/` | le consegne nei prompt, le risposte sono le consegne |
 | domande strutturate all'utente | lo strumento dell'ambiente (in Claude Code: AskUserQuestion), con le opzioni e la raccomandata per prima | una sola domanda chiara nel testo |
@@ -51,10 +63,15 @@ l'agente non parte: dopo il cambio, `bash sciame/sciame.sh controlla`.
 
 ## Altri ambienti
 
-- **Plugin.** Il repository della skill è anche un plugin: si aggiunge con il gestore dei plugin dell'ambiente (in
-  Claude Code: `/plugin marketplace add <proprietario>/<repository>`, poi `/plugin install swarmer`). Il plugin porta
-  le skill e gli agenti generici; gli override locali restano nel progetto.
-- **Solo skill.** Si copia la cartella `skills/` nella cartella delle skill dell'ambiente: le strategie funzionano
-  anche senza agenti di progetto, con i ruoli svolti come dice la tabella qui sopra.
+- **I limiti degli strumenti.** Un sottoagente di Gemini CLI non può chiamare altri agenti: li lancia tutti il
+  coordinatore, la sessione principale. Gli agenti di Codex ereditano i permessi, la sandbox e i server MCP della
+  sessione che li avvia. Antigravity e Gemini CLI leggono gli agenti della loro cartella; Codex e lo standard aperto
+  leggono `.agents/skills/`.
+- **Plugin.** Per Claude Code il repository è anche un plugin, uno dei modi d'installazione:
+  `/plugin marketplace add <proprietario>/<repository>`, poi `/plugin install swarmer` e `/sciame-installa`. Il plugin
+  porta le skill d'installazione; gli override locali restano nel progetto.
+- **Solo skill.** Si copia la cartella generata `.agents/skills/` (o `.claude/skills/`) nella cartella delle skill
+  dell'ambiente: le strategie funzionano anche senza agenti di progetto, con i ruoli svolti come dice la tabella qui
+  sopra.
 - **Un modello per API**, senza sottoagenti: un programma proprio fa il coordinatore, una chiamata per ruolo, con i
   testi di `sciame/catalog.json` (vedi `ISTRUZIONI_COORDINATORE.md`).

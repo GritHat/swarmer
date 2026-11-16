@@ -67,6 +67,15 @@ def agents_dir() -> Path:
     return Path(v) if v else root() / ".claude" / "agents"
 
 
+def agents_dirs() -> list[tuple[Path, str]]:
+    """The folders of the agents that exist, with their extension: SWARMER_AGENTS_DIR if given, otherwise those of
+    every target (Claude Code, Codex, Antigravity, Gemini CLI)."""
+    v = C.env("SWARMER_AGENTS_DIR")
+    if v:
+        return [(Path(v), ".md")]
+    return [(root() / d, ext) for d, ext in C.AGENT_DIRS if (root() / d).is_dir()]
+
+
 def language() -> str:
     return C.language(BASE)
 
@@ -246,23 +255,28 @@ def limit(g):
 def known_roles() -> set[str]:
     """The roles of the swarm: the agents <prefix>-<id> of both prefixes. The same id with two different bodies is an
     error: a juror must have a single definition."""
-    d = agents_dir()
-    if not d.is_dir():
-        raise Error(f"{d} is missing")
-    out = {}
-    for pre in C.AGENT_PREFIXES:
-        for p in d.glob(f"{pre}-*.md"):
-            rid = p.stem[len(pre) + 1:]
-            body = _body(p)
-            if rid in out and out[rid] != body:
-                raise Error(msg("jury_ambiguous_role", "role «{role}» has two different agents: {a} and {b}",
-                                role=rid, a=f"{C.AGENT_PREFIXES[0]}-{rid}", b=f"{C.AGENT_PREFIXES[1]}-{rid}"))
-            out[rid] = body
-    return set(out)
+    dirs = agents_dirs()
+    if not dirs or not all(d.is_dir() for d, _e in dirs):
+        raise Error(f"{agents_dir()} is missing")
+    ids = set()
+    for d, ext in dirs:   # the same role in two targets has two formats: the definitions are compared per folder
+        out = {}
+        for pre in C.AGENT_PREFIXES:
+            for p in d.glob(f"{pre}-*{ext}"):
+                rid = p.stem[len(pre) + 1:]
+                body = _body(p)
+                if rid in out and out[rid] != body:
+                    raise Error(msg("jury_ambiguous_role", "role «{role}» has two different agents: {a} and {b}",
+                                    role=rid, a=f"{C.AGENT_PREFIXES[0]}-{rid}", b=f"{C.AGENT_PREFIXES[1]}-{rid}"))
+                out[rid] = body
+        ids |= set(out)
+    return ids
 
 
 def _body(p: Path) -> str:
     t = p.read_text(encoding="utf-8", errors="replace")
+    if p.suffix == ".toml":   # a Codex agent: everything but its name
+        return "\n".join(x for x in t.splitlines() if not x.startswith("name = "))
     if t.startswith("---\n"):
         i = t.find("\n---", 4)
         if i >= 0:

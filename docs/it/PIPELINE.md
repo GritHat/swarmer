@@ -529,8 +529,8 @@ campo per campo, con i rimandi ai file del ramo. Un campo vuoto si scrive «manc
 
 ## Come si svolge nei diversi ambienti
 
-- **In un progetto, con i file.** Il coordinatore è la sessione di Claude Code aperta nella radice del progetto, e
-  gli agenti sono i suoi sottoagenti `sciame-<sigla>`.
+- **In un progetto, con i file.** Il coordinatore è la sessione dell'agente di programmazione (Claude Code, Codex,
+  Antigravity, Gemini CLI, …) aperta nella radice del progetto, e gli agenti sono i suoi sottoagenti `sciame-<sigla>`.
   - La convocazione sta in `.sciame/<AAAAMMGG-HHMM>-<nome>/` dentro il progetto.
   - `sciame/convoca.py` prepara lo scheletro e controlla i cancelli.
   - I documenti completi sono in `sciame/`.
@@ -580,7 +580,7 @@ campo per campo, con i rimandi ai file del ramo. Un campo vuoto si scrive «manc
 - **L'ambiente** (`AMBIENTE.md`): che cosa fare quando un ambiente non ha i sottoagenti, la shell o le scritture.
 
 **Rispetto alla 3.0.**
-- **È portabile.** Tutto sta nella cartella `sciame/` del progetto. Gli agenti e le skill si generano in `.claude/`.
+- **È portabile.** Tutto sta nella cartella `sciame/` del progetto. Gli agenti e le skill si generano in `.claude/` (e, dalla 5.1, anche per le altre destinazioni).
 - **Il nucleo della percezione.** Undici ruoli e sette profili: `percezione`, `movimento`, `stima`, `tracciamento`,
   `localizzazione`, `sensori`, `latenza`.
 - **`convoca.py`.** Il comando `ruoli` e l'opzione `--responsabile` di `seleziona`.

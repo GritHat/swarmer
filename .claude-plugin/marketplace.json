@@ -1,7 +1,13 @@
 {
  "name": "swarmer",
- "owner": {"name": "the swarmer authors"},
+ "owner": {
+  "name": "the swarmer authors"
+ },
  "plugins": [
-  {"name": "swarmer", "source": "./", "description": "Agent swarm for Claude Code: install it into a project with /swarmer-install, then convene it with /swarmer-single, /swarmer-classic, /swarmer-jury, /swarmer-plenary and the other strategies."}
+  {
+   "name": "swarmer",
+   "source": "./",
+   "description": "Universal agent swarm for coding agents (Claude Code, Codex, Antigravity, Gemini CLI, AGENTS.md); this plugin installs it in Claude Code: /swarmer-install, then /swarmer-single, /swarmer-classic, /swarmer-jury, /swarmer-plenary and the other strategies."
+  }
  ]
 }

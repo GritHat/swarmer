@@ -55,7 +55,7 @@ not change afterwards: `jury.py` records its sha256 and rejects every round coun
   - in a binding jury, the logician, the debugger and an adversary.
 - **Mandatory fields:** `touches_code` and `touches_numbers` (yes or no), `authority`, `delegation`, `classification`
   (`ordinary` or `plenary`); every new jury also writes `"lexicon": 5` (§11).
-- **Admitted roles:** only the ids of the swarm's roles (`.claude/agents/swarmer-*.md`, or `sciame-*.md` in an installation with that prefix), professionals or
+- **Admitted roles:** only the ids of the swarm's roles (`swarmer-*` in `.claude/agents/`, `.codex/agents/`, `.agents/agents/` or `.gemini/agents/`, or `sciame-*` in an installation with that prefix), professionals or
   sub-professionals. A provisional expert (§4) is
   marked `provisional` and has the sealed card `CARD_<role>.md` in the folder; they make up at most a third of the
   jurors.
@@ -277,6 +277,8 @@ starting.
 - **The veto.** The veto of a single juror is intended: only consensus approves. In plenaries the typical outcome will be
   REVISION or NOT_CONVERGED.
 - **Strategic voting** is made visible (CHANGE, PREFER, CONDITION), but not eliminated.
+- **A jury in sequence.** In a tool without subagents the coordinator performs every juror: consensus there is a
+  self-approval. Its outcome is only a recommendation to the user, never a delegated decision.
 
 ## 7. The choices of form, which a project can change
 

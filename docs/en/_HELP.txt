@@ -1,15 +1,21 @@
 
 COMMANDS (bash swarmer/swarmer.sh <command>)
   install [--language L] [--instructions] [--force] [--folder DIR] [--local DIR] [--project-managed]
+          [--targets claude,codex,antigravity,gemini,agents|auto]
   update                       like install, with the files of this swarmer.sh; files modified in the project stay,
                                the new version goes alongside them with the .new suffix
   single | fan-out | classic | jury | light-jury | full | plenary | expert | auto  "request"
-      [--profile P] [--roles a,b] [--language L] [--from-file FILE] [--model M] [--print] [--show] [-- claude options]
+      [--profile P] [--roles a,b] [--language L] [--from-file FILE] [--model M] [--print] [--show]
+      [--cli claude|codex|agy|gemini] [-- options of the tool]
+      (the options before or after the request; only what follows -- goes to the tool)
   help                         this text
   language [L]                 the swarm's language (agents, skills, documents); without L it shows it
   roles ["question"]           the roles and profiles; with a question, those its words call up
   professionals                the tree of professionals and sub-professionals
-  check | regenerate | remove | instructions [--remove] | tests
+  targets [LIST|auto] [--add X] [--remove X]  the coding agents generated for: claude (.claude/), codex
+                               (.codex/agents), antigravity (.agents/agents), gemini (.gemini/agents), agents
+                               (AGENTS.md and .agents/skills, the open standard); without arguments it shows them
+  check | regenerate [--targets …] | remove | instructions [--remove] | tests
   models [role=model …]        the model of a role, of a core, or of all (--all=model)
   requests                     the missing skills that have reached the creation threshold
   count FOLDER ROUND           the tally of a jury

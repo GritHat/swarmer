@@ -46,6 +46,8 @@
  "plenary_preamble": "**The strategy of this convening is the plenary.** Before launching agents, check that the user has confirmed it and state the cost. The complete rules are in `swarmer/JURY.md`, §5.",
  "strategy_is": "**The strategy of this convening is: {strategy}.**",
  "the_request": "## The request\n\n$ARGUMENTS\n\n(If there is no text above, the request is the user's last message. If it carries `language=<code>` (or `lingua=<code>`), answer in that language.)",
+ "the_request_generic": "## The request\n\nThe request is the user's message that called this skill (the text after the name of the skill, if there is one). If it begins with `profile=…`, `roles=…` or `language=<code>` (or `profilo=`, `ruoli=`, `lingua=`), those apply; with `language=<code>`, answer in that language.",
+ "launch_prompt": "Use the skill {skill} ({path}) to convene the agent swarm for this request: {request}",
  "cli_missing_python": "python3 is missing (3.8 or newer)",
  "cli_not_installed": "the swarm is not in {root} yet. First: bash swarmer.sh install",
  "cli_installed": "Swarmer {version} installed in {root} ({language}): {agents} agents, {skills} skills.",
@@ -75,6 +77,16 @@
  "cli_needs_english": "{id}: the entry has no complete English text (texts.en), so it stays local: the public database accepts only entries in English. Translate it into English (name, short, keywords, body, same sections) and register it with: {command}",
  "cli_local_until_english": "{ids}: without the English texts the entry stays local; propose refuses it until it has them ({command}).",
  "cli_models_none": "all: inherit",
+ "cli_targets": "Targets: {targets}",
+ "cli_targets_changed": "Targets: {targets}. Agents, skills and instructions of the targets regenerated; the generated files of a removed target are gone.",
+ "cli_targets_detected": "Detected in the project: {targets}. Available: {all}. Change them with: targets claude,codex,… (or auto), --add X, --remove X",
+ "cli_targets_empty": "at least one target is needed (claude, codex, antigravity, gemini, agents)",
+ "cli_targets_remove_auto": "--remove auto has no meaning: name the targets to remove",
+ "cli_found": "found in the PATH",
+ "cli_target_inactive": "{cli} reads the target {target}, which is not active in this project: {command}",
+ "cli_unknown_cli": "unknown tool «{cli}»: the tools are {clis}",
+ "cli_missing_cli": "the {cli} command is missing: install it, or choose another tool with --cli ({clis})",
+ "cli_option_unsupported": "{option} is not supported with {cli}",
  "cli_prefix": "swarmer: ",
  "jury_error_prefix": "ERROR: ",
  "jury_ambiguous_role": "the role {role} has two different definitions ({a}, {b}): a juror must have only one",
@@ -143,7 +155,8 @@
   "seal": [],
   "select": [],
   "close-branch": [],
-  "status": []
+  "status": [],
+  "targets": []
  },
  "options": {
   "--from": [],
@@ -186,7 +199,10 @@
   "--reason": [],
   "--install": [],
   "--remove-instructions": [],
-  "--list": []
+  "--list": [],
+  "--targets": [],
+  "--cli": [],
+  "--add": []
  },
  "values": {
   "strategy": {

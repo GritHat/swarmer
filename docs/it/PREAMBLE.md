@@ -92,7 +92,7 @@ cause.
   sulla scheda generica.
 - La consegna (`TASK.md`) e il contratto (`CONTRATTO.md`), se ci sono, e `PIPELINE.md`.
 - Nelle corsie cieche (strategia classica, fase 1) leggi solo la tua consegna e il contratto.
-- Del progetto, ciò che la consegna indica. Le regole del progetto stesso (`README.md` e `CLAUDE.md` alla
+- Del progetto, ciò che la consegna indica. Le regole del progetto stesso (`README.md` e `CLAUDE.md`, `AGENTS.md` o `GEMINI.md` alla
   radice) valgono anche per te.
 
 ## Scritture e strumenti

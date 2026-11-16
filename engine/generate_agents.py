@@ -4,7 +4,7 @@
     python3 -I swarmer/generate_agents.py                    # regenerates everything in the project
     python3 -I swarmer/generate_agents.py --check            # exits with 1 if something is not aligned to the sources
     python3 -I swarmer/generate_agents.py --install ROOT     # installs the swarm in another project
-    python3 -I swarmer/generate_agents.py --instructions     # the paragraph of the swarm in CLAUDE.md
+    python3 -I swarmer/generate_agents.py --instructions     # the paragraph in CLAUDE.md, AGENTS.md, GEMINI.md
     python3 -I swarmer/generate_agents.py --remove-instructions
     python3 -I swarmer/generate_agents.py --remove           # removes the generated agents and skills
     python3 -I swarmer/generate_agents.py --list             # the roles
