@@ -1,0 +1,21 @@
+name: "Request a professional / Chiedi un professionista"
+description: "A skill the swarm lacks / Una competenza che manca allo sciame"
+labels: ["professional-request"]
+body:
+  - type: input
+    id: code
+    attributes: {label: "Code name / Sigla (lowercase, words joined by -)"}
+    validations: {required: true}
+  - type: dropdown
+    id: kind
+    attributes:
+      label: "Kind / Tipo"
+      options: ["professional / professionista", "sub-professional / sottoprofessionista"]
+    validations: {required: true}
+  - type: input
+    id: parent
+    attributes: {label: "Parent (for a sub-professional) / Genitore (per un sottoprofessionista)"}
+  - type: textarea
+    id: why
+    attributes: {label: "Why: which roles you checked and why they do not cover it / Motivo: quali ruoli hai guardato e perché non bastano"}
+    validations: {required: true}

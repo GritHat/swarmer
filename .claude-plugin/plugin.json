@@ -1,0 +1,9 @@
+{
+ "name": "sciame",
+ "version": "4.0.0",
+ "description": "A swarm of specialist agents for Claude Code — professionals and sub-professionals, eight convening strategies (single, fan-out, classic, jury, full, plenary, new expert, auto), local overrides, Italian and English. / Uno sciame di agenti specialistici per Claude Code.",
+ "author": {"name": "the sciame authors"},
+ "license": "MIT",
+ "keywords": ["agents", "swarm", "multi-agent", "jury", "review", "subagents"],
+ "skills": "./skills/"
+}

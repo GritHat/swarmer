@@ -1,0 +1,7 @@
+{
+ "name": "sciame",
+ "owner": {"name": "the sciame authors"},
+ "plugins": [
+  {"name": "sciame", "source": "./", "description": "Agent swarm for Claude Code: install it into a project with /sciame-installa, then convene it with /sciame-singolo, /sciame-classica, /sciame-giuria, /sciame-plenaria and the other strategies."}
+ ]
+}

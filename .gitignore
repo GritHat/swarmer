@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+_lavoro/
+_v31/
+locale/
+proposte/
+RICHIESTE_ESPERTI.md
+*.nuovo
+.sciame/
