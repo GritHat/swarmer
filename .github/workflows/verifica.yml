@@ -3,6 +3,8 @@ on: [push, pull_request]
 jobs:
   verifica:
     runs-on: ubuntu-22.04
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
     strategy:
       matrix:
         python: ["3.10", "3.12"]
@@ -12,11 +14,11 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - name: database, lingue, segreti / database, languages, secrets
-        run: python -I motore/sciame.py --sciame . verifica --pubblicazione
+        run: python -I -B motore/sciame.py --sciame . verifica --pubblicazione
       - name: sciame.sh aggiornato / up to date
-        run: python -I motore/sciame.py --sciame . costruisci --uscita sciame.sh --controlla
+        run: python -I -B motore/sciame.py --sciame . costruisci --uscita sciame.sh --controlla
       - name: batterie / test batteries
         run: |
           git config --global user.name ci
           git config --global user.email ci@example.org
-          for p in prove/prova_*.py; do python -I "$p" || exit 1; done
+          for p in prove/prova_*.py; do python -I -B "$p" || exit 1; done
