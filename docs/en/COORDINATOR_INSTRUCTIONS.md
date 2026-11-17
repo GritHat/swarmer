@@ -128,16 +128,19 @@ You are at the root of the user's project. The agents have the tools and permiss
 | `roles [--question TEXT]` | the roles with the core; with `--question`, only those whose keywords appear in the text, and the profiles |
 | `prepare --name N --strategy S --profile P --question TEXT [--roles a,b] [--dest D] [--seed N] [--n N --form F --rule R]` | the skeleton: `MANIFEST.json`, `CONTRACT.md` to fill in, the phase folders, the briefs of f0 and f1 (lanes with random names, with the canary); prints the path of the lane map, which is yours alone |
 | `snapshot C` | as soon as the lanes have delivered, before reading them: records whether each file was read after its last write |
-| `gate C PHASE --notes TEXT [--not-delivered …] [--verify]` | checks the gate conditions (f0, f1, f2, f3/H-001, f4/H-001, f5) and writes `GATE_<phase>.json` with the sha256 of the files; `--verify` redoes the checks without writing |
-| `seal C FILE…` | time and sha256 in `SEALS.jsonl`: the triage after the signatures, the predictions born in f4 before their tests |
-| `select C H-001 [H-002 H-003] [--radical H-00x] [--owner ID]` | after G2, only H# from the triage: opens the f3 and f4 branches with the briefs and the dossier; `--owner` changes the role that writes the solution (normally the first of f3 in the profile) |
-| `close-branch C H-00x --reason TEXT` | closes a branch before G3 as "declared unresolved" |
+| `gate C PHASE --notes TEXT [--not-delivered …] [--verify] [--rules 2]` | checks the gate conditions (f0, A1 for an amendment, f1, f2, f3/H-001, f4/H-001, f5) and writes `GATE_<phase>.json` with the sha256 of the files and the rules it was checked under; `--verify` redoes the checks without writing; `--rules 2` applies the rules 2 of the gates to this gate of an older convening |
+| `seal C FILE…` | time and sha256 in `SEALS.jsonl`: the triage after the signatures, the amendments, the predictions born in f4 before their tests |
+| `select C H-001 [H-002 H-003] [--radical H-00x] [--owner ID]` | after G2, only H# from the triage: opens the f3 and f4 branches with the briefs and the dossier, and writes the briefs of the sentinel and of the closure; under the rules 2 the radical is only recorded; `--owner` changes the role that writes the solution (normally the first of f3 in the profile) |
+| `fund C H-00x [--owner ID]` | under the rules 2: gives the radical branch its dossier and its briefs |
+| `close-branch C H-00x --reason TEXT [--deciding-test TEXT]` | closes a branch before G3: a radical never funded as "not funded"; a funded branch as "declared unresolved", with the test that would decide it (required under the rules 2); on a branch already declared unresolved without a test, `--deciding-test` adds it |
 | `status C` | where each phase and each branch stands |
 
 The script uses only the standard library, launches no agents and approves nothing on its own. A convening keeps the
 language it was born in: an Italian one (`MANIFESTO.json`, `CONTRATTO.md`, `CONSEGNA.md`, `f1/agente-<k>/`) keeps its
 Italian names in an English installation too, and its lines are read in both languages (`Outcome: closed` or
-`Esito: chiuso`, `decides: yes` or `decide: sì`, `Countersign: arbitro` or `Controfirma: arbitro`).
+`Esito: chiuso`, `decides: yes` or `decide: sì`, `Countersign: arbitro` or `Controfirma: arbitro`, `Correctness: proven`
+or `Correttezza: dimostrata`, `Amends: Budget` or `Modifica: Quota`, `Declared missing: sentinel: …` or
+`Dichiarato mancante: sentinella: …`).
 
 ## Who orchestrates by themselves (a model reached via API, without subagents)
 

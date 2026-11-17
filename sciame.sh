@@ -598,7 +598,7 @@ VALUES = {
                 "localization": "localizzazione", "sensors": "sensori", "latency": "latenza", "general": "generale"},
     "lane": {"A": "A", "B": "B", "all": "tutti", "slices": "fette", "race": "gara", "mixed": "mista",
              "single": "singolo"},
-    "closure_status": {"declared unresolved": "non risolto dichiarato"},
+    "closure_status": {"declared unresolved": "non risolto dichiarato", "not funded": "non finanziato"},
     "authority": {"binding": "vincolante", "recommendation": "raccomandazione"},
     "jury_form": {"ordinary": "ordinaria", "light": "leggera", "plenary": "plenaria"},
     "test_outcome": {"pass": "passa", "fail": "fallisce"},
@@ -644,6 +644,17 @@ LINE_VALUES = {
     "test_outcome": {"pass": "pass", "fail": "fail", "passa": "pass", "fallisce": "fail"},
     "class": {"light": "light", "ordinary": "ordinary", "plenary": "plenary", "leggera": "light",
               "ordinaria": "ordinary", "plenaria": "plenary"},
+    # the Correctness line of a VERDICT.md (a convening): every spelling, lower case → canonical
+    "correctness": {"proven": "proven", "verified": "verified", "supported": "supported", "refuted": "refuted",
+                    "unresolved": "unresolved",
+                    "dimostrato": "proven", "dimostrata": "proven", "provato": "proven", "provata": "proven",
+                    "verificato": "verified", "verificata": "verified",
+                    "sostenuto": "supported", "sostenuta": "supported", "supportato": "supported",
+                    "supportata": "supported",
+                    "smentito": "refuted", "smentita": "refuted", "confutato": "refuted", "confutata": "refuted",
+                    "non risolto": "unresolved", "non risolta": "unresolved"},
+    # the outcome of a CLOSURE.md
+    "outcome": {"closed": "closed", "not closed": "not closed", "chiuso": "closed", "non chiuso": "not closed"},
 }
 # The sealed last line of a file of a jury, by language (the regular expressions accept every language).
 SEAL_LINE = {"en": "sha256 of the bytes before this line: {sha}", "it": "sha256 dei byte che precedono questa riga: {sha}"}
@@ -671,8 +682,20 @@ CONVENE_LINES = {
     "canary": {"en": "Canary:", "it": "Canarino:"},
     "decides_re": r"^(?:decides|decide): (?:yes|no|sì|si)\s*$",
     "decides": {"en": "«decides: yes» or «decides: no»", "it": "«decide: sì» o «decide: no»"},
-    "outcome_re": r"^(?:Outcome: (?:closed|not closed)|Esito: (?:chiuso|non chiuso))\b",
+    "outcome_re": r"^(?:Outcome: (closed|not closed)|Esito: (chiuso|non chiuso))\b",
     "outcome": {"en": "«Outcome: closed» or «Outcome: not closed»", "it": "«Esito: chiuso» o «Esito: non chiuso»"},
+    # the Correctness line of a verdict (gate rules 2): «proven» means proven or verified
+    "correctness_re": r"^(?:Correctness|Correttezza): (proven|verified|supported|refuted|unresolved|dimostrat[ao]|"
+                      r"provat[ao]|verificat[ao]|sostenut[ao]|supportat[ao]|smentit[ao]|confutat[ao]|non risolt[ao])\b",
+    "correctness": {"en": "«Correctness: proven|verified|supported|refuted|unresolved»",
+                    "it": "«Correttezza: dimostrata|verificata|sostenuta|smentita|non risolta»"},
+    # a missing sentinel declared in CLOSURE.md, with its reason
+    "declared_missing_re": r"^(?:Declared missing|Dichiarato mancante): (sentinel|sentinella)\s*[:—-]\s*(\S.*)$",
+    "declared_missing": {"en": "«Declared missing: sentinel: <reason>»",
+                         "it": "«Dichiarato mancante: sentinella: <motivo>»"},
+    # the fields of the contract that an amendment changes
+    "amends_re": r"^(?:Amends|Modifica): *(\S.*)$",
+    "amends": {"en": "«Amends: <contract fields>»", "it": "«Modifica: <campi del contratto>»"},
     "countersign": {"en": "Countersign: arbitro", "it": "Controfirma: arbitro"},
     "not_relevant": {"en": "not relevant:", "it": "non pertinente:"},
     "results": {"DONE": "FATTO", "ISSUES": "PROBLEMI", "BLOCKED": "BLOCCATO"},
@@ -958,6 +981,7 @@ MANIFEST_SCHEMA = Schema("manifest", {
     "f1": ("f1", None, {"*": (None, None, {"folder": ("cartella",), "lane": ("corsia", VALUES["lane"]),
                                            "role": ("ruolo",)})}),
     "selected": ("selezionate",), "radical": ("radicale",), "map": ("mappa",),
+    "gate_rules": ("regole_cancelli",), "radical_funded": ("radicale_finanziato",),
     "fan_out": ("ventaglio", None, {"n": ("n",), "form": ("forma", VALUES["form"]), "rule": ("regola", VALUES["rule"])}),
 }, keymaps={("f1", "*"): [("agent-", "agente-")]})
 CONVENE_KEYS = {
@@ -966,9 +990,11 @@ CONVENE_KEYS = {
         "mtime": ("mtime",), "read_after": ("letto_dopo",)})})}),
     "seal": Schema("seal", {"time": ("ora",), "file": ("file",), "sha256": ("sha256",), "bytes": ("byte",)}),
     "gate": Schema("gate", {"phase": ("fase",), "time": ("ora",), "notes": ("note",),
-                            "not_delivered": ("non_consegnati",), "fingerprints": ("impronte", None, {"*": (None,)})}),
+                            "not_delivered": ("non_consegnati",), "fingerprints": ("impronte", None, {"*": (None,)}),
+                            "rules": ("regole",), "closed": ("chiuso",), "warnings": ("avvisi",)}),
     "early_closure": Schema("early closure", {"time": ("ora",), "hypothesis": ("ipotesi",), "reason": ("motivo",),
-                                              "status": ("stato", VALUES["closure_status"])}),
+                                              "status": ("stato", VALUES["closure_status"]),
+                                              "deciding_test": ("prova_decisiva",)}),
     # the map of the lanes (not in the 4.0 list of the spec, but written by prepare: role → folder, lane, canary)
     "map": Schema("map", {"*": (None, None, {"folder": ("cartella",), "lane": ("corsia", VALUES["lane"]),
                                              "canary": ("canarino",)})}),
@@ -987,11 +1013,14 @@ CONVENE_FILES = {
     "PREDICTIONS.md": "PREVISIONI.md", "COUNTERCHECKS.md": "CONTROPROVE.md", "DEFECTS.md": "DIFETTI.md",
     "MEASUREMENTS.md": "MISURE.md", "VERDICT.md": "VERDETTO.md", "CLOSURE.md": "CHIUSURA.md",
     "HYPOTHESIS_CARD.md": "SCHEDA_IPOTESI.md",
+    "00-sentinel": "00-sentinella", "SENTINEL.md": "SENTINELLA.md", "HIDDEN_ASSUMPTIONS.md": "ASSUNZIONI_NASCOSTE.md",
+    "REVISION.md": "REVISIONE.md", "work": "lavoro", "status.md": "stato.md",
 }
 # Names with a variable part: (canonical regex, canonical template, Italian regex, Italian template).
 CONVENE_PATTERNS = [
     (r"agent-(\d+)", "agent-{0}", r"agente-(\d+)", "agente-{0}"),
     (r"\.(.+)\.lanes", ".{0}.lanes", r"\.(.+)\.corsie", ".{0}.corsie"),
+    (r"AMENDMENT_(A?\d+)\.md", "AMENDMENT_{0}.md", r"EMENDAMENTO_(A?\d+)\.md", "EMENDAMENTO_{0}.md"),
 ]
 JURY_FILES = {"jury.json": "giuria.json", "PROPOSAL.md": "PROPOSTA.md", "SEALS.md": "SIGILLI.md",
               "DELEGATION.md": "DELEGA.md", "RELEVANCE.md": "PERTINENZA.md"}
@@ -1139,12 +1168,17 @@ Commands (the paths become absolute):
   prepare   --name N --strategy single|fan-out|classic|full --profile P --question TEXT [--roles a,b] [--dest D]
             [--seed S] [--n N --form slices|race|mixed --rule first|ranking|best]   (fan-out)
   snapshot  C                     as soon as the lanes have delivered, before reading them
-  gate      C PHASE --notes TEXT [--not-delivered ROLE,…] [--verify]
-            PHASE = f0, f1, f2, f3/H-001, f4/H-001, f5
+  gate      C PHASE --notes TEXT [--not-delivered ROLE,…] [--verify] [--rules 1|2]
+            PHASE = f0, A1 (the amendment AMENDMENT_1.md or AMENDMENT_A1.md), f1, f2, f3/H-001, f4/H-001, f5
   seal      C FILE…               time and sha256 in SEALS.jsonl
   select    C H-001 [H-002 H-003] [--radical H-00x] [--owner ID]
-  close-branch C H-00x --reason TEXT
+  fund      C H-00x [--owner ID]  briefs the radical branch (gate rules 2: select does not brief it)
+  close-branch C H-00x --reason TEXT [--deciding-test TEXT]   (on a closure of 5.0 without a test: adds the test)
   status    C
+
+The rules of the gates have a version (the manifest key gate_rules; a missing key means 1). A new convening is born
+with the rules 2; a gate is always recomputed under the rules it was approved with, so upgrading the engine never
+invalidates an approved gate. `gate --rules 2` applies the rules 2 to one new gate of an older convening.
 """
 from __future__ import annotations
 
@@ -1152,9 +1186,11 @@ import argparse
 import datetime
 import hashlib
 import json
+import os
 import random
 import re
 import secrets
+import shutil
 import sys
 from pathlib import Path
 
@@ -1174,6 +1210,20 @@ TO_FILL = tuple(C.CONVENE_LINES["to_fill_in"].values())
 ID = re.compile(r"\bH-?0*(\d{1,3})\b")
 LIMIT_F1 = 40   # minutes for a brief of f1
 LIMIT_BRANCH = 60
+GATE_RULES = 2   # the rules of the gates a new convening is born with
+FILES_PER_FOLDER = 200   # a folder with more regular files than this is bound as one tree entry
+PROVEN = ("proven", "verified")   # the Correctness values that count as «proven»
+# Folders that do not belong to the convening's own files: the declared workspace of a role, the state folder of a
+# nested installation, a nested convening, git.
+WORK_NAMES = ("work", C.CONVENE_FILES["work"])
+STATE_DIRS = (".swarmer", C.FILE_NAMES["it"][".swarmer"])
+MANIFESTS = ("MANIFEST.json", C.CONVENE_FILES["MANIFEST.json"])
+SKIP_DIRS = (".git", "__pycache__")
+STATUS_NAMES = ("status.md", C.CONVENE_FILES["status.md"])
+SENTINEL_DIRS = ("00-sentinel", C.CONVENE_FILES["00-sentinel"])
+SENTINEL_NAMES = ("SENTINEL.md", C.CONVENE_FILES["SENTINEL.md"])
+HIDDEN_NAMES = ("HIDDEN_ASSUMPTIONS.md", C.CONVENE_FILES["HIDDEN_ASSUMPTIONS.md"])
+AMENDMENT_RE = re.compile("|".join(f"(?:{p[0]})|(?:{p[2]})" for p in C.CONVENE_PATTERNS if p[1].startswith("AMENDMENT")))
 
 
 class Error(C.Error):
@@ -1312,9 +1362,21 @@ class Convening:
 
 
 def brief(conv: Convening, folder: Path, role: str, phase: str, output: str, text: str, inputs: list[Path],
-          *, canary: str | None = None, minutes: int = LIMIT_F1, h: str | None = None) -> Path:
+          *, canary: str | None = None, minutes: int = LIMIT_F1, h: str | None = None,
+          output_path: Path | None = None) -> Path:
     """TASK.md of an agent, in the language of the installation; the files keep the names of the dialect."""
     folder.mkdir(parents=True, exist_ok=True)
+    out = folder / conv.name("TASK.md")
+    out.write_text(brief_text(conv, folder, role, phase, output, text, inputs, canary=canary, minutes=minutes, h=h,
+                              output_path=output_path), encoding="utf-8")
+    BRIEFED.append(role)
+    return out
+
+
+def brief_text(conv: Convening, folder: Path, role: str, phase: str, output: str, text: str, inputs: list[Path],
+               *, canary: str | None = None, minutes: int = LIMIT_F1, h: str | None = None,
+               output_path: Path | None = None) -> str:
+    """The text of a TASK.md, written by nothing: `brief` writes it, `close_branch` compares it."""
     m = conv.m
     lang = language()
     lines = []
@@ -1330,7 +1392,7 @@ def brief(conv: Convening, folder: Path, role: str, phase: str, output: str, tex
         f"- **{T('question')}:** {m['question']}",
         f"- **{T('inputs')}**",
         *[f"  - `{p}`" for p in inputs],
-        f"- **{T('output')}:** `{folder / conv.name(output)}`, {T('output_tail')}",
+        f"- **{T('output')}:** `{output_path or folder / conv.name(output)}`, {T('output_tail')}",
         f"- **{T('time')}:** {T('at_most')} {minutes} {T('time_tail')}",
         f"- **{T('write')}** `{folder}`. {T('write_tail')}",
         f"- **{T('forbidden')}** {T('forbidden_tail')}",
@@ -1342,10 +1404,7 @@ def brief(conv: Convening, folder: Path, role: str, phase: str, output: str, tex
         text,
         "",
     ]
-    out = folder / conv.name("TASK.md")
-    out.write_text("\n".join(lines), encoding="utf-8")
-    BRIEFED.append(role)
-    return out
+    return "\n".join(lines)
 
 
 BRIEFED: list[str] = []   # the roles that received a brief in this run
@@ -1439,7 +1498,7 @@ def prepare(ns) -> None:
     c.mkdir(parents=True)
     conv = Convening(c, lang)
     m = {"version": VERSION, "name": name, "strategy": strategy, "profile": profile, "question": ns.question,
-         "seed": seed, "created": now(), "f1": {}, "selected": [], "radical": None}
+         "seed": seed, "created": now(), "f1": {}, "selected": [], "radical": None, "gate_rules": GATE_RULES}
     conv.m = m
     conv.file("CONTRACT.md").write_text(contract(m, lang), encoding="utf-8")
     (c / "f0").mkdir()
@@ -1575,6 +1634,102 @@ def full(p: Path) -> bool:
     return p.is_file() and p.stat().st_size > 0 and not any(x in text for x in TO_FILL)
 
 
+def level(conv: Convening) -> int:
+    """The rules of the gates of a convening: the manifest key gate_rules, 1 when it is missing (4.0, 5.0)."""
+    try:
+        return int(conv.m.get("gate_rules") or 1)
+    except (TypeError, ValueError):
+        return 1
+
+
+def funded(conv: Convening) -> bool:
+    """Whether the radical branch has its briefs: always under the rules 1, after `fund` under the rules 2."""
+    if not conv.m.get("radical"):
+        return False
+    return level(conv) < 2 or bool(conv.m.get("radical_funded"))
+
+
+def branches(conv: Convening) -> list[str]:
+    """The funded branches: the selected H#, plus the radical one once it is funded."""
+    return list(conv.m["selected"]) + ([conv.m["radical"]] if funded(conv) else [])
+
+
+def all_branches(conv: Convening) -> list[str]:
+    return list(conv.m["selected"]) + ([conv.m["radical"]] if conv.m.get("radical") else [])
+
+
+def amendments(conv: Convening, clashes: list[str] | None = None) -> dict[str, Path]:
+    """The amendments of the contract at the root of the convening, by gate phase: AMENDMENT_1.md and AMENDMENT_A1.md
+    (EMENDAMENTO_… in Italian) are both the phase A1. Two files for one phase are an error; with `clashes` they are
+    reported there instead, and the first one is kept."""
+    out = {}
+    for p in sorted(conv.folder.iterdir()) if conv.folder.is_dir() else []:
+        mt = AMENDMENT_RE.fullmatch(p.name)
+        if not mt or not p.is_file():
+            continue
+        phase = "A" + str(int(next(g for g in mt.groups() if g).lstrip("A")))
+        if phase in out:
+            text = f"two amendments for the gate {phase}: {out[phase].name} and {p.name}"
+            if clashes is None:
+                raise Error(text)
+            clashes.append(text)
+            continue
+        out[phase] = p
+    return out
+
+
+def amendment_phases(conv: Convening, clashes: list[str] | None = None) -> list[str]:
+    """The phases of the amendments: those with a file, and those with a gate whose amendment is gone."""
+    gated = [q.name[5:-5] for q in conv.folder.glob("GATE_A*.json") if re.fullmatch(r"GATE_A\d+\.json", q.name)]
+    return sorted(set(amendments(conv, clashes)) | set(gated), key=lambda a: int(a[1:]))
+
+
+def gated_amendments(conv: Convening) -> list[Path]:
+    """The amendments bound by a valid gate: what the briefs read."""
+    clashes = [] if level(conv) < 2 else None
+    return [p for a, p in amendments(conv, clashes).items() if valid(conv, a)]
+
+
+def _role_folder(d: Path) -> bool:
+    """A folder f3/<H#>/NN-<role> or f4/<H#>/NN-<role> (a briefed role): always the convening's own."""
+    return bool(re.match(r"\d+-", d.name) and ID.fullmatch(d.parent.name) and d.parent.parent.name in ("f3", "f4"))
+
+
+def _is_manifest(p: Path) -> bool:
+    """A manifest of a convening (5.0 or 4.0): a JSON object with the strategy and the lanes of f1."""
+    if not p.is_file():
+        return False
+    try:
+        m = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return isinstance(m, dict) and any(k in m for k in ("strategy", "strategia")) and isinstance(m.get("f1"), dict)
+
+
+def _foreign(d: Path) -> bool:
+    """A folder whose files are not the convening's own: a role's workspace, a state folder, a nested convening (a
+    folder with a manifest of a convening). The folder of a briefed role never is (ENG-3)."""
+    if _role_folder(d):
+        return False
+    return d.name in WORK_NAMES + STATE_DIRS or any(_is_manifest(d / x) for x in MANIFESTS)
+
+
+def _own_files(base: Path):
+    """Every file under `base`, without the foreign folders, git and __pycache__."""
+    if not base.is_dir():
+        return
+    for root, dirs, files in os.walk(base):
+        r = Path(root)
+        dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS and not _foreign(r / d))
+        for f in sorted(files):
+            yield r / f
+
+
+def _own(base: Path, *names: str) -> list[Path]:
+    """The files named one of `names` under `base`, without those of the foreign folders (ENG-3)."""
+    return [p for p in _own_files(base) if p.name in names]
+
+
 def phase_folders(conv: Convening, phase: str) -> list[Path]:
     c, m = conv.folder, conv.m
     if phase == "f0":
@@ -1584,7 +1739,8 @@ def phase_folders(conv: Convening, phase: str) -> list[Path]:
     return [c / phase]
 
 
-def fingerprints(conv: Convening, phase: str) -> dict[str, str]:
+def fingerprints_v1(conv: Convening, phase: str) -> dict[str, str]:
+    """The fingerprints of the rules 1 (5.0), unchanged: the .md of the phase, and the .json of f3 and f4."""
     c = conv.folder
     files = [conv.file("CONTRACT.md")] if phase == "f0" else []
     folder = c
@@ -1595,16 +1751,192 @@ def fingerprints(conv: Convening, phase: str) -> dict[str, str]:
     return {str(p): sha(p) for p in files}
 
 
+def _link(p: Path, exclude: set[str], seen: frozenset) -> str:
+    """A symbolic link, bound by its target: the sha256 of the file, or the tree of the folder, it points to."""
+    target = os.readlink(p)
+    try:
+        real = p.resolve(strict=True)
+    except (OSError, RuntimeError):
+        return "link:" + target
+    if real.is_dir():
+        if str(real) in seen:
+            return f"link:{target} -> loop"
+        return f"link:{target} -> " + _tree(real, exclude, seen)
+    if real.is_file():
+        return f"link:{target} -> " + sha(real)
+    return "link:" + target
+
+
+def _entry(p: Path, exclude: set[str], seen: frozenset = frozenset()) -> str | None:
+    if p.is_symlink():
+        return _link(p, exclude, seen)
+    if p.is_file():
+        return sha(p)
+    return None
+
+
+def _crowded(d: Path) -> bool:
+    """More than FILES_PER_FOLDER files in the subtree of `d`, without the foreign folders (bound on their own)."""
+    n, stack = 0, [d]
+    while stack:
+        try:
+            entries = list(os.scandir(stack.pop()))
+        except OSError:
+            continue
+        for e in entries:
+            if e.is_dir(follow_symlinks=False):
+                if e.name not in SKIP_DIRS and not _foreign(Path(e.path)):
+                    stack.append(Path(e.path))
+                continue
+            n += 1
+            if n > FILES_PER_FOLDER:
+                return True
+    return False
+
+
+def _aggregated(d: Path, walked: bool = False) -> bool:
+    """A folder bound as one tree entry: a workspace, a nested convening or state folder, or a crowded folder. The
+    folder of a phase and the NN-<role> folders in it (`walked`) are crowded only with more than FILES_PER_FOLDER
+    files of their own; any other folder with more than FILES_PER_FOLDER files in its whole subtree (ENG-4)."""
+    if _foreign(d):
+        return True
+    if not walked:
+        return _crowded(d)
+    try:
+        return sum(1 for x in os.scandir(d) if x.is_file(follow_symlinks=False)) > FILES_PER_FOLDER
+    except OSError:
+        return False
+
+
+def _tree(d: Path, exclude: set[str], seen: frozenset = frozenset()) -> str:
+    lines = []
+    try:
+        seen = seen | {str(d.resolve())}
+    except (OSError, RuntimeError):
+        pass
+    for root, dirs, files in os.walk(d):
+        r = Path(root)
+        keep = []
+        for x in sorted(dirs):
+            if x in SKIP_DIRS:
+                continue
+            if (r / x).is_symlink():
+                lines.append(f"{(r / x).relative_to(d).as_posix()}\0{_link(r / x, exclude, seen)}\n")
+                continue
+            keep.append(x)
+        dirs[:] = keep
+        for f in files:
+            p = r / f
+            if f.endswith(".pyc") or str(p) in exclude:
+                continue
+            e = _entry(p, exclude, seen)
+            if e is not None:
+                lines.append(f"{p.relative_to(d).as_posix()}\0{e}\n")
+    return "tree:" + hashlib.sha256("".join(sorted(lines)).encode("utf-8")).hexdigest()
+
+
+def _bind(top: Path, out: dict, exclude: set[str]) -> None:
+    if not top.is_dir():
+        return
+    if _aggregated(top, walked=True):
+        out[str(top) + "/"] = _tree(top, exclude)
+        return
+    for root, dirs, files in os.walk(top):
+        r = Path(root)
+        keep = []
+        for x in sorted(dirs):
+            p = r / x
+            if x in SKIP_DIRS:
+                continue
+            if p.is_symlink():
+                out[str(p)] = _link(p, exclude, frozenset())
+            elif _aggregated(p, walked=r == top and bool(re.match(r"\d+-", x))):
+                out[str(p) + "/"] = _tree(p, exclude)
+            else:
+                keep.append(x)
+        dirs[:] = keep
+        for f in sorted(files):
+            p = r / f
+            if f.startswith("GATE_") or f.endswith(".pyc") or str(p) in exclude:
+                continue
+            e = _entry(p, exclude)
+            if e is not None:
+                out[str(p)] = e
+
+
+def dossier_of(conv: Convening, h: str) -> Path:
+    return conv.folder / "f3" / h / f"{h}.md"
+
+
+def fingerprints_v2(conv: Convening, phase: str) -> dict[str, str]:
+    """The fingerprints of the rules 2: every file of the phase (code, raw outputs, archives too), a workspace, a
+    nested convening or a folder of more than FILES_PER_FOLDER files as one tree entry; the dossier of an H# is bound
+    at G4, where the arbiter completes it, not at G3."""
+    out = {}
+    exclude = set()
+    h = phase[3:] if phase[:3] in ("f3/", "f4/") else None
+    if phase == "f0":
+        out[str(conv.file("CONTRACT.md"))] = sha(conv.file("CONTRACT.md"))
+    if phase.startswith("f3/"):
+        exclude.add(str(dossier_of(conv, h)))
+    for folder in phase_folders(conv, phase):
+        _bind(folder, out, exclude)
+    if phase.startswith("f4/") and dossier_of(conv, h).is_file():
+        out[str(dossier_of(conv, h))] = sha(dossier_of(conv, h))
+    return out
+
+
+_FP: dict = {}
+
+
+def fingerprints(conv: Convening, phase: str, rules: int = 1) -> dict[str, str]:
+    key = (str(conv.folder), phase, rules)
+    if key not in _FP:
+        if re.fullmatch(r"A\d+", phase):
+            p = amendments(conv, []).get(phase)
+            _FP[key] = {str(p): sha(p)} if p else {}
+        else:
+            _FP[key] = (fingerprints_v2 if rules >= 2 else fingerprints_v1)(conv, phase)
+    return dict(_FP[key])
+
+
 def gate_file(conv: Convening, phase: str) -> Path:
     return conv.folder / f"GATE_{phase.replace('/', '_')}.json"
 
 
-def valid(conv: Convening, phase: str) -> bool:
+def read_gate(conv: Convening, phase: str) -> dict | None:
     p = gate_file(conv, phase)
-    if not p.exists():
+    return conv.read_json(p, "gate") if p.exists() else None
+
+
+def gate_rules(g: dict) -> int:
+    try:
+        return int(g.get("rules") or 1)
+    except (TypeError, ValueError):
+        return 1
+
+
+def valid(conv: Convening, phase: str, drop=()) -> bool:
+    """Whether the gate of `phase` still holds, recomputed under the rules it was approved with; `drop` leaves some
+    files out of the comparison (a dossier bound by a G3 of the rules 1, which a G4 of the rules 2 binds instead)."""
+    g = read_gate(conv, phase)
+    if g is None:
         return False
-    g = conv.read_json(p, "gate")
-    return g.get("fingerprints") == fingerprints(conv, phase)
+    old = g.get("fingerprints") or {}
+    new = fingerprints(conv, phase, gate_rules(g))
+    if drop:
+        drop = {str(x) for x in drop}
+        old = {k: v for k, v in old.items() if k not in drop}
+        new = {k: v for k, v in new.items() if k not in drop}
+    return old == new
+
+
+def g3_holds(conv: Convening, h: str, lvl: int) -> bool:
+    """G3 of `h` as a prerequisite: under the rules 2 a G3 of the rules 1 holds without its dossier (ENG-1)."""
+    if valid(conv, f"f3/{h}"):
+        return True
+    g = read_gate(conv, f"f3/{h}")
+    return lvl >= 2 and g is not None and gate_rules(g) < 2 and valid(conv, f"f3/{h}", drop={dossier_of(conv, h)})
 
 
 def _section(text: str, field: str):
@@ -1619,19 +1951,182 @@ def _early(conv: Convening, h: str) -> bool:
     return (conv.folder / "f3" / h / conv.name("EARLY_CLOSURE.json")).exists()
 
 
-def conditions(conv: Convening, phase: str, not_delivered: set[str]) -> list[str]:
+def _early_data(conv: Convening, h: str) -> dict:
+    p = conv.folder / "f3" / h / conv.name("EARLY_CLOSURE.json")
+    return conv.read_json(p, "early_closure") if p.exists() else {}
+
+
+def _blocks(text: str) -> list[list[str]]:
+    """The fields of a dossier: a line «- …» and the blank or indented lines after it."""
+    out, cur = [], None
+    for line in text.splitlines():
+        if line.startswith("- "):
+            cur = [line]
+            out.append(cur)
+        elif cur is not None and (not line.strip() or line[:1] in (" ", "\t")):
+            cur.append(line)
+        else:
+            cur = None
+    return out
+
+
+def _flat(block: list[str]) -> str:
+    return " ".join(" ".join(block).split())
+
+
+def _empty_fields(text: str, template: str | None, lvl: int = 2) -> list[str]:
+    """The empty fields of a dossier (ENG-2): a field «- X:» with nothing on its line nor on the indented lines after
+    it; under the rules 2 also a field left exactly as in the template, when the template has a line ending in «:»
+    in it (the table and the fields of two lines)."""
+    untouched = set()
+    if template and lvl >= 2:
+        untouched = {_flat(b) for b in _blocks(template) if any(x.rstrip().endswith(":") for x in b)}
+    out = []
+    for b in _blocks(text):
+        rest = [x for x in b[1:] if x.strip()]
+        if (re.match(r"^- [^|]*:\s*$", b[0]) and not rest) or _flat(b) in untouched:
+            out.append(b[0])
+    return out
+
+
+def _correctness_in(p: Path) -> str | None:
+    if not p.is_file():
+        return None
+    mt = re.search(C.CONVENE_LINES["correctness_re"], p.read_text(encoding="utf-8", errors="replace"), re.M | re.I)
+    if not mt:
+        return None
+    v = " ".join(mt.group(1).lower().split())
+    return C.LINE_VALUES["correctness"].get(v, v)
+
+
+def arbiter_verdict(conv: Convening, h: str) -> Path:
+    """The verdict of the arbiter of `h`: f4/<H#>/NN-arbitro/VERDICT.md, the folder select briefs (09-arbitro)."""
+    d = conv.folder / "f4" / h
+    folders = [x for x in sorted(d.iterdir()) if x.is_dir() and re.match(r"\d+-", x.name)
+               and _role_of(x.name) == C.ROLES["arbiter"]] if d.is_dir() else []
+    for x in folders:
+        if (x / conv.name("VERDICT.md")).is_file():
+            return x / conv.name("VERDICT.md")
+    return d / f"09-{C.ROLES['arbiter']}" / conv.name("VERDICT.md")
+
+
+def _correctness(conv: Convening, h: str) -> str | None:
+    """The canonical value of the line «Correctness: …» of the arbiter's verdict of `h`, or None: no other VERDICT.md
+    of the branch counts."""
+    return _correctness_in(arbiter_verdict(conv, h))
+
+
+def _stray_correctness(conv: Convening, h: str) -> list[Path]:
+    """The VERDICT.md files of the branch, other than the arbiter's, that carry a Correctness line."""
+    own = arbiter_verdict(conv, h)
+    return [p for p in _own(conv.folder / "f4" / h, conv.name("VERDICT.md")) if p != own and _correctness_in(p)]
+
+
+def proven(conv: Convening, h: str, warnings: list[str] | None = None, lvl: int = 1) -> bool:
+    """`h` is proven: a valid G4 and an arbiter's verdict with Correctness proven or verified. Under the rules 1 a G4
+    of the rules 1 whose verdict has no Correctness line keeps the old rule (a valid G4), with a warning; under the
+    rules 2 (`lvl`, the rules of the G5) it is not proven (ENG-6)."""
+    g = read_gate(conv, f"f4/{h}")
+    if g is None or not valid(conv, f"f4/{h}"):
+        return False
+    v = _correctness(conv, h)
+    if v is None:
+        if gate_rules(g) >= 2 or lvl >= 2:
+            return False
+        if warnings is not None:
+            warnings.append(f"{h}: «proven» taken from a G4 of the rules 1 (its verdict has no line "
+                            f"{C.CONVENE_LINES['correctness'][conv.lang]}; a G5 with --rules 2 does not take it)")
+        return True
+    return v in PROVEN
+
+
+def _role_of(folder_name: str) -> str:
+    return re.sub(r"^\d+-", "", folder_name)
+
+
+def team(conv: Convening, h: str) -> set[str]:
+    """The roles of the f3 team of `h` (its folders NN-<role>)."""
+    d = conv.folder / "f3" / h
+    return {_role_of(x.name) for x in d.iterdir() if x.is_dir() and re.match(r"\d+-", x.name)} if d.is_dir() else set()
+
+
+def sentinel_required(conv: Convening) -> bool:
+    """A classic or a full with at least two branches that have a G3 or are not closed early (PIPELINE, the
+    sentinel)."""
+    if conv.m["strategy"] not in ("classic", "full"):
+        return False
+    return len([h for h in branches(conv) if valid(conv, f"f3/{h}") or not _early(conv, h)]) >= 2
+
+
+def sentinel_found(conv: Convening) -> bool:
+    """The sentinel's deliverable, f5/00-sentinel/SENTINEL.md: f5 is bound by G5 alone, so writing it invalidates no
+    earlier gate."""
+    return any(full(conv.folder / "f5" / d / n) for d in SENTINEL_DIRS for n in SENTINEL_NAMES)
+
+
+def outcome_of(conv: Convening) -> str | None:
+    """The canonical outcome of f5/CLOSURE.md («closed» or «not closed»), or None."""
+    closure = conv.folder / "f5" / conv.name("CLOSURE.md")
+    if not closure.is_file():
+        return None
+    mt = re.search(C.CONVENE_LINES["outcome_re"], closure.read_text(encoding="utf-8", errors="replace"), re.M)
+    return C.LINE_VALUES["outcome"][mt.group(1) or mt.group(2)] if mt else None
+
+
+def _not_delivered(conv: Convening, role: str, nd: set[str]) -> bool:
+    return role in nd or conv.name(role) in nd or f"{prefix()}-{role}" in nd
+
+
+def conditions(conv: Convening, phase: str, not_delivered: set[str], lvl: int = 1) -> tuple[list[str], dict]:
+    """The errors of a gate, and what the gate records besides (the warnings; for f5 whether it closes)."""
     c, m, n = conv.folder, conv.m, conv.name
     errors = []
+    info = {"warnings": []}
+    warnings = info["warnings"]
+    amend = re.fullmatch(r"A\d+", phase)
     before = {"f1": "f0", "f2": "f1", "f5": "f2"}.get(phase)
+    if amend:
+        before = "f0"
     if phase.startswith("f3/"):
         before = "f2"
     elif phase.startswith("f4/"):
         before = "f3/" + phase[3:]
     if m["strategy"] in ("single", "fan-out") and phase == "f5":
         before = "f1"
-    if before and not valid(conv, before):
+    if before and before.startswith("f3/"):
+        if not g3_holds(conv, before[3:], lvl):
+            errors.append(f"the gate {before} is not approved or no longer valid")
+    elif before and not valid(conv, before):
         errors.append(f"the gate {before} is not approved or no longer valid")
-    if phase == "f0":
+    if lvl >= 2 and phase != "f0" and not amend:
+        found = amendments(conv)
+        for a in amendment_phases(conv):
+            if a not in found:
+                errors.append(f"the gate {a} binds an amendment that is no longer there ({n('AMENDMENT_' + a[1:] + '.md')})")
+            elif not valid(conv, a):
+                errors.append(f"the amendment {found[a].name} is not bound by a valid gate {a}: gate C {a}")
+    if amend:
+        p = amendments(conv).get(phase)
+        if p is None:
+            errors.append(f"no amendment for the gate {phase} ({n('AMENDMENT_' + phase + '.md')})")
+        elif not full(p):
+            errors.append(f"{p.name} is empty or to fill in")
+        else:
+            s = seals(conv).get(str(p))
+            if not s:
+                errors.append(f"{p.name} is not sealed: seal C {p}")
+            elif s["sha256"] != sha(p):
+                errors.append(f"{p.name} changed after the seal")
+            mt = re.search(C.CONVENE_LINES["amends_re"], p.read_text(encoding="utf-8"), re.M)
+            known = {f.lower(): f for f in CONTRACT_FIELDS} | {v.lower(): k for k, v in
+                                                              C.CONVENE_LINES["contract_fields"].items()}
+            named = [x.strip().strip(".").lower() for x in re.split(r"[,;]", mt.group(1))] if mt else []
+            if not mt or not named or any(x not in known for x in named):
+                text = (f"{p.name}: the line {C.CONVENE_LINES['amends'][conv.lang]} is missing or names no field of "
+                        f"the contract ({', '.join(CONTRACT_FIELDS)})")
+                # Under the rules 1 (an amendment written before the line existed, ENG-10) it is only a warning.
+                (errors if lvl >= 2 else warnings).append(text)
+    elif phase == "f0":
         text = conv.file("CONTRACT.md").read_text(encoding="utf-8")
         for field in CONTRACT_FIELDS:
             s = _section(text, field)
@@ -1698,25 +2193,27 @@ def conditions(conv: Convening, phase: str, not_delivered: set[str]) -> list[str
                 errors.append(f"the selection does not have the line «{C.CONVENE_LINES['countersign'][conv.lang]}»")
     elif phase.startswith("f3/") or phase.startswith("f4/"):
         h = phase[3:]
-        if h not in m["selected"] + ([m["radical"]] if m["radical"] else []):
+        if h not in all_branches(conv):
             errors.append(f"{h} is not selected")
+        elif h not in branches(conv):
+            errors.append(f"radical not funded: fund C {h}")
         if _early(conv, h):
             errors.append(f"the branch {h} is closed early: no G3 nor G4")
         folder = c / phase
         if phase.startswith("f3/"):
             for name in ("SOLUTION.md", "VERIFICATION.md", "MEASUREMENT_PLAN.md", "ATTACK.md", "PREDICTIONS.md"):
-                if not any(full(p) for p in folder.rglob(n(name))):
+                if not any(full(p) for p in _own(folder, n(name))):
                     errors.append(f"{phase}: {n(name)} is missing")
-            for p in folder.rglob(n("PREDICTIONS.md")):
+            for p in _own(folder, n("PREDICTIONS.md")):
                 if not re.search(C.CONVENE_LINES["decides_re"], p.read_text(encoding="utf-8"), re.M):
                     errors.append(f"{p.relative_to(c)}: the line {C.CONVENE_LINES['decides'][conv.lang]} is missing")
         else:
             for name in ("COUNTERCHECKS.md", "VERDICT.md"):
-                if not any(full(p) for p in folder.rglob(n(name))):
+                if not any(full(p) for p in _own(folder, n(name))):
                     errors.append(f"{phase}: {n(name)} is missing")
             sig = seals(conv)
-            checks = list(folder.rglob(n("COUNTERCHECKS.md")))
-            for p in folder.rglob(n("PREDICTIONS.md")):
+            checks = _own(folder, n("COUNTERCHECKS.md"))
+            for p in _own(folder, n("PREDICTIONS.md")):
                 s = sig.get(str(p))
                 if not s:
                     errors.append(f"{p.relative_to(c)} born in f4 is not sealed")
@@ -1724,27 +2221,104 @@ def conditions(conv: Convening, phase: str, not_delivered: set[str]) -> list[str
                     errors.append(f"{p.relative_to(c)} changed after the seal, not only at the end")
                 elif any(q.stat().st_mtime < _iso(s["time"]) for q in checks):
                     errors.append(f"{p.relative_to(c)} is sealed after the counterchecks")
-            dossier = c / "f3" / h / f"{h}.md"
+            dossier = dossier_of(conv, h)
             if dossier.exists():
-                empty = [r for r in dossier.read_text(encoding="utf-8").splitlines() if re.match(r"^- [^|]*:\s*$", r)]
+                try:
+                    template = hypothesis_card().replace("H-000", h)
+                except (Error, OSError):
+                    template = None
+                empty = _empty_fields(dossier.read_text(encoding="utf-8"), template, lvl)
                 if empty:
                     errors.append(f"the dossier {h} has {len(empty)} empty fields (one writes «missing»)")
             else:
                 errors.append(f"the dossier {dossier.relative_to(c)} is missing")
+            if lvl >= 2:
+                errors += _g4_rules2(conv, h, folder, not_delivered, warnings)
     elif phase == "f5":
         closure = c / "f5" / n("CLOSURE.md")
+        outcome = None
         if not full(closure):
             errors.append(f"f5/{n('CLOSURE.md')} of the arbiter is missing")
-        elif not re.search(C.CONVENE_LINES["outcome_re"], closure.read_text(encoding="utf-8"), re.M):
-            errors.append(f"{n('CLOSURE.md')} without the line {C.CONVENE_LINES['outcome'][conv.lang]}")
+        else:
+            outcome = outcome_of(conv)
+            if outcome is None:
+                errors.append(f"{n('CLOSURE.md')} without the line {C.CONVENE_LINES['outcome'][conv.lang]}")
+        info["closed"] = outcome == "closed"
         if m["strategy"] not in ("single", "fan-out"):
-            branches = m["selected"] + ([m["radical"]] if m["radical"] else [])
-            proven = [h for h in branches if valid(conv, f"f4/{h}")]
-            open_ = [h for h in branches if h not in proven and not _early(conv, h)]
-            if open_:
-                errors.append(f"branches without a valid G4 nor an early closure: {', '.join(open_)}")
-            if branches and not proven:
-                errors.append("no H# proven: the cycle does not close with a G5")
+            bs = branches(conv)
+            proven_ = [h for h in bs if proven(conv, h, warnings, lvl)]
+            open_ = [h for h in bs if not valid(conv, f"f4/{h}") and not _early(conv, h)]
+            r = m.get("radical")
+            if lvl >= 2 and r and r not in bs and not _early(conv, r):
+                open_.append(r)   # a radical recorded and never funded nor closed (ENG-8)
+            if outcome == "not closed":
+                unnamed = [h for h in open_ if h not in ids_in(closure)]
+                if unnamed:
+                    errors.append(f"branches without a valid G4 nor an early closure, not named in "
+                                  f"{n('CLOSURE.md')}: {', '.join(unnamed)}")
+            else:
+                if open_:
+                    errors.append(f"branches without a valid G4 nor an early closure: {', '.join(open_)}")
+                if bs and not proven_:
+                    errors.append("Outcome: closed but no H# proven by its verdict (Correctness proven or verified): "
+                                  "the cycle does not close; a recorded non-closure has the other line of "
+                                  f"{C.CONVENE_LINES['outcome'][conv.lang]}")
+                    if lvl >= 2:
+                        for h in bs:
+                            g = read_gate(conv, f"f4/{h}")
+                            if g and gate_rules(g) < 2 and valid(conv, f"f4/{h}") and _correctness(conv, h) is None:
+                                errors.append(f"{h}: the verdict of its G4 of the rules 1 has no line "
+                                              f"{C.CONVENE_LINES['correctness'][conv.lang]}: add it to "
+                                              f"{arbiter_verdict(conv, h).relative_to(c)} and gate f4/{h} --rules 2")
+            if lvl >= 2:
+                text = closure.read_text(encoding="utf-8") if closure.is_file() else ""
+                if sentinel_required(conv) and not sentinel_found(conv) and not re.search(
+                        C.CONVENE_LINES["declared_missing_re"], text, re.M | re.I):
+                    errors.append(f"the sentinel is missing: f5/{n('00-sentinel')}/{n('SENTINEL.md')}, or the line "
+                                  f"{C.CONVENE_LINES['declared_missing'][conv.lang]} in {n('CLOSURE.md')}")
+                for h in all_branches(conv):
+                    e = _early_data(conv, h)
+                    if e.get("status") == "declared unresolved" and not (e.get("deciding_test") or "").strip():
+                        errors.append(f"{h}: declared unresolved without the test that would decide it "
+                                      f"({n('EARLY_CLOSURE.json')}): close-branch C {h} --reason … --deciding-test "
+                                      f"TEXT adds it")
+    return errors, info
+
+
+def _g4_rules2(conv: Convening, h: str, folder: Path, nd: set[str], warnings: list[str]) -> list[str]:
+    """The conditions of a G4 under the rules 2: the Correctness line (ENG-6), every briefed role delivered (ENG-7a),
+    V2 by a role outside the f3 team on a proven result (ENG-7b); a warning without the sentinel (ENG-5)."""
+    n = conv.name
+    errors = []
+    v = _correctness(conv, h)
+    if v is None:
+        errors.append(f"{arbiter_verdict(conv, h).relative_to(conv.folder)} without the line "
+                      f"{C.CONVENE_LINES['correctness'][conv.lang]}")
+    for p in _stray_correctness(conv, h):
+        errors.append(f"{p.relative_to(conv.folder)}: only the arbiter's verdict carries the line "
+                      f"{C.CONVENE_LINES['correctness'][conv.lang]}")
+    is_proven = v in PROVEN
+    skip = {n("TASK.md"), *STATUS_NAMES}
+    for d in sorted(folder.iterdir()) if folder.is_dir() else []:
+        if not d.is_dir() or not re.match(r"\d\d-", d.name) or not (d / n("TASK.md")).is_file():
+            continue
+        role = _role_of(d.name)
+        if _not_delivered(conv, role, nd) or (d.name.startswith("08-") and not is_proven):
+            continue
+        if not any(full(p) for p in _own_files(d) if p.suffix == ".md" and p.name not in skip):
+            errors.append(f"{d.relative_to(conv.folder)}: no deliverable of {role} (or --not-delivered {role})")
+    if is_proven:
+        f3_team = team(conv, h)
+        audits = [p for p in _own(folder, *HIDDEN_NAMES) if full(p) and len(p.relative_to(folder).parts) >= 2
+                  and re.match(r"\d+-", p.relative_to(folder).parts[0])
+                  and _role_of(p.relative_to(folder).parts[0]) not in f3_team]
+        if not audits:
+            errors.append(f"V2 missing on a proven result: {n('HIDDEN_ASSUMPTIONS.md')} under f4/{h}, by a role "
+                          f"outside the f3 team ({', '.join(sorted(f3_team))})")
+    if sentinel_required(conv) and not sentinel_found(conv):
+        warnings.append(f"no sentinel yet (f5/{n('00-sentinel')}/{n('SENTINEL.md')}): G5 will require it" if
+                        level(conv) >= 2 else f"no sentinel yet (f5/{n('00-sentinel')}/{n('SENTINEL.md')}): a G5 "
+                        f"under the rules 2 (--rules 2) would require it")
     return errors
 
 
@@ -1762,22 +2336,37 @@ def _tail_only(p: Path, s: dict) -> bool:
 def gate(ns) -> None:
     conv = Convening.load(Path(ns.C).resolve())
     phase = ns.phase
-    if not re.fullmatch(r"f[0125]|f[34]/H-\d{3}", phase):
+    mt = re.fullmatch(r"[Aa]?(\d+)", phase)
+    if mt:
+        phase = f"A{int(mt.group(1))}"
+    if not re.fullmatch(r"f[0125]|f[34]/H-\d{3}|A\d+", phase):
         raise Error(f"unknown phase: {phase}")
+    lvl = max(level(conv), ns.rules or 1)
     nd = {r.strip() for r in (ns.not_delivered or "").split(",") if r.strip()}
-    errors = conditions(conv, phase, nd)
+    errors, info = conditions(conv, phase, nd, lvl)
     if errors:
         print(T("gate_refused", phase=phase))
         for e in errors:
             print(f"  - {e}")
         sys.exit(1)
+    for w in info["warnings"]:
+        print(T("gate_warning", text=w))
     if ns.verify:
         print(T("gate_holds", phase=phase))
         return
     g = {"phase": phase, "time": now(), "notes": ns.notes, "not_delivered": sorted(nd),
-         "fingerprints": fingerprints(conv, phase)}
+         "fingerprints": fingerprints(conv, phase, lvl)}
+    if lvl >= 2:   # a gate of the rules 1 keeps the keys of 5.0, so that an engine of 5.x still reads it
+        g["rules"] = lvl
+        if phase == "f5":
+            g["closed"] = info.get("closed", False)
+        if info["warnings"]:
+            g["warnings"] = info["warnings"]
     conv.write_json(gate_file(conv, phase), g, "gate")
-    print(T("gate_approved", phase=phase, n=len(g["fingerprints"])))
+    if phase == "f5" and not info.get("closed", False):
+        print(T("gate_approved_not_closed", phase=phase, n=len(g["fingerprints"])))
+    else:
+        print(T("gate_approved", phase=phase, n=len(g["fingerprints"])))
 
 
 def hypothesis_card() -> str:
@@ -1786,6 +2375,114 @@ def hypothesis_card() -> str:
         if p.is_file():
             return p.read_text(encoding="utf-8")
     raise Error(f"the hypothesis card is missing in {BASE}: bash swarmer/swarmer.sh regenerate")
+
+
+def base_inputs(conv: Convening) -> list[Path]:
+    """The inputs every brief of a branch reads: the contract, its gated amendments, the cards, the triage, the
+    tournament."""
+    c, n = conv.folder, conv.name
+    return ([conv.file("CONTRACT.md")] + gated_amendments(conv)
+            + [c / "f2" / n("01-translation") / n("CARDS.md"), c / "f2" / n("03-triage") / n("TRIAGE.md"),
+               c / "f2" / n("04-tournament") / n("TOURNAMENT.md")])
+
+
+def owner_of(conv: Convening, h: str, prof: dict) -> str:
+    """The owner of a branch: the role of its folder f3/<H>/01-<role>, otherwise the first f3 role of the profile."""
+    d = conv.folder / "f3" / h
+    found = sorted(x.name[3:] for x in d.iterdir() if x.is_dir() and x.name.startswith("01-")) if d.is_dir() else []
+    return found[0] if found else prof["f3"][0]
+
+
+def _branch_briefs(conv: Convening, h: str, owner_id: str | None, prof: dict, write: bool = True) -> dict[Path, str]:
+    """The dossier and the briefs of the branch `h` (f3 and f4): written, or only returned (TASK path → text)."""
+    c, n = conv.folder, conv.name
+    base_in = base_inputs(conv)
+    f3, f4 = c / "f3" / h, c / "f4" / h
+    if write:
+        f3.mkdir(parents=True, exist_ok=True)
+        (f3 / f"{h}.md").write_text(hypothesis_card().replace("H-000", h), encoding="utf-8")
+    owner = owner_id or prof["f3"][0]
+    check = next((r for r in prof["f3"][1:] if r not in (C.ROLES["adversary"], C.ROLES["metrologist"], owner)), C.ROLES["logician"])
+    adv, dbg, arb = C.ROLES["adversary"], C.ROLES["debugger"], C.ROLES["arbiter"]
+    inv = C.ROLES["inverter"]
+    sol = f3 / f"01-{owner}" / n("SOLUTION.md")
+    checks = f4 / f"01-{adv}" / n("COUNTERCHECKS.md")
+    defects = f4 / "02-debugger" / n("DEFECTS.md")
+    auditor = inv if inv not in (owner, check, C.ROLES["metrologist"], adv) else dbg
+    plan = [
+        (f3 / f"01-{owner}", owner, "f3", "SOLUTION.md", mission("owner_solution", h=h), base_in, LIMIT_BRANCH),
+        (f3 / f"02-{check}", check, "f3", "VERIFICATION.md", mission("proof", h=h), base_in + [sol], LIMIT_BRANCH),
+        (f3 / f"03-{C.ROLES['metrologist']}", C.ROLES["metrologist"], "f3", "MEASUREMENT_PLAN.md",
+         mission("measurement_plan", h=h), base_in + [sol], 30),
+        (f3 / f"04-{adv}", adv, "f3", "ATTACK.md", mission("attack", h=h), base_in + [sol], 30),
+        (f4 / f"00-{owner}", owner, "f4", "REVISION.md", mission("owner_revision", h=h),
+         base_in + [f3, f4 / f"01-{adv}", f4 / "02-debugger"], LIMIT_BRANCH),
+        (f4 / f"01-{adv}", adv, "f4", "COUNTERCHECKS.md", mission("counterchecks", h=h), base_in + [f3], LIMIT_BRANCH),
+        (f4 / "02-debugger", dbg, "f4", "DEFECTS.md", mission("defects", h=h), base_in + [f3, f4 / f"01-{adv}"],
+         LIMIT_F1),
+    ]
+    for i, role in enumerate([r for r in prof["f4"] if r not in (adv, dbg)], start=3):
+        plan.append((f4 / f"{i:02d}-{role}", role, "f4", "MEASUREMENTS.md", mission("proof_contribution", h=h),
+                     base_in + [f3, f4 / f"01-{adv}"], LIMIT_F1))
+    plan += [
+        (f4 / f"08-{auditor}", auditor, "f4", "HIDDEN_ASSUMPTIONS.md", mission("hidden_assumption_audit", h=h),
+         base_in + [f3, checks, defects], 30),
+        (f4 / f"09-{arb}", arb, "f4", "VERDICT.md", mission("verdict", h=h, dossier=f3 / f"{h}.md"),
+         base_in + [f3, f4], 30),
+    ]
+    out = {}
+    for folder, role, phase, output, text, inputs, minutes in plan:
+        if write:
+            brief(conv, folder, role, phase, output, text, inputs, minutes=minutes, h=h)
+        out[folder / n("TASK.md")] = brief_text(conv, folder, role, phase, output, text, inputs, minutes=minutes, h=h)
+    return out
+
+
+def _sentinel_brief(conv: Convening, cat: dict) -> Path | None:
+    """The brief of the sentinel (ENG-5), in a classic or a full with at least two funded branches: a role drawn
+    with the seed among those in no lane of f1 and in no branch team."""
+    c, m, n = conv.folder, conv.m, conv.name
+    bs = branches(conv)
+    if m["strategy"] not in ("classic", "full") or len(bs) < 2:
+        return None
+    used = set(m["f1"]) | {C.ROLES["arbiter"]}
+    for h in bs:
+        for f in (c / "f3" / h, c / "f4" / h):
+            if f.is_dir():
+                used |= {_role_of(x.name) for x in f.iterdir() if x.is_dir() and re.match(r"\d+-", x.name)}
+    free = [r for r in cat["roles"] if r["id"] not in used]
+    pool = sorted(r["id"] for r in free if r.get("type", "professional") == "professional") or sorted(
+        r["id"] for r in free) or [C.ROLES["logician"]]
+    role = random.Random(m["seed"]).choice(pool)
+    inputs = ([conv.file("CONTRACT.md")] + gated_amendments(conv)
+              + [c / "f2" / n("05-selection") / n("SELECTION.md"), c / "f3", c / "f4"])
+    return brief(conv, c / "f5" / n("00-sentinel"), role, "f5", "SENTINEL.md", mission("sentinel"), inputs, minutes=20)
+
+
+def _closure_brief(conv: Convening) -> Path:
+    """The brief of the closure (ENG-9): every input the arbiter needs, and the output where G5 looks for it."""
+    c, m, n = conv.folder, conv.m, conv.name
+    try:
+        prof = catalog()["profiles"].get(m["profile"], {"f3": [C.ROLES["logician"]]})
+    except (Error, OSError, ValueError):
+        prof = {"f3": [C.ROLES["logician"]]}
+    inputs = [conv.file("CONTRACT.md")] + gated_amendments(conv) + [
+        c / "f2" / n("05-selection") / n("SELECTION.md")]
+    for h in all_branches(conv):
+        if _early(conv, h):
+            inputs.append(c / "f3" / h / n("EARLY_CLOSURE.json"))
+        elif h in branches(conv):
+            # The revision and the sentinel only where they were briefed (a convening of 5.0 has neither).
+            revision = c / "f4" / h / f"00-{owner_of(conv, h, prof)}"
+            inputs += [dossier_of(conv, h)] + ([revision / n("REVISION.md")] if (revision / n("TASK.md")).is_file()
+                                               else []) + [arbiter_verdict(conv, h)]
+    sentinel = c / "f5" / n("00-sentinel")
+    if m["strategy"] in ("classic", "full") and len(branches(conv)) >= 2 and (sentinel / n("TASK.md")).is_file():
+        inputs.append(sentinel / n("SENTINEL.md"))
+    inputs += [c / "GATE_*.json", c / "f3", c / "f4"]
+    closure = c / "f5" / n("CLOSURE.md")
+    return brief(conv, c / "f5" / f"01-{C.ROLES['arbiter']}", C.ROLES["arbiter"], "f5", "CLOSURE.md",
+                 mission("closure", closure_file=closure), inputs, minutes=30, output_path=closure)
 
 
 def select(ns) -> None:
@@ -1809,75 +2506,161 @@ def select(ns) -> None:
     owner_id = _role_id(ns.owner) if ns.owner else None
     if owner_id and owner_id not in {r["id"] for r in cat["roles"]}:
         raise Error(f"unknown role: {ns.owner}")
-    template = hypothesis_card()
-    base_in = [conv.file("CONTRACT.md"), c / "f2" / n("01-translation") / n("CARDS.md"),
-               c / "f2" / n("03-triage") / n("TRIAGE.md"), c / "f2" / n("04-tournament") / n("TOURNAMENT.md")]
-    for h in chosen + ([radical] if radical else []):
-        f3, f4 = c / "f3" / h, c / "f4" / h
-        f3.mkdir(parents=True, exist_ok=True)
-        (f3 / f"{h}.md").write_text(template.replace("H-000", h), encoding="utf-8")
-        owner = owner_id or prof["f3"][0]
-        check = next((r for r in prof["f3"][1:] if r not in (C.ROLES["adversary"], C.ROLES["metrologist"], owner)), C.ROLES["logician"])
-        sol = f3 / f"01-{owner}" / n("SOLUTION.md")
-        brief(conv, f3 / f"01-{owner}", owner, "f3", "SOLUTION.md", mission("owner_solution", h=h), base_in,
-              minutes=LIMIT_BRANCH, h=h)
-        brief(conv, f3 / f"02-{check}", check, "f3", "VERIFICATION.md", mission("proof", h=h), base_in + [sol],
-              minutes=LIMIT_BRANCH, h=h)
-        brief(conv, f3 / f"03-{C.ROLES['metrologist']}", C.ROLES["metrologist"], "f3", "MEASUREMENT_PLAN.md", mission("measurement_plan", h=h),
-              base_in + [sol], minutes=30, h=h)
-        brief(conv, f3 / f"04-{C.ROLES['adversary']}", C.ROLES["adversary"], "f3", "ATTACK.md", mission("attack", h=h), base_in + [sol],
-              minutes=30, h=h)
-        brief(conv, f4 / f"01-{C.ROLES['adversary']}", C.ROLES["adversary"], "f4", "COUNTERCHECKS.md", mission("counterchecks", h=h),
-              base_in + [f3], minutes=LIMIT_BRANCH, h=h)
-        brief(conv, f4 / "02-debugger", C.ROLES["debugger"], "f4", "DEFECTS.md", mission("defects", h=h),
-              base_in + [f3, f4 / f"01-{C.ROLES['adversary']}"], h=h)
-        for i, role in enumerate([r for r in prof["f4"] if r not in (C.ROLES["adversary"], C.ROLES["debugger"])], start=3):
-            brief(conv, f4 / f"{i:02d}-{role}", role, "f4", "MEASUREMENTS.md", mission("proof_contribution", h=h),
-                  base_in + [f3, f4 / f"01-{C.ROLES['adversary']}"], h=h)
-        brief(conv, f4 / f"09-{C.ROLES['arbiter']}", C.ROLES["arbiter"], "f4", "VERDICT.md", mission("verdict", h=h, dossier=f3 / f"{h}.md"),
-              base_in + [f3, f4], minutes=30, h=h)
+    hypothesis_card()
+    lvl = level(conv)
+    # Under the rules 2 the radical is only recorded: `fund` briefs it (ENG-8).
+    for h in chosen + ([radical] if radical and lvl < 2 else []):
+        _branch_briefs(conv, h, owner_id, prof)
     m["selected"], m["radical"] = chosen, radical
+    if lvl >= 2:
+        if radical:
+            m["radical_funded"] = False
+        else:
+            m.pop("radical_funded", None)
     conv.save()
-    brief(conv, c / "f5" / f"01-{C.ROLES['arbiter']}", C.ROLES["arbiter"], "f5", "CLOSURE.md",
-          mission("closure", closure_file=c / "f5" / n("CLOSURE.md")), [conv.file("CONTRACT.md"), c / "f3", c / "f4"],
-          minutes=30)
-    print(T("branches_open", ids=", ".join(chosen + ([radical] if radical else []))))
+    _sentinel_brief(conv, cat)
+    _closure_brief(conv)
+    print(T("branches_open", ids=", ".join(branches(conv))))
+    if radical and not funded(conv):
+        print(T("radical_recorded", h=radical))
+
+
+def fund(ns) -> None:
+    """Briefs the radical branch, recorded by select under the rules 2 (ENG-8)."""
+    conv = Convening.load(Path(ns.C).resolve())
+    m = conv.m
+    h = norm_id(ns.hypothesis)
+    if m["strategy"] in ("single", "fan-out"):
+        raise Error("in the single and in the fan-out there are no branches to fund")
+    if not valid(conv, "f2"):
+        raise Error("the gate f2 is not approved or no longer valid")
+    if h != m.get("radical"):
+        raise Error(f"{h} is not the radical branch of the selection")
+    if read_gate(conv, "f5") is not None:
+        raise Error("the convening has its gate f5: no branch is funded after it")
+    if funded(conv):
+        raise Error(f"{h} is already funded")
+    if _early(conv, h):
+        raise Error(f"{h} is already closed")
+    cat = catalog()
+    prof = cat["profiles"][m["profile"]]
+    owner_id = _role_id(ns.owner) if ns.owner else None
+    if owner_id and owner_id not in {r["id"] for r in cat["roles"]}:
+        raise Error(f"unknown role: {ns.owner}")
+    _branch_briefs(conv, h, owner_id, prof)
+    m["radical_funded"] = True
+    conv.save()
+    _sentinel_brief(conv, cat)
+    _closure_brief(conv)
+    print(T("branch_funded", h=h))
+    notice = translation_notice(cat, BRIEFED)
+    if notice:
+        print(notice)
+
+
+def _remove_unused_briefs(conv: Convening, h: str) -> None:
+    """After an early closure, the f3/f4 folders of `h` that hold only the TASK.md the engine wrote, unchanged."""
+    try:
+        prof = catalog()["profiles"][conv.m["profile"]]
+    except (Error, OSError, KeyError, ValueError):
+        return
+    expected = _branch_briefs(conv, h, owner_of(conv, h, prof), prof, write=False)
+    for task, text in expected.items():
+        d = task.parent
+        if not d.is_dir() or d.is_symlink():
+            continue
+        files = [p for p in d.rglob("*") if not p.is_dir()]
+        if files == [task] and task.read_text(encoding="utf-8", errors="replace") == text:
+            shutil.rmtree(d)
+    f4 = conv.folder / "f4" / h
+    if f4.is_dir() and not any(f4.iterdir()):
+        f4.rmdir()
 
 
 def close_branch(ns) -> None:
     conv = Convening.load(Path(ns.C).resolve())
     m = conv.m
     h = norm_id(ns.hypothesis)
-    if h not in m["selected"] + ([m["radical"]] if m["radical"] else []):
+    if h not in all_branches(conv):
         raise Error(f"{h} is not selected")
+    if read_gate(conv, "f5") is not None:
+        raise Error("the convening has its gate f5: no branch is closed after it")
+    p = conv.folder / "f3" / h / conv.name("EARLY_CLOSURE.json")
+    test = (ns.deciding_test or "").strip()
+    if p.exists():
+        # A closure declared unresolved before --deciding-test existed (5.0) gets its test, and nothing else changes.
+        data = _early_data(conv, h)
+        if data.get("status") == "declared unresolved" and not (data.get("deciding_test") or "").strip() and test:
+            data["deciding_test"] = test
+            conv.write_json(p, data, "early_closure")
+            print(T("deciding_test_added", h=h))
+            if m["strategy"] in ("classic", "full"):
+                _closure_brief(conv)
+            return
+        raise Error(f"{h} is already closed")
     if valid(conv, f"f3/{h}"):
         raise Error(f"{h} already has a G3: the early closure holds only before")
-    p = conv.folder / "f3" / h / conv.name("EARLY_CLOSURE.json")
-    if p.exists():
-        raise Error(f"{h} is already closed")
-    conv.write_json(p, {"time": now(), "hypothesis": h, "reason": ns.reason, "status": "declared unresolved"},
-                    "early_closure")
-    print(T("branch_closed", h=h))
+    data = {"time": now(), "hypothesis": h, "reason": ns.reason}
+    if h not in branches(conv):
+        p.parent.mkdir(parents=True, exist_ok=True)
+        data["status"] = "not funded"
+        conv.write_json(p, data, "early_closure")
+        print(T("branch_not_funded", h=h))
+    else:
+        if level(conv) >= 2 and not test:
+            raise Error(f"{h} is funded: under the rules 2 it closes early only with --deciding-test TEXT, the test "
+                        f"that would decide it")
+        data["status"] = "declared unresolved"
+        if test:
+            data["deciding_test"] = test
+        conv.write_json(p, data, "early_closure")
+        if level(conv) >= 2:   # under the rules 1 the briefs stay, as in 5.0
+            _remove_unused_briefs(conv, h)
+        print(T("branch_closed", h=h))
+    if m["strategy"] in ("classic", "full"):
+        _closure_brief(conv)
 
 
 def status(ns) -> None:
     conv = Convening.load(Path(ns.C).resolve())
     m = conv.m
+    lvl = level(conv)
     print(T("status_head", name=m["name"], strategy=shown("strategy", m["strategy"]),
             profile=shown("profile", m["profile"])))
-    phases = ["f0", "f1"] + ([] if m["strategy"] in ("single", "fan-out") else ["f2"])
-    for h in m["selected"] + ([m["radical"]] if m["radical"] else []):
-        phases += [f"f3/{h}", f"f4/{h}"]
+    phases = ["f0"]
+    clashes = []
+    phases += [a for a in amendment_phases(conv, clashes) if lvl >= 2 or gate_file(conv, a).exists()]
+    for x in clashes:
+        print(T("status_clash", text=x))
+    phases += ["f1"] + ([] if m["strategy"] in ("single", "fan-out") else ["f2"])
+    for h in all_branches(conv):
+        phases += [f"f3/{h}"] + ([f"f4/{h}"] if h in branches(conv) else [])
     if m["strategy"] not in ("single", "fan-out"):
         phases.append("f5")
     for phase in phases:
         if phase.startswith("f3/") and _early(conv, phase[3:]):
             print(T("status_early", phase=phase))
             continue
-        if not gate_file(conv, phase).exists():
+        if phase.startswith("f3/") and phase[3:] not in branches(conv):
+            print(T("status_not_funded", phase=phase, h=phase[3:]))
+            continue
+        g = read_gate(conv, phase)
+        if g is None:
             print(T("status_pending", phase=phase))
+            continue
+        if phase.startswith("f3/"):
+            # A G3 of the rules 1 holds without its dossier once its G4 was approved under the rules 2 (ENG-1).
+            g4 = read_gate(conv, "f4/" + phase[3:])
+            ok = g3_holds(conv, phase[3:], max(lvl, gate_rules(g4) if g4 else 1))
         else:
-            print(T("status_approved" if valid(conv, phase) else "status_invalid", phase=phase))
+            ok = valid(conv, phase)
+        closed = g.get("closed")
+        if closed is None and phase == "f5" and gate_rules(g) < 2:
+            closed = outcome_of(conv) != "not closed"   # a G5 of the rules 1 records no «closed»
+        if ok and phase == "f5" and closed is False:
+            print(T("status_not_closed", phase=phase))
+        else:
+            print(T("status_approved" if ok else "status_invalid", phase=phase))
 
 
 def build_parser(al: dict) -> argparse.ArgumentParser:
@@ -1904,6 +2687,8 @@ def build_parser(al: dict) -> argparse.ArgumentParser:
     A.arg(q, al, "--notes", required=True)
     A.arg(q, al, "--not-delivered")
     A.arg(q, al, "--verify", action="store_true")
+    A.arg(q, al, "--rules", type=int, choices=(1, 2),
+          help="the rules of this gate, when higher than the convening's (gate_rules in the manifest)")
     q = add("seal")
     q.add_argument("C")
     q.add_argument("file", nargs="+")
@@ -1912,10 +2697,16 @@ def build_parser(al: dict) -> argparse.ArgumentParser:
     q.add_argument("hypotheses", nargs="+")
     A.arg(q, al, "--radical")
     A.arg(q, al, "--owner", metavar="ID")
+    q = add("fund")
+    q.add_argument("C")
+    q.add_argument("hypothesis")
+    A.arg(q, al, "--owner", metavar="ID")
     q = add("close-branch")
     q.add_argument("C")
     q.add_argument("hypothesis")
     A.arg(q, al, "--reason", required=True)
+    A.arg(q, al, "--deciding-test", help="the test that would decide the branch (required under the rules 2 for a "
+                                         "funded branch)")
     q = add("status")
     q.add_argument("C")
     return p
@@ -1925,7 +2716,7 @@ def main(argv=None) -> None:
     al = A.load(BASE)
     ns = build_parser(al).parse_args(sys.argv[1:] if argv is None else argv)
     commands = {"roles": roles, "prepare": prepare, "snapshot": snapshot, "gate": gate, "seal": seal,
-                "select": select, "close-branch": close_branch, "status": status}
+                "select": select, "fund": fund, "close-branch": close_branch, "status": status}
     try:
         commands[ns.command](ns)
     except (C.Error, OSError, ValueError) as e:
@@ -12032,16 +12823,19 @@ You are at the root of the user's project. The agents have the tools and permiss
 | `roles [--question TEXT]` | the roles with the core; with `--question`, only those whose keywords appear in the text, and the profiles |
 | `prepare --name N --strategy S --profile P --question TEXT [--roles a,b] [--dest D] [--seed N] [--n N --form F --rule R]` | the skeleton: `MANIFEST.json`, `CONTRACT.md` to fill in, the phase folders, the briefs of f0 and f1 (lanes with random names, with the canary); prints the path of the lane map, which is yours alone |
 | `snapshot C` | as soon as the lanes have delivered, before reading them: records whether each file was read after its last write |
-| `gate C PHASE --notes TEXT [--not-delivered …] [--verify]` | checks the gate conditions (f0, f1, f2, f3/H-001, f4/H-001, f5) and writes `GATE_<phase>.json` with the sha256 of the files; `--verify` redoes the checks without writing |
-| `seal C FILE…` | time and sha256 in `SEALS.jsonl`: the triage after the signatures, the predictions born in f4 before their tests |
-| `select C H-001 [H-002 H-003] [--radical H-00x] [--owner ID]` | after G2, only H# from the triage: opens the f3 and f4 branches with the briefs and the dossier; `--owner` changes the role that writes the solution (normally the first of f3 in the profile) |
-| `close-branch C H-00x --reason TEXT` | closes a branch before G3 as "declared unresolved" |
+| `gate C PHASE --notes TEXT [--not-delivered …] [--verify] [--rules 2]` | checks the gate conditions (f0, A1 for an amendment, f1, f2, f3/H-001, f4/H-001, f5) and writes `GATE_<phase>.json` with the sha256 of the files and the rules it was checked under; `--verify` redoes the checks without writing; `--rules 2` applies the rules 2 of the gates to this gate of an older convening |
+| `seal C FILE…` | time and sha256 in `SEALS.jsonl`: the triage after the signatures, the amendments, the predictions born in f4 before their tests |
+| `select C H-001 [H-002 H-003] [--radical H-00x] [--owner ID]` | after G2, only H# from the triage: opens the f3 and f4 branches with the briefs and the dossier, and writes the briefs of the sentinel and of the closure; under the rules 2 the radical is only recorded; `--owner` changes the role that writes the solution (normally the first of f3 in the profile) |
+| `fund C H-00x [--owner ID]` | under the rules 2: gives the radical branch its dossier and its briefs |
+| `close-branch C H-00x --reason TEXT [--deciding-test TEXT]` | closes a branch before G3: a radical never funded as "not funded"; a funded branch as "declared unresolved", with the test that would decide it (required under the rules 2); on a branch already declared unresolved without a test, `--deciding-test` adds it |
 | `status C` | where each phase and each branch stands |
 
 The script uses only the standard library, launches no agents and approves nothing on its own. A convening keeps the
 language it was born in: an Italian one (`MANIFESTO.json`, `CONTRATTO.md`, `CONSEGNA.md`, `f1/agente-<k>/`) keeps its
 Italian names in an English installation too, and its lines are read in both languages (`Outcome: closed` or
-`Esito: chiuso`, `decides: yes` or `decide: sì`, `Countersign: arbitro` or `Controfirma: arbitro`).
+`Esito: chiuso`, `decides: yes` or `decide: sì`, `Countersign: arbitro` or `Controfirma: arbitro`, `Correctness: proven`
+or `Correttezza: dimostrata`, `Amends: Budget` or `Modifica: Quota`, `Declared missing: sentinel: …` or
+`Dichiarato mancante: sentinella: …`).
 
 ## Who orchestrates by themselves (a model reached via API, without subagents)
 
@@ -12147,8 +12941,10 @@ the agent does not start: after the change, `bash swarmer/swarmer.sh check`.
 #==== swarmer.sh: file docs/en/HYPOTHESIS_CARD.md ====
 # Dossier of a hypothesis (the template: one is made for each H#)
 
-`convene.py select` copies it into `f3/<H#>/<H#>.md`. The arbiter completes it with the verdict, field by field, with a
-reference to the team's file that supports it. An empty field is written "missing", not omitted.
+`convene.py select` copies it into `f3/<H#>/<H#>.md` (`fund`, for the radical branch). The arbiter completes it with the
+verdict, field by field, with a reference to the team's file that supports it. An empty field is written "missing",
+not omitted; a field may continue on the indented lines below it. The dossier is bound at gate G4.
+Proven = proven or verified (the line «Correctness: …» of `VERDICT.md`).
 
 ## Identity and contract
 
@@ -12752,7 +13548,7 @@ A failure stops the branch and preserves its counterexample.
   3. the counterexamples;
   4. the arbiter's consolidation.
 - The arbiter closes only if these three conditions hold:
-  - at least one H# proved;
+  - at least one H# proved (Correctness proven or verified in its verdict);
   - no open contradiction on an adopted conclusion;
   - every prediction resolved, or declared unresolved with the test that would decide it.
 
@@ -13011,11 +13807,37 @@ approval makes the gate invalid. A gate is not approved because the files exist.
 | gate | conditions |
 |---|---|
 | G0 | complete contract: question, criterion, inputs, constraints, quota, profile |
+| GA (per amendment) | after G0, the amendment sealed and, under the rules 2, with the line «Amends: <fields of the contract>» (under the rules 1 its absence is a warning); it binds the amendment alone, so the contract and G0 stay as they are |
 | G1 | deliverables from all the lanes (or "not delivered" after two stops), no canary of one lane in the other, the snapshot of the reads taken before reading |
 | G2 | authors' signatures before the triage seal, seal before the tournament, selection only among the triage's H#, the arbiter's countersignature |
-| G3 (per H#) | solution, verification, measurement plan and predictions frozen; the thresholds reachable and with a test that can decide them |
-| G4 (per H#) | counter-tests before any cost; classes in order; predictions sealed before their tests; anomalies explained or declared; dossier complete |
-| G5 | the arbiter's closure conditions and the four verifications of the foundational results |
+| G3 (per H#) | solution, verification, measurement plan and predictions frozen; the thresholds reachable and with a test that can decide them; the dossier excluded (it is bound at G4) |
+| G4 (per H#) | counter-tests before any cost; classes in order; predictions sealed before their tests; anomalies explained or declared; dossier complete and bound; under the rules 2, the line «Correctness: …» in the verdict, a deliverable from every role with a brief (the statistician too) or its "not delivered", and V2 (`HIDDEN_ASSUMPTIONS.md`) in the folder of a role outside the f3 team when correctness is proven or verified; the line only in the arbiter's verdict |
+| G5 | the arbiter's closure conditions and the four verifications of the foundational results. «Outcome: closed» needs at least one H# proven (Correctness proven or verified in the arbiter's verdict) and every branch with a G4 or an early closure (under the rules 2 a radical never funded too: closed as "not funded"); «Outcome: not closed» is approved as a recorded non-closure that names the open branches, and the convening stays not closed. Under the rules 2, also the sentinel (or «Declared missing: sentinel: <reason>») and the deciding test of every branch declared unresolved |
+
+**The rules of the gates.** The conditions and the files a gate binds have a version, the `gate_rules` key of the
+manifest: a new convening is born with the rules 2, and a missing key means 1 (the convenings of 4.0 and of 5.0).
+Each gate records its rules and is always recomputed under them, so an approved gate never becomes invalid because
+the engine was upgraded. `gate C PHASE --rules 2` applies the rules 2 to one new gate of an older convening. The
+relaxations (a field continued on the next lines, the copies inside a workspace) hold under every rule; the stricter
+conditions only under the rules 2, with one exception: «Outcome: closed» needs an H# proven under every rule. Under the
+rules 1 a valid G4 whose verdict has no Correctness line still counts as proven, with a warning; under the rules 2 it
+does not, and the way out is to add the line and gate that G4 again with `--rules 2`. An amendment written without
+the line «Amends:» passes its gate under the rules 1, with a warning, so that the later gates of an older convening
+can be checked with `--rules 2`.
+
+**What a gate binds.** Under the rules 1, the `.md` files of the phase, and the `.json` files of f3 and f4. Under the
+rules 2, every file of the phase, of any kind (code, raw outputs, archives), except `GATE_*`, `__pycache__`, `*.pyc`
+and `.git`; a symbolic link is bound by its target (the sha256 of the file, or the tree of the folder, it points to).
+A role's workspace (a `work/` folder), a nested convening (a folder with the manifest of a convening; the `NN-<role>`
+folder of a branch never is one) or state folder, and a crowded folder are each bound as a single entry, the sha256
+of their tree. A folder is crowded with more than 200 files in its whole subtree; the folder of the phase and its
+`NN-<role>` folders only with more than 200 files of their own. The files
+under a workspace or a nested convening are not the branch's own: a `PREDICTIONS.md` copied into a corpus is not
+taken as born in f4.
+
+**Known limit: shared formats.** The formats frozen in `SELECTION.md` (a record, a line, a file that several branches
+share) have no record of their own and no propagation: a change made by one branch is not told to the others, and no
+gate notices it. The crossroads extension handles this, not the engine.
 
 ### Lane blindness
 
@@ -13036,6 +13858,11 @@ read-only mode and delivers:
 - the figures and identifiers of the dossier, recounted from the files.
 
 A K# of its own enters only with a file. It serves to find what no profile would have convened.
+
+`select` (and `fund`) writes its brief in `f5/00-sentinel/TASK.md`, for a role drawn with the convening's seed among
+those in no lane and in no team; it delivers `f5/00-sentinel/SENTINEL.md`, and only there: f5 is bound by G5 alone, so
+the sentinel invalidates no earlier gate. Under the rules 2, G4 warns while it is missing and G5 refuses without it, unless
+`CLOSURE.md` has the line «Declared missing: sentinel: <reason>». A branch never funded does not count among the two.
 
 ### Anomalies: the debugger
 
@@ -13072,10 +13899,48 @@ closure rests. The four verifications are distinct:
 Independence is per instance: a new instance of a role, which has not read the others' judgments, counts as
 independent. A negative audit ("no hidden assumption found") is a procedural requirement, not a guarantee.
 
+In each branch `select` writes the V2 brief in `f4/<H#>/08-<role>/`: the inverter, if it is not in the f3 team,
+otherwise a new instance of the debugger. It delivers `HIDDEN_ASSUMPTIONS.md`; under the rules 2, G4 requires it, in
+the `NN-<role>/` folder of a role outside the f3 team, whenever the verdict says correctness proven or verified.
+
 ### The dossier
 
 Every H# has a stable ID (H-001) and a dossier based on the `HYPOTHESIS_CARD.md` template, which the arbiter completes with the verdict,
 field by field, with references to the branch's files. An empty field is written "missing".
+- **Fields on several lines.** A field may continue on the indented lines below it (a list, a table): it is not empty.
+  Under the rules 2 a field left exactly as in the template is empty.
+- **Bound at G4.** The arbiter completes the dossier in f4, so G3 does not bind it and G4 does.
+- **Proven.** The arbiter's verdict, `f4/<H#>/09-arbitro/VERDICT.md`, carries the line «Correctness: proven»,
+  «verified», «supported», «refuted» or «unresolved». For the gates, «proven» means proven or verified, and only the
+  arbiter's line counts: under the rules 2 the line in another `VERDICT.md` of the branch refuses G4.
+
+### Amendments
+
+A change to the contract after G0 is not written into `CONTRACT.md`: it is an amendment, `AMENDMENT_<n>.md` at the
+root of the convening (`AMENDMENT_A1.md` is accepted too), with the line «Amends: Constraints, Budget» that names the
+fields of the contract it changes. The coordinator seals it (`seal C AMENDMENT_1.md`) and approves its gate,
+`gate C A1`, which binds the amendment alone: the contract and G0 stay valid. Under the rules 2 no later gate passes
+while an amendment has no valid gate, or while a gate binds an amendment whose file is gone; the briefs written
+afterwards read the gated amendments.
+
+### Branches, workspaces and the closure
+
+- **The radical branch.** Under the rules 2 `select` records the radical H# without briefing it, and
+  `fund C H-00x` gives it its dossier and its briefs. A radical never funded is closed with `close-branch` as "not
+  funded", with no test; under the rules 2, G5 does not close while it is neither funded nor closed. After G5
+  neither `fund` nor `close-branch` runs.
+- **The early closure** of a funded branch is "declared unresolved" and, under the rules 2, needs
+  `--deciding-test TEXT`, the test that would decide it, and the folders of the branch that hold only their untouched
+  brief are removed (under the rules 1 they stay, as in 5.0). A closure declared unresolved without its test (5.0)
+  gets it with `close-branch C H-00x --reason … --deciding-test TEXT`.
+- **The owner's revision.** In f4 the owner of the branch has a brief in `f4/<H#>/00-<owner>/`, and delivers
+  `REVISION.md` after the counterchecks and the defects.
+- **The workspace.** A role keeps its scratch files, copies and corpora in a `work/` folder inside its own folder: the
+  gates bind it as one entry, and its files are not read as the branch's own.
+- **The closure.** The arbiter's brief, `f5/01-arbitro/TASK.md`, names as its output `f5/CLOSURE.md`, the file G5
+  reads. Its inputs are the contract with its gated amendments, the selection, the dossier, the revision and the verdict
+  of every branch (or its early closure), the sentinel and the gates; the revision and the sentinel where they were
+  briefed. `select`, `fund` and `close-branch` rewrite it.
 
 ## The full strategy in detail
 
@@ -13143,6 +14008,18 @@ field by field, with references to the branch's files. An empty field is written
   the status of what it claims, the open items and at most three decisions that are theirs to make.
 
 ## What changes
+
+**The rules 2 of the gates.**
+- **Versioned gates.** `gate_rules` in the manifest, `--rules` on one gate; every gate is recomputed under its own
+  rules, and the convenings born before keep their approved gates.
+- **The dossier** is bound at G4, where the arbiter completes it; a field continued on the next lines is not empty.
+- **The files bound** are every file of the phase, with a workspace or a crowded folder as one tree entry; the copies
+  of a convening inside a workspace are no longer read as the branch's own.
+- **G4** wants the Correctness line of the verdict, the deliverable of every briefed role, V2 on a proven result.
+- **G5** tells «Outcome: closed» (an H# proven by its verdict) from a recorded non-closure, and wants the sentinel and
+  the deciding test of every branch declared unresolved.
+- **New:** the amendments with their gate (GA), `fund` for the radical branch, the briefs of the owner's revision, of
+  V2 and of the sentinel, the brief of the closure with all its inputs.
 
 **Compared with 4.0.**
 - **The name** is swarmer: the script is `swarmer.sh` (`sciame.sh` stays as an alias), the code is in `engine/`, the
@@ -13695,17 +14572,20 @@ Sei nella radice del progetto dell'utente. Gli agenti hanno gli strumenti e i pe
 | `ruoli [--domanda TESTO]` | i ruoli con il nucleo; con `--domanda`, solo quelli le cui parole chiave compaiono nel testo, e i profili |
 | `prepara --nome N --strategia S --profilo P --domanda TESTO [--ruoli a,b] [--dest D] [--seme N]` | lo scheletro: `MANIFESTO.json`, `CONTRATTO.md` da compilare, le cartelle delle fasi, le consegne di f0 e f1 (corsie dal nome casuale, con il canarino); stampa il percorso della mappa delle corsie, che è solo tua |
 | `fotografa C` | appena le corsie hanno consegnato, prima di leggerle: registra se ogni file è stato letto dopo l'ultima scrittura |
-| `cancello C FASE --note TESTO [--verifica]` | controlla le condizioni del cancello (f0, f1, f2, f3/H-001, f4/H-001, f5) e scrive `GATE_<fase>.json` con lo sha256 dei file; `--verifica` rifà i controlli senza scrivere |
-| `sigilla C FILE…` | ora e sha256 in `SIGILLI.jsonl`: il triage dopo le firme, le previsioni nate in f4 prima delle loro prove |
-| `seleziona C H-001 [H-002 H-003] [--radicale H-00x] [--responsabile SIGLA]` | dopo G2, solo H# del triage: apre i rami f3 e f4 con le consegne e il dossier; `--responsabile` cambia il ruolo che scrive la soluzione (di norma il primo di f3 nel profilo) |
-| `chiudi-ramo C H-00x --motivo TESTO` | chiude un ramo prima del G3 come «non risolto dichiarato» |
+| `cancello C FASE --note TESTO [--verifica] [--regole 2]` | controlla le condizioni del cancello (f0, A1 per un emendamento, f1, f2, f3/H-001, f4/H-001, f5) e scrive `GATE_<fase>.json` con lo sha256 dei file e le regole con cui l'ha controllato; `--verifica` rifà i controlli senza scrivere; `--regole 2` applica le regole 2 dei cancelli a questo cancello di una convocazione più vecchia |
+| `sigilla C FILE…` | ora e sha256 in `SIGILLI.jsonl`: il triage dopo le firme, gli emendamenti, le previsioni nate in f4 prima delle loro prove |
+| `seleziona C H-001 [H-002 H-003] [--radicale H-00x] [--responsabile SIGLA]` | dopo G2, solo H# del triage: apre i rami f3 e f4 con le consegne e il dossier, e scrive le consegne della sentinella e della chiusura; con le regole 2 la radicale è solo registrata; `--responsabile` cambia il ruolo che scrive la soluzione (di norma il primo di f3 nel profilo) |
+| `finanzia C H-00x [--responsabile SIGLA]` | con le regole 2: dà al ramo radicale il dossier e le consegne |
+| `chiudi-ramo C H-00x --motivo TESTO [--prova-decisiva TESTO]` | chiude un ramo prima del G3: una radicale mai finanziata come «non finanziato»; un ramo finanziato come «non risolto dichiarato», con la prova che lo deciderebbe (obbligatoria con le regole 2); su un ramo già dichiarato non risolto senza prova, `--prova-decisiva` la aggiunge |
 | `stato C` | a che punto è ogni fase e ogni ramo |
 
 Lo script usa solo la libreria standard, non lancia agenti e non approva niente da solo. I nomi inglesi dei comandi
 e delle opzioni (`prepare`, `--question`, …) valgono anche loro. Una convocazione resta nella lingua in cui è nata:
 una inglese (`MANIFEST.json`, `CONTRACT.md`, `DELIVERABLE.md`, `f1/agent-<k>/`) tiene i nomi inglesi anche in
 un'installazione italiana, e le sue righe si leggono nelle due lingue (`Esito: chiuso` o `Outcome: closed`,
-`decide: sì` o `decides: yes`, `Controfirma: arbitro` o `Countersign: arbitro`).
+`decide: sì` o `decides: yes`, `Controfirma: arbitro` o `Countersign: arbitro`, `Correttezza: dimostrata` o
+`Correctness: proven`, `Modifica: Quota` o `Amends: Budget`, `Dichiarato mancante: sentinella: …` o
+`Declared missing: sentinel: …`).
 
 ## Chi orchestra da sé (un modello raggiunto per API, senza sottoagenti)
 
@@ -13812,8 +14692,10 @@ l'agente non parte: dopo il cambio, `bash sciame/sciame.sh controlla`.
 #==== swarmer.sh: file docs/it/HYPOTHESIS_CARD.md ====
 # Dossier di un'ipotesi (il modello: se ne fa uno per ogni H#)
 
-`convoca.py seleziona` lo copia in `f3/<H#>/<H#>.md`. Lo completa l'arbitro con il verdetto, campo per campo, con il
-rimando al file della squadra che lo sostiene. Un campo vuoto si scrive «manca», non si omette.
+`convoca.py seleziona` lo copia in `f3/<H#>/<H#>.md` (`finanzia`, per il ramo radicale). Lo completa l'arbitro con il
+verdetto, campo per campo, con il rimando al file della squadra che lo sostiene. Un campo vuoto si scrive «manca», non
+si omette; un campo può continuare sulle righe rientrate sotto di lui. Il dossier si lega al cancello G4.
+Provata = dimostrata o verificata (la riga «Correttezza: …» di `VERDETTO.md`).
 
 ## Identità e contratto
 
@@ -14416,7 +15298,7 @@ Un fallimento ferma il ramo e ne conserva il controesempio.
   3. i controesempi;
   4. il consolidamento dell'arbitro.
 - L'arbitro chiude solo se ci sono queste tre condizioni:
-  - almeno una H# provata;
+  - almeno una H# provata (Correttezza dimostrata o verificata nel suo verdetto);
   - nessuna contraddizione aperta su una conclusione adottata;
   - ogni previsione risolta, o dichiarata non risolta con la prova che la deciderebbe.
 
@@ -14675,11 +15557,38 @@ l'approvazione rende il cancello non valido. Un cancello non si approva perché 
 | cancello | condizioni |
 |---|---|
 | G0 | contratto completo: domanda, criterio, ingressi, vincoli, quota, profilo |
+| GA (per emendamento) | dopo il G0, l'emendamento sigillato e, con le regole 2, con la riga «Modifica: <campi del contratto>» (con le regole 1 la sua assenza è un avviso); lega solo l'emendamento, così il contratto e il G0 restano come sono |
 | G1 | consegne di tutte le corsie (o «non consegnato» dopo due arresti), nessun canarino di una corsia nell'altra, la foto delle letture fatta prima di leggere |
 | G2 | firme degli autori prima del sigillo del triage, sigillo prima del torneo, selezione solo fra gli H# del triage, controfirma dell'arbitro |
-| G3 (per H#) | soluzione, verifica, piano delle misure e previsioni congelati; le soglie raggiungibili e con una prova che le possa decidere |
-| G4 (per H#) | controprove prima di ogni costo; classi in ordine; previsioni sigillate prima delle loro prove; le anomalie spiegate o dichiarate; dossier completo |
-| G5 | le condizioni di chiusura dell'arbitro e le quattro verifiche dei risultati fondanti |
+| G3 (per H#) | soluzione, verifica, piano delle misure e previsioni congelati; le soglie raggiungibili e con una prova che le possa decidere; il dossier escluso (lo lega il G4) |
+| G4 (per H#) | controprove prima di ogni costo; classi in ordine; previsioni sigillate prima delle loro prove; le anomalie spiegate o dichiarate; dossier completo e legato; con le regole 2, la riga «Correttezza: …» nel verdetto, una consegna da ogni ruolo con una consegna da svolgere (anche lo statistico) o il suo «non consegnato», e V2 (`ASSUNZIONI_NASCOSTE.md`) nella cartella di un ruolo fuori dalla squadra di f3 quando la correttezza è dimostrata o verificata; la riga solo nel verdetto dell'arbitro |
+| G5 | le condizioni di chiusura dell'arbitro e le quattro verifiche dei risultati fondanti. «Esito: chiuso» vuole almeno una H# provata (Correttezza dimostrata o verificata nel verdetto dell'arbitro) e ogni ramo con un G4 o una chiusura anticipata (con le regole 2 anche una radicale mai finanziata: chiusa come «non finanziato»); «Esito: non chiuso» si approva come non chiusura registrata che nomina i rami aperti, e la convocazione resta non chiusa. Con le regole 2, anche la sentinella (o «Dichiarato mancante: sentinella: <motivo>») e la prova decisiva di ogni ramo dichiarato non risolto |
+
+**Le regole dei cancelli.** Le condizioni e i file che un cancello lega hanno una versione, la chiave
+`regole_cancelli` del manifesto: una convocazione nuova nasce con le regole 2, e una chiave assente vale 1 (le
+convocazioni della 4.0 e della 5.0). Ogni cancello registra le sue regole e si ricalcola sempre con quelle, così un
+cancello approvato non diventa mai non valido perché si è aggiornato il motore. `cancello C FASE --regole 2` applica le
+regole 2 a un cancello nuovo di una convocazione più vecchia. Gli allentamenti (un campo che continua sulle righe
+dopo, le copie dentro uno spazio di lavoro) valgono con ogni regola; le condizioni più strette solo con le regole 2,
+con un'eccezione: «Esito: chiuso» vuole una H# provata con ogni regola. Con le regole 1 un G4 valido il cui verdetto
+non ha la riga Correttezza conta ancora come provato, con un avviso; con le regole 2 no, e la via d'uscita è
+aggiungere la riga e approvare di nuovo quel G4 con `--regole 2`. Un emendamento scritto senza la riga «Modifica:»
+passa il suo cancello con le regole 1, con un avviso, così i cancelli successivi di una convocazione più vecchia si
+possono verificare con `--regole 2`.
+
+**Che cosa lega un cancello.** Con le regole 1, i file `.md` della fase, e i `.json` di f3 e f4. Con le regole 2, ogni
+file della fase, di ogni tipo (codice, uscite grezze, archivi), tranne `GATE_*`, `__pycache__`, `*.pyc` e `.git`; un
+collegamento simbolico si lega con la sua destinazione (lo sha256 del file, o l'albero della cartella, a cui punta).
+Lo spazio di lavoro di un ruolo (una cartella `lavoro/`), una convocazione annidata (una cartella con il manifesto di
+una convocazione; la cartella `NN-<ruolo>` di un ramo non lo è mai) o una cartella di stato annidata, e una cartella
+affollata si legano ciascuno come una voce sola, lo sha256 del loro albero. Una cartella è affollata con più di 200
+file in tutto il suo sottoalbero; la cartella della fase e le sue cartelle `NN-<ruolo>` solo con più di 200 file
+propri. I file sotto uno spazio di lavoro o una convocazione annidata non sono del ramo: una
+`PREVISIONI.md` copiata in un corpus non si prende per nata in f4.
+
+**Limite noto: i formati condivisi.** I formati congelati in `SELEZIONE.md` (un record, una riga, un file che più
+rami condividono) non hanno un registro proprio né una propagazione: un cambio fatto da un ramo non arriva agli altri,
+e nessun cancello se ne accorge. Lo tratta l'estensione crossroads, non il motore.
 
 ### La cecità delle corsie
 
@@ -14700,6 +15609,13 @@ sola lettura e consegna:
 - le cifre e gli identificativi del dossier, ricontati dai file.
 
 Un suo K# entra solo con un file. Serve a trovare ciò che nessun profilo avrebbe convocato.
+
+`seleziona` (e `finanzia`) scrive la sua consegna in `f5/00-sentinella/TASK.md`, per un ruolo estratto con il seme
+della convocazione fra quelli che non sono in nessuna corsia e in nessuna squadra; consegna
+`f5/00-sentinella/SENTINELLA.md`, e solo lì: la fase f5 la lega solo il G5, così la sentinella non invalida nessun cancello
+precedente. Con le
+regole 2, il G4 avvisa finché manca e il G5 rifiuta senza di lei, salvo che `CHIUSURA.md` abbia la riga «Dichiarato
+mancante: sentinella: <motivo>». Un ramo mai finanziato non conta fra i due.
 
 ### Le anomalie: il debugger
 
@@ -14736,10 +15652,50 @@ chiusura. Le quattro verifiche sono distinte:
 L'indipendenza è per istanza: un'istanza nuova di un ruolo, che non ha letto i giudizi degli altri, conta come
 indipendente. Un audit negativo («nessuna ipotesi nascosta trovata») è un requisito procedurale, non una garanzia.
 
+In ogni ramo `seleziona` scrive la consegna di V2 in `f4/<H#>/08-<ruolo>/`: il rovesciatore, se non è nella squadra di
+f3, altrimenti un'istanza nuova del debugger. Consegna `ASSUNZIONI_NASCOSTE.md`; con le regole 2 il G4 la vuole, nella
+cartella `NN-<ruolo>/` di un ruolo fuori dalla squadra di f3, ogni volta che il verdetto dice la correttezza dimostrata
+o verificata.
+
 ### Il dossier
 
 Ogni H# ha un ID stabile (H-001) e un dossier dal modello `SCHEDA_IPOTESI.md`, che l'arbitro completa con il verdetto,
 campo per campo, con i rimandi ai file del ramo. Un campo vuoto si scrive «manca».
+- **Campi su più righe.** Un campo può continuare sulle righe rientrate sotto di lui (un elenco, una tabella): non è
+  vuoto. Con le regole 2 un campo lasciato esattamente come nel modello è vuoto.
+- **Legato al G4.** L'arbitro completa il dossier in f4, perciò il G3 non lo lega e il G4 sì.
+- **Provata.** Il verdetto dell'arbitro, `f4/<H#>/09-arbitro/VERDETTO.md`, ha la riga «Correttezza: dimostrata»,
+  «verificata», «sostenuta», «smentita» o «non risolta». Per i cancelli, «provata» vuol dire dimostrata o verificata, e
+  conta solo la riga dell'arbitro: con le regole 2 la riga in un altro `VERDETTO.md` del ramo fa rifiutare il G4.
+
+### Gli emendamenti
+
+Un cambio del contratto dopo il G0 non si scrive in `CONTRATTO.md`: è un emendamento, `EMENDAMENTO_<n>.md` alla radice
+della convocazione (vale anche `EMENDAMENTO_A1.md`), con la riga «Modifica: Vincoli, Quota» che nomina i campi del
+contratto che cambia. Il coordinatore lo sigilla (`sigilla C EMENDAMENTO_1.md`) e ne approva il cancello,
+`cancello C A1`, che lega solo l'emendamento: il contratto e il G0 restano validi. Con le regole 2 nessun cancello
+successivo passa finché un emendamento non ha un cancello valido, o finché un cancello lega un emendamento il cui file
+non c'è più; le consegne scritte dopo leggono gli emendamenti approvati.
+
+### I rami, gli spazi di lavoro e la chiusura
+
+- **Il ramo radicale.** Con le regole 2 `seleziona` registra la H# radicale senza darle consegne, e
+  `finanzia C H-00x` le dà il dossier e le consegne. Una radicale mai finanziata si chiude con `chiudi-ramo` come «non
+  finanziato», senza prova; con le regole 2 il G5 non chiude finché non è né finanziata né chiusa. Dopo il G5 non
+  girano né `finanzia` né `chiudi-ramo`.
+- **La chiusura anticipata** di un ramo finanziato è «non risolto dichiarato» e, con le regole 2, vuole
+  `--prova-decisiva TESTO`, la prova che lo deciderebbe, e le cartelle del ramo che hanno solo la loro consegna intatta
+  si tolgono (con le regole 1 restano, come nella 5.0). Una chiusura dichiarata non risolta senza la sua prova (5.0) la
+  riceve con `chiudi-ramo C H-00x --motivo … --prova-decisiva TESTO`.
+- **La revisione del responsabile.** In f4 il responsabile del ramo ha una consegna in `f4/<H#>/00-<responsabile>/`, e
+  consegna `REVISIONE.md` dopo le controprove e i difetti.
+- **Lo spazio di lavoro.** Un ruolo tiene i file di prova, le copie e i corpus in una cartella `lavoro/` dentro la sua
+  cartella: i cancelli la legano come una voce sola, e i suoi file non si leggono come quelli del ramo.
+- **La chiusura.** La consegna dell'arbitro, `f5/01-arbitro/TASK.md`, nomina come uscita `f5/CHIUSURA.md`, il file che
+  legge il G5. I suoi ingressi sono il contratto con i suoi emendamenti approvati, la selezione, il dossier, la revisione e
+  il verdetto di ogni ramo (o la sua chiusura anticipata), la sentinella e i cancelli; la revisione e la sentinella dove
+  hanno avuto una consegna. `seleziona`, `finanzia` e
+  `chiudi-ramo` la riscrivono.
 
 ## La strategia completa nei dettagli
 
@@ -14807,6 +15763,19 @@ campo per campo, con i rimandi ai file del ramo. Un campo vuoto si scrive «manc
   gli stati di ciò che afferma, gli aperti e al più tre decisioni che spettano a lui.
 
 ## Che cosa cambia
+
+**Le regole 2 dei cancelli.**
+- **Cancelli con la versione.** `regole_cancelli` nel manifesto, `--regole` su un cancello; ogni cancello si ricalcola
+  con le sue regole, e le convocazioni nate prima tengono i loro cancelli approvati.
+- **Il dossier** si lega al G4, dove l'arbitro lo completa; un campo che continua sulle righe dopo non è vuoto.
+- **I file legati** sono tutti i file della fase, con uno spazio di lavoro o una cartella affollata come una voce
+  d'albero; le copie di una convocazione dentro uno spazio di lavoro non si leggono più come quelle del ramo.
+- **Il G4** vuole la riga Correttezza del verdetto, la consegna di ogni ruolo con una consegna, V2 su un risultato
+  provato.
+- **Il G5** distingue «Esito: chiuso» (una H# provata dal suo verdetto) da una non chiusura registrata, e vuole la
+  sentinella e la prova decisiva di ogni ramo dichiarato non risolto.
+- **Nuovi:** gli emendamenti con il loro cancello (GA), `finanzia` per il ramo radicale, le consegne della revisione del
+  responsabile, di V2 e della sentinella, la consegna della chiusura con tutti i suoi ingressi.
 
 **Rispetto alla 4.0.**
 - **Il nome** è swarmer: lo script è `swarmer.sh` (`sciame.sh` resta come alias), il codice è in `engine/`, i
@@ -15393,6 +16362,7 @@ Questa pull request aggiunge al database `db/professionals.json`:
   "gate": [],
   "seal": [],
   "select": [],
+  "fund": [],
   "close-branch": [],
   "status": [],
   "targets": []
@@ -15433,9 +16403,11 @@ Questa pull request aggiunge al database `db/professionals.json`:
   "--notes": [],
   "--not-delivered": [],
   "--verify": [],
+  "--rules": [],
   "--radical": [],
   "--owner": [],
   "--reason": [],
+  "--deciding-test": [],
   "--install": [],
   "--remove-instructions": [],
   "--list": [],
@@ -15516,14 +16488,14 @@ Questa pull request aggiunge al database `db/professionals.json`:
   "translations": "translations"
  },
  "missions": {
-  "closure": "The closure: at least one H# proven, no open contradiction on an adopted conclusion, predictions resolved or declared unresolved with the test that would decide them, the four checks of the founding results. Also write {closure_file} with the line «Outcome: closed» or «Outcome: not closed», and at most three decisions for the user.",
+  "closure": "The closure: at least one H# proven (Correctness proven or verified in its verdict), no open contradiction on an adopted conclusion, predictions resolved or declared unresolved with the test that would decide them, the four checks of the founding results. Also write {closure_file} with the line «Outcome: closed» or «Outcome: not closed», and at most three decisions for the user. «Outcome: not closed» is a recorded non-closure: name in it every branch without a verdict. If the sentinel did not work, write the line «Declared missing: sentinel: <reason>».",
   "owner_solution": "You own {h}. Write the solution: steps, invariants, cost, «depends on», «invalidated if it changes». The predictions with their threshold go in PREDICTIONS.md, with the line «decides: yes» or «decides: no».",
   "proof": "Write the proof or the check of {h}, after the owner's SOLUTION.md: what makes it correct, under which assumptions, and how it is checked.",
   "measurement_plan": "The measurement plan of {h}: what is measured, with which threshold, before the tests. If no measurements are needed, say so and why.",
   "attack": "The attack on {h}: the cases that should break it, with the predictions first.",
   "counterchecks": "Run the counterchecks of {h}, cheapest first: first the falsifications, then correctness, then the dissimilar check. Predictions born now must be sealed by the coordinator before the tests.",
   "defects": "The anomalies of the counterchecks of {h} and the hidden defects, each with its proven cause or «unexplained». If there are no anomalies, list the checks you made.",
-  "verdict": "The verdict of {h} by property (correctness, completeness, effectiveness, cost), and the dossier {dossier} completed field by field («missing» where something is missing).",
+  "verdict": "The verdict of {h} by property (correctness, completeness, effectiveness, cost), with the line «Correctness: proven», «verified», «supported», «refuted» or «unresolved» (proven or verified only on the domain of use), and the dossier {dossier} completed field by field («missing» where something is missing). A field may continue on the indented lines below it. The dossier is bound at the gate G4, not at G3: complete it before G4.",
   "proof_contribution": "Your contribution to the tests of {h}, on the measurement plan, after the counterchecks.",
   "cards": "One card per idea: object, precise statement, type, risks, critical assumption and candidate counterexample, how it is checked. No merging: two ideas are the same only if statement and type coincide. Each card says which deliverable it comes from.",
   "triage": "Assign the H# in the form H-001, with the class TEST, REFORMULATE, OPEN or REFUTED (only with evidence), and the top three in order. The coordinator seals the triage as soon as it arrives.",
@@ -15535,7 +16507,10 @@ Questa pull request aggiunge al database `db/professionals.json`:
   "global_round": "Global round, from your point of view: at most three observations or proposals, each with its evidence or falsifier. If your field is not involved, write «not relevant: …» in one line. Half a page at most.",
   "single": "Carry out the request in your role, in full, and reread your work with your «questions it always asks» before delivering.",
   "fan_out_slice": "You are an agent of a fan-out, with one slice of the work: yours is written below by the coordinator. Do only your slice, in full, and check the done criterion before delivering.",
-  "race": "You are one arm of a race: other agents have your same brief, and the coordinator will choose with the rule declared in the contract. Work alone, in full, and check the done criterion before delivering."
+  "race": "You are one arm of a race: other agents have your same brief, and the coordinator will choose with the rule declared in the contract. Work alone, in full, and check the done criterion before delivering.",
+  "owner_revision": "You own {h}. After the counterchecks and the defects, write the revision: what changes in the solution and why, each change with the countercheck or the defect it answers; what does not change, with the reason. A prediction born now goes in PREDICTIONS.md and is sealed by the coordinator before its test.",
+  "hidden_assumption_audit": "The hidden-assumption audit (V2) of {h}: you took part neither in the construction nor in the reread. List the unstated necessary conditions of its founding results: versions, data representations, encodings, caches and state, call order, edges, empty domains, operational limits, differences between the theory and the behavior of the system. For each: where it is assumed, whether it holds, and the check that says so. A negative audit lists the conditions checked.",
+  "sentinel": "You are the sentinel: a role that was not convened, read only, twenty minutes. Put one assumption shared by the branches to the test with an external check, and recount from the files the figures and the identifiers of the dossiers. A K# of your own enters only with a file. Write nothing outside your folder."
  },
  "convene": {
   "agent": "Agent",
@@ -15590,7 +16565,16 @@ Questa pull request aggiunge al database `db/professionals.json`:
   "status_pending": "  {phase}: to approve",
   "status_approved": "  {phase}: approved",
   "status_invalid": "  {phase}: NO LONGER VALID (files changed)",
-  "translation_pending": "Translation pending in «{language}» (translation-pending) for: {roles}. Before launching them translate each card and register it: {command}"
+  "translation_pending": "Translation pending in «{language}» (translation-pending) for: {roles}. Before launching them translate each card and register it: {command}",
+  "gate_approved_not_closed": "Gate {phase} approved as a recorded non-closure ({n} files bound): the convening is not closed",
+  "gate_warning": "  warning: {text}",
+  "branch_not_funded": "{h} closed: not funded (the radical branch was never briefed)",
+  "branch_funded": "{h} funded: its dossier and its briefs are written",
+  "radical_recorded": "Radical {h} recorded, not funded: fund C {h} briefs it, close-branch C {h} --reason … closes it",
+  "status_not_closed": "  {phase}: approved, NOT CLOSED (a recorded non-closure)",
+  "status_not_funded": "  {phase}: radical not funded (fund C {h}, or close-branch C {h})",
+  "deciding_test_added": "{h}: the test that would decide it is recorded in its early closure",
+  "status_clash": "  WARNING: {text}"
  }
 }
 #==== swarmer.sh: file i18n/it.json ====
@@ -15811,6 +16795,9 @@ Questa pull request aggiunge al database `db/professionals.json`:
   "select": [
    "seleziona"
   ],
+  "fund": [
+   "finanzia"
+  ],
   "close-branch": [
    "chiudi-ramo"
   ],
@@ -15924,6 +16911,9 @@ Questa pull request aggiunge al database `db/professionals.json`:
   "--verify": [
    "--verifica"
   ],
+  "--rules": [
+   "--regole"
+  ],
   "--radical": [
    "--radicale"
   ],
@@ -15932,6 +16922,9 @@ Questa pull request aggiunge al database `db/professionals.json`:
   ],
   "--reason": [
    "--motivo"
+  ],
+  "--deciding-test": [
+   "--prova-decisiva"
   ],
   "--install": [
    "--installa"
@@ -16023,14 +17016,14 @@ Questa pull request aggiunge al database `db/professionals.json`:
   "translations": "traduzioni"
  },
  "missions": {
-  "closure": "La chiusura: almeno una H# provata, nessuna contraddizione aperta su una conclusione adottata, previsioni risolte o dichiarate non risolte con la prova che le deciderebbe, le quattro verifiche dei risultati fondanti. Scrivi anche {closure_file} con la riga «Esito: chiuso» o «Esito: non chiuso», e al più tre decisioni per l'utente.",
+  "closure": "La chiusura: almeno una H# provata (Correttezza dimostrata o verificata nel suo verdetto), nessuna contraddizione aperta su una conclusione adottata, previsioni risolte o dichiarate non risolte con la prova che le deciderebbe, le quattro verifiche dei risultati fondanti. Scrivi anche {closure_file} con la riga «Esito: chiuso» o «Esito: non chiuso», e al più tre decisioni per l'utente. «Esito: non chiuso» è una non chiusura registrata: nomina ogni ramo senza verdetto. Se la sentinella non ha lavorato, scrivi la riga «Dichiarato mancante: sentinella: <motivo>».",
   "owner_solution": "Sei il responsabile di {h}. Scrivi la soluzione: passi, invarianti, costo, «dipende da», «invalidata se cambia». Le previsioni con la soglia in PREVISIONI.md, con la riga «decide: sì» o «decide: no».",
   "proof": "Scrivi la prova o la verifica di {h}, dopo SOLUZIONE.md del responsabile: che cosa la rende corretta, con quali ipotesi, e come la si controlla.",
   "measurement_plan": "Il piano delle misure di {h}: che cosa si misura, con quale soglia, prima delle prove. Se non servono misure, scrivilo con il perché.",
   "attack": "L'attacco a {h}: i casi che dovrebbero romperla, con le previsioni prima.",
   "counterchecks": "Esegui le controprove di {h}, dalla più economica: prima le falsificazioni, poi la correttezza, poi il controllo dissimile. Le previsioni nate ora vanno sigillate dal coordinatore prima delle prove.",
   "defects": "Le anomalie delle controprove di {h} e i difetti nascosti, ciascuno con la causa provata o «non spiegata». Se non ci sono anomalie, elenca i controlli fatti.",
-  "verdict": "Il verdetto di {h} per proprietà (correttezza, completezza, efficacia, costo), e il dossier {dossier} completato campo per campo («manca» dove manca).",
+  "verdict": "Il verdetto di {h} per proprietà (correttezza, completezza, efficacia, costo), con la riga «Correttezza: dimostrata», «verificata», «sostenuta», «smentita» o «non risolta» (dimostrata o verificata solo sul dominio d'uso), e il dossier {dossier} completato campo per campo («manca» dove manca). Un campo può continuare sulle righe rientrate sotto di lui. Il dossier è legato al cancello G4, non al G3: completalo prima del G4.",
   "proof_contribution": "Il tuo contributo alle prove di {h}, sul piano delle misure, dopo le controprove.",
   "cards": "Una scheda per idea: oggetto, enunciato preciso, tipo, rischi, ipotesi critica e controesempio candidato, come la si verifica. Niente fusioni: due idee sono la stessa solo se enunciato e tipo coincidono. Ogni scheda dice da quale consegna viene.",
   "triage": "Assegna gli H# nella forma H-001, con la classe TESTARE, RIFORMULARE, APERTA o SMENTITA (solo con una prova), e le prime tre in ordine. Il coordinatore sigilla il triage appena arriva.",
@@ -16042,7 +17035,10 @@ Questa pull request aggiunge al database `db/professionals.json`:
   "global_round": "Tornata globale, dal tuo punto di vista: al più tre osservazioni o proposte, ciascuna con la prova o il falsificatore. Se il tuo campo non c'entra, scrivi «non pertinente: …» in una riga. Al più mezza pagina.",
   "single": "Esegui la richiesta nel tuo ruolo, per intero, e rileggiti con le tue «domande che si pone sempre» prima di consegnare.",
   "fan_out_slice": "Sei un agente di un ventaglio, con una fetta del lavoro: la tua è scritta qui sotto dal coordinatore. Fai solo la tua fetta, per intero, e verifica il criterio di fatto prima di consegnare.",
-  "race": "Sei un braccio di una gara: altri agenti hanno la tua stessa consegna, e il coordinatore sceglierà con la regola dichiarata nel contratto. Lavora da solo, per intero, e verifica il criterio di fatto prima di consegnare."
+  "race": "Sei un braccio di una gara: altri agenti hanno la tua stessa consegna, e il coordinatore sceglierà con la regola dichiarata nel contratto. Lavora da solo, per intero, e verifica il criterio di fatto prima di consegnare.",
+  "owner_revision": "Sei il responsabile di {h}. Dopo le controprove e i difetti, scrivi la revisione: che cosa cambia nella soluzione e perché, ogni cambio con la controprova o il difetto a cui risponde; che cosa non cambia, con il motivo. Una previsione nata ora va in PREVISIONI.md e la sigilla il coordinatore prima della sua prova.",
+  "hidden_assumption_audit": "L'audit delle ipotesi nascoste (V2) di {h}: non hai preso parte né alla costruzione né alla rilettura. Elenca le condizioni necessarie non dichiarate dei suoi risultati fondanti: versioni, rappresentazioni dei dati, codifiche, cache e stato, ordine delle chiamate, bordi, domini vuoti, limiti operativi, differenze fra la teoria e il comportamento del sistema. Per ciascuna: dove è assunta, se regge, e il controllo che lo dice. Un audit negativo elenca le condizioni controllate.",
+  "sentinel": "Sei la sentinella: un ruolo non convocato, in sola lettura, venti minuti. Metti alla prova un presupposto condiviso dai rami con un controllo esterno, e riconta dai file le cifre e gli identificativi dei dossier. Una K# tua entra solo con un file. Non scrivere nulla fuori dalla tua cartella."
  },
  "convene": {
   "agent": "Agente",
@@ -16097,7 +17093,16 @@ Questa pull request aggiunge al database `db/professionals.json`:
   "status_pending": "  {phase}: da approvare",
   "status_approved": "  {phase}: approvato",
   "status_invalid": "  {phase}: NON PIÙ VALIDO (file cambiati)",
-  "translation_pending": "Traduzione in attesa in «{language}» (translation-pending) per: {roles}. Prima di lanciarli traduci ogni scheda e registrala: {command}"
+  "translation_pending": "Traduzione in attesa in «{language}» (translation-pending) per: {roles}. Prima di lanciarli traduci ogni scheda e registrala: {command}",
+  "gate_approved_not_closed": "Cancello {phase} approvato come non chiusura registrata ({n} file legati): la convocazione non è chiusa",
+  "gate_warning": "  avviso: {text}",
+  "branch_not_funded": "{h} chiusa: non finanziata (il ramo radicale non ha mai avuto consegne)",
+  "branch_funded": "{h} finanziata: il suo dossier e le sue consegne sono scritti",
+  "radical_recorded": "Radicale {h} registrata, non finanziata: finanzia C {h} le dà le consegne, chiudi-ramo C {h} --motivo … la chiude",
+  "status_not_closed": "  {phase}: approvato, NON CHIUSO (una non chiusura registrata)",
+  "status_not_funded": "  {phase}: radicale non finanziata (finanzia C {h}, oppure chiudi-ramo C {h})",
+  "deciding_test_added": "{h}: la prova che la deciderebbe è registrata nella sua chiusura anticipata",
+  "status_clash": "  ATTENZIONE: {text}"
  }
 }
 #==== swarmer.sh: file wrappers/convene.py ====
@@ -16120,6 +17125,809 @@ from pathlib import Path
 m = Path(__file__).resolve().parent / "engine" / "jury.py"
 sys.argv[0] = str(m)
 runpy.run_path(str(m), run_name="__main__")
+#==== swarmer.sh: file tests/test_convene.py ====
+#!/usr/bin/env python3
+"""Test battery of the gates of a convening (PIPELINE.md, engine/convene.py): python3 -I -B tests/test_convene.py
+
+Installs the swarm twice in a temporary folder, once in English and once in Italian, and drives
+`<swarm>/convene.py` by subprocess (the canonical commands in English, the aliases in Italian) through classic
+convenings written by hand. The checks T1–T10 are the defects found in a real convening (ENG-1 to ENG-10: the dossier
+bound at G4, the fields continued on the next lines, the copies of a convening inside a workspace, the code and the
+raw outputs bound, the sentinel, the outcome and the proven results of G5, V2 and the statistician, the radical
+funded on demand, the brief of the closure, the amendments); T12–T14 are the holes found by the review of that patch
+(the folders taken as nested convenings, the generated trees, the symbolic links, the verdict that decides «proven»,
+the radical never funded, the upgrade path of an older convening); T11 is the compatibility of the convenings born
+before the rules 2 (no gate_rules key: the gates of 5.0, the fixture of 4.0). Exits with 1 if a check fails.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+SOURCE = HERE.parent
+ENGINE = SOURCE / "engine" / "swarmer.py"
+FIXTURES = HERE / "fixtures"
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(SOURCE / "engine"))
+import compat as C  # noqa: E402
+import convene as V  # noqa: E402
+
+results = []
+
+
+def i18n(lang):
+    out = json.loads((SOURCE / "i18n" / "en.json").read_text(encoding="utf-8"))
+    p = SOURCE / "i18n" / f"{lang}.json"
+    if p.is_file():
+        for k, v in json.loads(p.read_text(encoding="utf-8")).items():
+            out[k] = {**out[k], **v} if isinstance(v, dict) and isinstance(out.get(k), dict) else v
+    return out
+
+
+TEXTS = {"en": i18n("en"), "it": i18n("it")}
+
+
+def check(name, ok, detail=""):
+    results.append((name, bool(ok)))
+    print(("ok   " if ok else "FAILED ") + name + ("" if ok or not detail else f"\n     {str(detail)[:900]}"))
+
+
+def clean_env():
+    e = {k: v for k, v in os.environ.items() if not k.startswith(("SWARMER_", "SCIAME_"))}
+    e["PATH"] = os.pathsep.join(d for d in e.get("PATH", "").split(os.pathsep)
+                                if d and not os.path.exists(os.path.join(d, "claude")))
+    return e
+
+
+def py(*arg):
+    p = subprocess.run([sys.executable, "-I", "-B", *map(str, arg)], capture_output=True, text=True,
+                       stdin=subprocess.DEVNULL, env=clean_env())
+    return p.returncode, p.stdout + p.stderr
+
+
+def legacy_fingerprints(c: Path, m: dict, phase: str, contract: Path) -> dict:
+    """A copy of the fingerprints of 5.0 (the rules 1), to check that they did not change."""
+    def sha(p):
+        return hashlib.sha256(p.read_bytes()).hexdigest()
+    if phase == "f0":
+        folders = [c / "f0"]
+    elif phase == "f1":
+        folders = [Path(v.get("folder") or v.get("cartella")) for v in m["f1"].values()]
+    else:
+        folders = [c / phase]
+    files = [contract] if phase == "f0" else []
+    folder = c
+    for folder in folders:
+        files += sorted(p for p in folder.rglob("*.md") if p.is_file())
+    if phase.startswith("f3/") or phase.startswith("f4/"):
+        files += sorted(p for p in folder.rglob("*.json") if p.is_file() and not p.name.startswith("GATE_"))
+    return {str(p): sha(p) for p in files}
+
+
+class Swarm:
+    """An installation in one language, and the convenings it drives."""
+
+    def __init__(self, base: Path, lang: str):
+        self.lang = lang
+        self.it = lang == "it"
+        self.root = base / f"root_{lang}"
+        self.root.mkdir(parents=True)
+        rc, out = py(ENGINE, "install", "--from", SOURCE, "--root", self.root, "--language", lang)
+        assert rc == 0, out
+        self.swarm = self.root / ("sciame" if self.it else "swarmer")
+        self.t = TEXTS[lang]
+        self.n = 0
+
+    # names and lines in the dialect of the convenings of this installation
+    def N(self, canonical: str) -> str:
+        return C.localize_path(canonical, self.lang, "convene")
+
+    def line(self, en: str, it: str) -> str:
+        return it if self.it else en
+
+    def run(self, *args):
+        """convene.py with the canonical names (en) or with the Italian aliases (it)."""
+        args = [str(a) for a in args]
+        if self.it:
+            cmds, opts = self.t["commands"], self.t["options"]
+            args = [(cmds.get(a) or [a])[0] if i == 0 else ((opts.get(a) or [a])[0] if a.startswith("--") else a)
+                    for i, a in enumerate(args)]
+        return py(self.swarm / "convene.py", *args)
+
+    def status(self, c):
+        return self.run("status", c)[1]
+
+    def st(self, key, **kw):
+        return self.t["convene"][key].format(**kw).strip()
+
+    def gate_json(self, c: Path, phase: str) -> tuple[dict, dict]:
+        raw = json.loads((c / f"GATE_{phase.replace('/', '_')}.json").read_text(encoding="utf-8"))
+        return raw, C.to_canonical(raw, C.CONVENE_KEYS["gate"])
+
+    def manifest(self, c: Path) -> dict:
+        p = c / self.N("MANIFEST.json")
+        return C.to_canonical(json.loads(p.read_text(encoding="utf-8")), C.MANIFEST_SCHEMA)
+
+    # --- a classic convening, written by hand up to G2 ---
+    def classic(self, profile="data", rules=2, triage=("H-001", "H-002", "H-003")) -> Path:
+        self.n += 1
+        dest = self.root / f"conv{self.n}"
+        rc, out = self.run("prepare", "--name", "k", "--strategy", "classic", "--profile", profile, "--question", "q",
+                           "--seed", "3", "--dest", dest)
+        assert rc == 0, out
+        c = next(p for p in dest.iterdir() if not p.name.startswith("."))
+        if rules == 1:   # a convening born before the rules 2: no gate_rules key
+            p = c / self.N("MANIFEST.json")
+            m = json.loads(p.read_text(encoding="utf-8"))
+            m.pop("regole_cancelli" if self.it else "gate_rules")
+            p.write_text(json.dumps(m, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        contract = c / self.N("CONTRACT.md")
+        contract.write_text(contract.read_text(encoding="utf-8").replace(self.line("<to fill in>", "<da compilare>"),
+                                                                         "filled"), encoding="utf-8")
+        rc, out = self.run("gate", c, "f0", "--notes", "ok")
+        assert rc == 0, out
+        lanes = next(p for p in dest.iterdir() if p.name.startswith("."))
+        mp = json.loads(next(lanes.glob("*.json")).read_text(encoding="utf-8"))
+        for role, v in mp.items():
+            folder, canary = v.get("folder") or v.get("cartella"), v.get("canary") or v.get("canarino")
+            Path(folder, self.N("DELIVERABLE.md")).write_text(
+                f"{C.CONVENE_LINES['canary'][self.lang]} {canary}\nDONE\nidea of {role}\n", encoding="utf-8")
+        assert self.run("snapshot", c)[0] == 0
+        rc, out = self.run("gate", c, "f1", "--notes", "x")
+        assert rc == 0, out
+        f2 = c / "f2"
+        (f2 / self.N("01-translation") / self.N("CARDS.md")).write_text("cards\n", encoding="utf-8")
+        triage_p = f2 / self.N("03-triage") / self.N("TRIAGE.md")
+        triage_p.write_text("".join(f"{h} TEST\n" for h in triage), encoding="utf-8")
+        assert self.run("seal", c, triage_p)[0] == 0
+        sig = f2 / self.N("02-signatures") / "logico.md"
+        sig.write_text("faithful\n", encoding="utf-8")
+        os.utime(sig, (1, 1))
+        (f2 / self.N("04-tournament") / self.N("TOURNAMENT.md")).write_text("ok\n", encoding="utf-8")
+        (f2 / self.N("05-selection") / self.N("SELECTION.md")).write_text(
+            " ".join(triage) + f"\n{C.CONVENE_LINES['countersign'][self.lang]}\n", encoding="utf-8")
+        return c
+
+    def gate_f2(self, c):
+        rc, out = self.run("gate", c, "f2", "--notes", "x")
+        assert rc == 0, out
+
+    def f3(self, c: Path, h: str, gate=True):
+        b = c / "f3" / h
+        owner = next(b.glob("01-*"))
+        (owner / self.N("SOLUTION.md")).write_text("solution\n", encoding="utf-8")
+        (owner / self.N("PREDICTIONS.md")).write_text(
+            "threshold 1\n" + self.line("decides: yes", "decide: sì") + "\n", encoding="utf-8")
+        (next(b.glob("02-*")) / self.N("VERIFICATION.md")).write_text("proof\n", encoding="utf-8")
+        (next(b.glob("03-*")) / self.N("MEASUREMENT_PLAN.md")).write_text("plan\n", encoding="utf-8")
+        (next(b.glob("04-*")) / self.N("ATTACK.md")).write_text("attack\n", encoding="utf-8")
+        if gate:
+            rc, out = self.run("gate", c, f"f3/{h}", "--notes", "x")
+            assert rc == 0, out
+
+    def dossier(self, c: Path, h: str, extra=""):
+        (c / "f3" / h / f"{h}.md").write_text(f"# {h}\n\n- ID: {h}\n- Short title: t\n- Results:\n  - r1\n"
+                                              f"  - r2\n{extra}", encoding="utf-8")
+
+    def f4(self, c: Path, h: str, correctness="refuted", audit=True, skip=(), line=True):
+        """The deliverables of every briefed folder of f4/<h>; the verdict with its Correctness line."""
+        names = {"00": "REVISION.md", "01": "COUNTERCHECKS.md", "02": "DEFECTS.md", "08": "HIDDEN_ASSUMPTIONS.md",
+                 "09": "VERDICT.md"}
+        values = {"proven": "dimostrata", "verified": "verificata", "refuted": "smentita"}
+        for d in sorted((c / "f4" / h).iterdir()):
+            if not d.is_dir() or d.name in skip or (d.name.startswith("08-") and not audit):
+                continue
+            name = names.get(d.name[:2], "MEASUREMENTS.md")
+            text = "done\n"
+            if name == "VERDICT.md" and line:
+                text = self.line(f"Correctness: {correctness}", f"Correttezza: {values[correctness]}") + "\n"
+            (d / self.N(name)).write_text(text, encoding="utf-8")
+        self.dossier(c, h)
+
+    def sentinel(self, c: Path):
+        d = c / "f5" / self.N("00-sentinel")
+        d.mkdir(parents=True, exist_ok=True)
+        (d / self.N("SENTINEL.md")).write_text("checked\n", encoding="utf-8")
+
+    def closure(self, c: Path, closed=True, extra=""):
+        line = (self.line("Outcome: closed", "Esito: chiuso") if closed else
+                self.line("Outcome: not closed", "Esito: non chiuso"))
+        (c / "f5" / self.N("CLOSURE.md")).write_text(f"{line}\n{extra}", encoding="utf-8")
+
+
+# --- the checks ---
+
+def t1_dossier(s: Swarm):
+    """ENG-1: completing the dossier in f4 does not invalidate G3; the dossier is bound at G4."""
+    L = f"T1 [{s.lang}]"
+    c = s.classic()
+    s.gate_f2(c)
+    rc, out = s.run("select", c, "H-001")
+    check(f"{L}: select one branch", rc == 0, out)
+    s.f3(c, "H-001")
+    g = s.gate_json(c, "f3/H-001")[1]
+    dossier = c / "f3" / "H-001" / "H-001.md"
+    check(f"{L}: a G3 of the rules 2 records rules 2 and does not bind the dossier",
+          g.get("rules") == 2 and str(dossier) not in g["fingerprints"], g.get("rules"))
+    s.f4(c, "H-001")
+    out = s.status(c)
+    check(f"{L}: completing the dossier leaves G3 approved", s.st("status_approved", phase="f3/H-001") in out, out)
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x")
+    check(f"{L}: G4 passes after the dossier is completed", rc == 0, out)
+    g = s.gate_json(c, "f4/H-001")[1]
+    check(f"{L}: GATE_f4 binds the dossier", str(dossier) in g["fingerprints"])
+    dossier.write_text(dossier.read_text(encoding="utf-8") + "- Limits: none\n", encoding="utf-8")
+    out = s.status(c)
+    check(f"{L}: editing the dossier invalidates G4 and not G3",
+          s.st("status_invalid", phase="f4/H-001") in out and s.st("status_approved", phase="f3/H-001") in out, out)
+
+
+def t2_fields(s: Swarm):
+    """ENG-2: a field continued on the next lines is not empty; an untouched template field is."""
+    L = f"T2 [{s.lang}]"
+    card = (s.swarm / C.FILE_NAMES.get(s.lang, {}).get("HYPOTHESIS_CARD.md", "HYPOTHESIS_CARD.md")).read_text(
+        encoding="utf-8").replace("H-000", "H-003")
+    filled = "- ID: H-003\n- Results:\n  - command a, 3 counts\n  - file b\n- Short title: one line\n"
+    check(f"{L}: «- Results:» followed by indented lines is not empty", V._empty_fields(filled, card) == [],
+          V._empty_fields(filled, card))
+    table = [b for b in V._blocks(card) if any("|---" in x for x in b)][0]
+    check(f"{L}: the untouched table field of the template is empty",
+          V._empty_fields("\n".join(table) + "\n", card) == [table[0]], table[0])
+    two = [b for b in V._blocks(card) if len([x for x in b if x.strip()]) == 2 and not b[0].rstrip().endswith(":")
+           and b[-1].rstrip().endswith(":")][0]
+    check(f"{L}: an untouched field of two lines is empty", V._empty_fields("\n".join(two) + "\n", card) == [two[0]],
+          two)
+    check(f"{L}: «- ID: H-003» is never empty", V._empty_fields("- ID: H-003\n", card) == [])
+    check(f"{L}: under the rules 1 only the field with nothing after it is empty",
+          V._empty_fields("\n".join(table) + "\n- Short title:\n", card, 1) == ["- Short title:"])
+    c = s.classic()
+    s.gate_f2(c)
+    s.run("select", c, "H-001")
+    s.f3(c, "H-001")
+    s.f4(c, "H-001")
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x", "--verify")
+    check(f"{L}: G4 with a field continued on indented lines", rc == 0, out)
+    s.dossier(c, "H-001", extra="\n".join(table) + "\n")
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x", "--verify")
+    check(f"{L}: G4 refused with the untouched table of the template", rc == 1 and "empty fields" in out, out)
+
+
+def t3_foreign(s: Swarm):
+    """ENG-3: the copies of a convening inside a workspace or a corpus are not the branch's own files."""
+    L = f"T3 [{s.lang}]"
+    c = s.classic()
+    s.gate_f2(c)
+    s.run("select", c, "H-001")
+    s.f3(c, "H-001")
+    s.f4(c, "H-001")
+    x = next((c / "f4" / "H-001").glob("03-*"))
+    for sub in (x / s.N("work") / "root" / s.N(".swarmer") / "c", x / "corpus" / "c"):
+        sub.mkdir(parents=True)
+        shutil.copy(c / s.N("MANIFEST.json"), sub / s.N("MANIFEST.json"))
+        shutil.copytree(c / "f3", sub / "f3")
+        (sub / "f4" / "H-001" / "01-x").mkdir(parents=True)
+        (sub / "f4" / "H-001" / "01-x" / s.N("PREDICTIONS.md")).write_text("copy\n", encoding="utf-8")
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x", "--verify")
+    check(f"{L}: G4 does not read the PREDICTIONS.md of the copies (workspace, corpus)",
+          rc == 0 and s.N("PREDICTIONS.md") not in out, out)
+    (x / s.N("PREDICTIONS.md")).write_text("born in f4\n", encoding="utf-8")
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x", "--verify")
+    check(f"{L}: an unsealed PREDICTIONS.md of the branch is still reported",
+          rc == 1 and "not sealed" in out and out.count("not sealed") == 1, out)
+
+
+def t4_binding(s: Swarm):
+    """ENG-4: code, raw outputs and archives are bound; a workspace is one tree entry."""
+    L = f"T4 [{s.lang}]"
+    c = s.classic()
+    s.gate_f2(c)
+    s.run("select", c, "H-001")
+    s.f3(c, "H-001")
+    s.f4(c, "H-001")
+    x = next((c / "f4" / "H-001").glob("03-*"))
+    (x / "proto").mkdir()
+    py_ = x / "proto" / "x.py"
+    py_.write_text("print(1)\n", encoding="utf-8")
+    raw = x / "out_a.jsonl"
+    raw.write_text('{"a": 1}\n', encoding="utf-8")
+    tgz = x / "c.tar.gz"
+    tgz.write_bytes(b"\x1f\x8b archive")
+    gen = x / s.N("work") / "gen"
+    gen.mkdir(parents=True)
+    for i in range(500):
+        (gen / f"r{i:03d}.json").write_text(json.dumps({"i": i}), encoding="utf-8")
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x")
+    check(f"{L}: G4 with code, raw outputs, an archive and 500 generated files", rc == 0, out)
+    p = c / "GATE_f4_H-001.json"
+    fp = s.gate_json(c, "f4/H-001")[1]["fingerprints"]
+    trees = [k for k, v in fp.items() if v.startswith("tree:")]
+    check(f"{L}: x.py, out_a.jsonl and c.tar.gz are bound one by one",
+          all(str(q) in fp for q in (py_, raw, tgz)), sorted(fp)[:10])
+    check(f"{L}: the workspace is exactly one tree entry", trees == [str(x / s.N("work")) + "/"], trees)
+    check(f"{L}: the gate stays under 20 KB", p.stat().st_size < 20_000, p.stat().st_size)
+    for q, label in ((gen / "r123.json", "a generated file"), (py_, "x.py"), (tgz, "c.tar.gz")):
+        old = q.read_bytes()
+        q.write_bytes(old + b" ")
+        out = s.status(c)
+        check(f"{L}: changing {label} invalidates G4", s.st("status_invalid", phase="f4/H-001") in out, out)
+        q.write_bytes(old)
+    (x / "proto" / "__pycache__").mkdir()
+    (x / "proto" / "__pycache__" / "x.cpython.pyc").write_bytes(b"cache")
+    out = s.status(c)
+    check(f"{L}: a __pycache__ created afterwards does not invalidate G4",
+          s.st("status_approved", phase="f4/H-001") in out, out)
+
+
+def t5_sentinel(s: Swarm):
+    """ENG-5: with two funded branches G5 needs the sentinel, or its declared absence."""
+    L = f"T5 [{s.lang}]"
+    c = s.classic()
+    s.gate_f2(c)
+    rc, out = s.run("select", c, "H-001", "H-002")
+    task = c / "f5" / s.N("00-sentinel") / "TASK.md"
+    check(f"{L}: select of two branches writes the brief of the sentinel", rc == 0 and task.is_file(), out)
+    m = s.manifest(c)
+    used = set(m["f1"]) | {"arbitro"} | {d.name[3:] for f in ("f3", "f4") for h in ("H-001", "H-002")
+                                       for d in (c / f / h).iterdir() if d.is_dir()}
+    role = task.read_text(encoding="utf-8").split("`", 2)[1].split("-", 1)[1]
+    check(f"{L}: the sentinel is a role of no lane and no team", role not in used, role)
+    for h in ("H-001", "H-002"):
+        s.f3(c, h)
+        s.f4(c, h, correctness="proven")
+        rc, out = s.run("gate", c, f"f4/{h}", "--notes", "x")
+        assert rc == 0, out
+    check(f"{L}: G4 warns that the sentinel is missing", "sentinel" in out
+          and s.gate_json(c, "f4/H-002")[1].get("warnings"), out)
+    s.closure(c)
+    rc, out = s.run("gate", c, "f5", "--notes", "x", "--verify")
+    check(f"{L}: G5 refused without the sentinel", rc == 1 and "sentinel" in out, out)
+    s.sentinel(c)
+    rc, out = s.run("gate", c, "f5", "--notes", "x", "--verify")
+    check(f"{L}: G5 with the sentinel", rc == 0, out)
+    shutil.rmtree(c / "f5" / s.N("00-sentinel"))
+    s.closure(c, extra=s.line("Declared missing: sentinel: no free role\n",
+                              "Dichiarato mancante: sentinella: nessun ruolo libero\n"))
+    rc, out = s.run("gate", c, "f5", "--notes", "x", "--verify")
+    check(f"{L}: G5 with the line «Declared missing» of the dialect", rc == 0, out)
+    c = s.classic()
+    s.gate_f2(c)
+    s.run("select", c, "H-001")
+    check(f"{L}: no brief of the sentinel with one branch", not (c / "f5" / s.N("00-sentinel")).exists())
+    s.f3(c, "H-001")
+    s.f4(c, "H-001", correctness="proven")
+    s.run("gate", c, "f4/H-001", "--notes", "x")
+    s.closure(c)
+    rc, out = s.run("gate", c, "f5", "--notes", "x", "--verify")
+    check(f"{L}: one branch: G5 without the sentinel", rc == 0, out)
+
+
+def t6_v2(s: Swarm):
+    """ENG-7: G4 needs the deliverable of every briefed role, and V2 outside the f3 team on a proven result."""
+    L = f"T6 [{s.lang}]"
+    c = s.classic(profile="data")
+    s.gate_f2(c)
+    s.run("select", c, "H-001")
+    s.f3(c, "H-001")
+    b = c / "f4" / "H-001"
+    check(f"{L}: the V2 brief goes to the inverter, in 08-rovesciatore", (b / "08-rovesciatore" / "TASK.md").is_file(),
+          sorted(x.name for x in b.iterdir()))
+    s.f4(c, "H-001", correctness="proven", audit=False)
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x", "--verify")
+    check(f"{L}: «proven» without the audit: refused", rc == 1 and "V2 missing" in out, out)
+    inside = b / "03-statistico" / s.N("HIDDEN_ASSUMPTIONS.md")
+    inside.write_text("audit\n", encoding="utf-8")
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x", "--verify")
+    check(f"{L}: the audit by a role of the f3 team (statistico): refused", rc == 1 and "V2 missing" in out, out)
+    inside.unlink()
+    (b / "08-rovesciatore" / s.N("HIDDEN_ASSUMPTIONS.md")).write_text("audit\n", encoding="utf-8")
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x", "--verify")
+    check(f"{L}: the audit in 08-rovesciatore: approved", rc == 0, out)
+    for q in (b / "03-statistico").iterdir():
+        if q.name != "TASK.md":
+            q.unlink()
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x", "--verify")
+    check(f"{L}: the statistician's folder with only TASK.md: refused", rc == 1 and "03-statistico" in out, out)
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x", "--verify", "--not-delivered", "statistico")
+    check(f"{L}: with --not-delivered statistico: approved", rc == 0, out)
+
+
+def t7_outcome(s: Swarm):
+    """ENG-6: «Outcome: closed» needs a verdict proven or verified; «not closed» is a recorded non-closure."""
+    L = f"T7 [{s.lang}]"
+    c = s.classic()
+    s.gate_f2(c)
+    s.run("select", c, "H-001", "H-002")
+    for h in ("H-001", "H-002"):
+        s.f3(c, h)
+        s.f4(c, h, correctness="refuted")
+        rc, out = s.run("gate", c, f"f4/{h}", "--notes", "x")
+        assert rc == 0, out
+    s.sentinel(c)
+    s.closure(c)
+    rc, out = s.run("gate", c, "f5", "--notes", "x")
+    check(f"{L}: two refuted verdicts and «closed»: G5 refused", rc == 1 and "no H# proven" in out, out)
+    s.closure(c, closed=False)
+    rc, out = s.run("gate", c, "f5", "--notes", "x")
+    raw, g = s.gate_json(c, "f5")
+    check(f"{L}: «not closed»: G5 approved as a non-closure", rc == 0 and s.st(
+        "gate_approved_not_closed", phase="f5", n=len(g["fingerprints"])) in out, out)
+    check(f"{L}: the gate records closed: false" + (" (key «chiuso»)" if s.it else ""),
+          raw.get("chiuso" if s.it else "closed") is False, raw)
+    out = s.status(c)
+    check(f"{L}: status shows the convening not closed", s.st("status_not_closed", phase="f5") in out, out)
+    c = s.classic()
+    s.gate_f2(c)
+    s.run("select", c, "H-001", "H-002")
+    for h, v in (("H-001", "verified"), ("H-002", "refuted")):
+        s.f3(c, h)
+        s.f4(c, h, correctness=v)
+        rc, out = s.run("gate", c, f"f4/{h}", "--notes", "x")
+        assert rc == 0, out
+    s.sentinel(c)
+    s.closure(c)
+    rc, out = s.run("gate", c, "f5", "--notes", "x")
+    raw = s.gate_json(c, "f5")[0]
+    check(f"{L}: one verified verdict, V2, the sentinel and «closed»: approved, closed: true",
+          rc == 0 and raw.get("chiuso" if s.it else "closed") is True, (out, raw))
+    check(f"{L}: status shows f5 approved", s.st("status_approved", phase="f5") in s.status(c))
+
+
+def t8_radical(s: Swarm):
+    """ENG-8: the radical is recorded by select and briefed by fund; the early closures."""
+    L = f"T8 [{s.lang}]"
+    c = s.classic()
+    s.gate_f2(c)
+    rc, out = s.run("select", c, "H-001", "--radical", "H-002")
+    check(f"{L}: select --radical writes nothing for the radical",
+          rc == 0 and not (c / "f3" / "H-002").exists() and not (c / "f4" / "H-002").exists(), out)
+    check(f"{L}: the manifest records the radical not funded", s.manifest(c).get("radical_funded") is False)
+    rc, out = s.run("gate", c, "f3/H-002", "--notes", "x", "--verify")
+    check(f"{L}: a gate on the unfunded radical is refused", rc == 1 and "radical not funded" in out, out)
+    out = s.status(c)
+    check(f"{L}: status says the radical is not funded", s.st("status_not_funded", phase="f3/H-002", h="H-002") in out,
+          out)
+    rc, out = s.run("close-branch", c, "H-002", "--reason", "no budget")
+    e = json.loads((c / "f3" / "H-002" / s.N("EARLY_CLOSURE.json")).read_text(encoding="utf-8"))
+    check(f"{L}: close-branch of the unfunded radical: status «{s.line('not funded', 'non finanziato')}»",
+          rc == 0 and e.get(s.line("status", "stato")) == s.line("not funded", "non finanziato"), (out, e))
+    c = s.classic()
+    s.gate_f2(c)
+    s.run("select", c, "H-001", "--radical", "H-002")
+    rc, out = s.run("fund", c, "H-002")
+    check(f"{L}: fund writes the dossier and the briefs of the radical",
+          rc == 0 and (c / "f3" / "H-002" / "H-002.md").is_file() and (c / "f4" / "H-002" / "09-arbitro" / "TASK.md")
+          .is_file() and s.manifest(c).get("radical_funded") is True, out)
+    rc, out = s.run("fund", c, "H-002")
+    check(f"{L}: fund twice is refused", rc == 1, out)
+    rc, out = s.run("close-branch", c, "H-002", "--reason", "no time")
+    check(f"{L}: close-branch of a funded branch without --deciding-test: refused", rc == 1 and "--deciding-test" in out,
+          out)
+    kept = c / "f4" / "H-002" / "09-arbitro" / "notes.md"
+    kept.write_text("started\n", encoding="utf-8")
+    rc, out = s.run("close-branch", c, "H-002", "--reason", "no time", "--deciding-test", "run the oracle on 10 cases")
+    e = C.to_canonical(json.loads((c / "f3" / "H-002" / s.N("EARLY_CLOSURE.json")).read_text(encoding="utf-8")),
+                       C.CONVENE_KEYS["early_closure"])
+    check(f"{L}: with --deciding-test: declared unresolved with the test",
+          rc == 0 and e["status"] == "declared unresolved" and e["deciding_test"].startswith("run the oracle"), (out, e))
+    check(f"{L}: the untouched briefs of the closed branch are removed, a started one stays",
+          not (c / "f3" / "H-002" / "01-dati").exists() and not (c / "f4" / "H-002" / "01-avversario").exists()
+          and kept.is_file() and (c / "f3" / "H-002" / "H-002.md").is_file(),
+          sorted(str(p.relative_to(c)) for p in (c / "f4").rglob("*") if "H-002" in str(p)))
+
+
+def t9_closure_brief(s: Swarm):
+    """ENG-9: the brief of the closure names f5/CLOSURE.md and every input of the arbiter."""
+    L = f"T9 [{s.lang}]"
+    c = s.classic()
+    s.gate_f2(c)
+    s.run("select", c, "H-001", "H-003", "--radical", "H-002")
+    task = c / "f5" / "01-arbitro" / "TASK.md"
+    text = task.read_text(encoding="utf-8")
+    closure = c / "f5" / s.N("CLOSURE.md")
+    out_line = next(x for x in text.splitlines() if x.startswith("- **" + s.t["convene"]["output"]))
+    check(f"{L}: the Output line names {closure.relative_to(c)}", f"`{closure}`" in out_line, out_line)
+    want = [c / "f4" / h / "09-arbitro" / s.N("VERDICT.md") for h in ("H-001", "H-003")] + [
+        c / "f4" / "H-001" / "00-dati" / s.N("REVISION.md"), c / "f5" / s.N("00-sentinel") / s.N("SENTINEL.md"),
+        c / "f3" / "H-001" / "H-001.md"]
+    check(f"{L}: the inputs include the verdicts, the revision of the owner, the dossiers and the sentinel",
+          all(f"`{p}`" in text for p in want), [str(p) for p in want if f"`{p}`" not in text])
+    check(f"{L}: the unfunded radical is not among the inputs", "H-002" not in text)
+    s.run("fund", c, "H-002")
+    text = task.read_text(encoding="utf-8")
+    check(f"{L}: after fund the radical's verdict and dossier are listed",
+          f"`{c / 'f4' / 'H-002' / '09-arbitro' / s.N('VERDICT.md')}`" in text
+          and f"`{c / 'f3' / 'H-002' / 'H-002.md'}`" in text)
+
+
+def t10_amendments(s: Swarm):
+    """ENG-10: an amendment is sealed and bound by its own gate; under the rules 2 it blocks the other gates."""
+    L = f"T10 [{s.lang}]"
+    c = s.classic()
+    a1 = c / s.N("AMENDMENT_1.md")
+    a1.write_text(s.line("Amends: Constraints, Budget\n", "Modifica: Vincoli, Quota\n") + "git allowed\n",
+                  encoding="utf-8")
+    rc, out = s.run("gate", c, "A1", "--notes", "x")
+    check(f"{L}: {a1.name} unsealed: gate A1 refused", rc == 1 and "not sealed" in out, out)
+    s.run("seal", c, a1)
+    rc, out = s.run("gate", c, "A1", "--notes", "x")
+    check(f"{L}: sealed: gate A1 approved", rc == 0 and (c / "GATE_A1.json").is_file(), out)
+    a2 = c / s.N("AMENDMENT_2.md")
+    a2.write_text(s.line("Amends: Inputs\n", "Modifica: Ingressi\n"), encoding="utf-8")
+    rc, out = s.run("gate", c, "f2", "--notes", "x", "--verify")
+    check(f"{L}: gate f2 refused while {a2.name} is not bound", rc == 1 and a2.name in out, out)
+    s.run("seal", c, a2)
+    rc, out = s.run("gate", c, "2", "--notes", "x")
+    check(f"{L}: gate 2 is the gate A2", rc == 0 and (c / "GATE_A2.json").is_file(), out)
+    rc, out = s.run("gate", c, "f2", "--notes", "x")
+    check(f"{L}: gate f2 once the amendments are bound", rc == 0, out)
+    rc, out = s.run("select", c, "H-001")
+    brief = (c / "f3" / "H-001" / "01-dati" / "TASK.md").read_text(encoding="utf-8")
+    check(f"{L}: the briefs of the branch read the gated amendments", f"`{a1}`" in brief and f"`{a2}`" in brief, brief)
+    out = s.status(c)
+    check(f"{L}: status lists the amendment gates", s.st("status_approved", phase="A1") in out, out)
+    a1.write_text(a1.read_text(encoding="utf-8") + "and more\n", encoding="utf-8")
+    out = s.status(c)
+    check(f"{L}: editing {a1.name} invalidates A1 and leaves f0 approved",
+          s.st("status_invalid", phase="A1") in out and s.st("status_approved", phase="f0") in out, out)
+    rc, out = s.run("gate", c, "f3/H-001", "--notes", "x", "--verify")
+    check(f"{L}: and blocks the next gates", rc == 1 and a1.name in out, out)
+
+
+def t12_review_g4(s: Swarm):
+    """Review of ENG-3, ENG-4, ENG-6, ENG-7: a manifest that is not a convening's, a generated tree spread over
+    subfolders, symbolic links, a VERDICT.md other than the arbiter's, V2 at the root of the branch."""
+    L = f"T12 [{s.lang}]"
+    c = s.classic()
+    s.gate_f2(c)
+    s.run("select", c, "H-001")
+    s.f3(c, "H-001")
+    s.f4(c, "H-001", correctness="proven")
+    b = c / "f4" / "H-001"
+    x = next(b.glob("03-*"))
+    pred = x / s.N("PREDICTIONS.md")
+    pred.write_text("born in f4\n", encoding="utf-8")
+    for body in ('{"files": ["a"]}', "{}"):
+        (x / s.N("MANIFEST.json")).write_text(body, encoding="utf-8")
+        rc, out = s.run("gate", c, "f4/H-001", "--notes", "x", "--verify")
+        check(f"{L}: a {s.N('MANIFEST.json')} {body} in a role folder does not hide its unsealed predictions",
+              rc == 1 and "not sealed" in out, out)
+    (x / s.N("MANIFEST.json")).unlink()
+    pred.unlink()
+    stray = b / next(d.name for d in b.iterdir() if d.name.startswith("00-")) / s.N("VERDICT.md")
+    stray.write_text(s.line("Correctness: proven", "Correttezza: dimostrata") + "\n", encoding="utf-8")
+    (b / "09-arbitro" / s.N("VERDICT.md")).write_text(s.line("Correctness: refuted", "Correttezza: smentita") + "\n",
+                                                       encoding="utf-8")
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x", "--verify")
+    check(f"{L}: a Correctness line outside the arbiter's verdict: G4 refused",
+          rc == 1 and "only the arbiter's verdict" in out, out)
+    conv = V.Convening.load(c)
+    check(f"{L}: «proven» is read from the arbiter's verdict only", V._correctness(conv, "H-001") == "refuted")
+    stray.unlink()
+    s.f4(c, "H-001", correctness="proven", audit=False)
+    for q in b.glob("08-*/" + s.N("HIDDEN_ASSUMPTIONS.md")):
+        q.unlink()
+    (b / s.N("HIDDEN_ASSUMPTIONS.md")).write_text("audit\n", encoding="utf-8")
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x", "--verify", "--not-delivered", "rovesciatore")
+    check(f"{L}: V2 at the root of the branch (in no role folder): refused", rc == 1 and "V2 missing" in out, out)
+    (b / s.N("HIDDEN_ASSUMPTIONS.md")).unlink()
+    s.f4(c, "H-001", correctness="proven")
+    cases = x / "fixtures" / "cases"
+    for i in range(300):
+        (cases / f"c{i:04d}").mkdir(parents=True)
+        for k in range(3):
+            (cases / f"c{i:04d}" / f"{k}.json").write_text(str(i * k), encoding="utf-8")
+    outside = s.root / f"outside{s.n}"
+    (outside / "d").mkdir(parents=True)
+    (outside / "f.md").write_text("one\n", encoding="utf-8")
+    (outside / "d" / "g.md").write_text("one\n", encoding="utf-8")
+    os.symlink(outside / "f.md", x / "linked.md")
+    os.symlink(outside / "d", x / "linked_dir")
+    os.symlink(x, x / "loop")
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x")
+    check(f"{L}: G4 with 900 generated files in 300 subfolders and three symbolic links", rc == 0, out)
+    fp = s.gate_json(c, "f4/H-001")[1]["fingerprints"]
+    gate_p = c / "GATE_f4_H-001.json"
+    check(f"{L}: the generated tree is one entry, the gate stays under 20 KB",
+          fp.get(str(x / "fixtures") + "/", "").startswith("tree:") and gate_p.stat().st_size < 20_000,
+          (gate_p.stat().st_size, len(fp)))
+    for q, label in ((outside / "f.md", "a linked file"), (outside / "d" / "g.md", "a file in a linked folder"),
+                     (cases / "c0123" / "1.json", "a file deep in the generated tree")):
+        old = q.read_bytes()
+        q.write_bytes(old + b"two\n")
+        out = s.status(c)
+        check(f"{L}: changing {label} invalidates G4", s.st("status_invalid", phase="f4/H-001") in out, out)
+        q.write_bytes(old)
+    check(f"{L}: restored, G4 holds again", s.st("status_approved", phase="f4/H-001") in s.status(c))
+
+
+def t13_review_g5(s: Swarm):
+    """Review of ENG-5, ENG-8, ENG-10: the sentinel only in f5, a radical never funded, nothing after G5, a gated
+    amendment deleted."""
+    L = f"T13 [{s.lang}]"
+    c = s.classic()
+    a1 = c / s.N("AMENDMENT_1.md")
+    a1.write_text(s.line("Amends: Constraints\n", "Modifica: Vincoli\n"), encoding="utf-8")
+    s.run("seal", c, a1)
+    rc, out = s.run("gate", c, "A1", "--notes", "x")
+    assert rc == 0, out
+    a1.unlink()
+    rc, out = s.run("gate", c, "f2", "--notes", "x", "--verify")
+    check(f"{L}: a gated amendment deleted: gate f2 refused", rc == 1 and "no longer there" in out, out)
+    check(f"{L}: status shows A1 no longer valid", s.st("status_invalid", phase="A1") in s.status(c))
+    a1.write_text(s.line("Amends: Constraints\n", "Modifica: Vincoli\n"), encoding="utf-8")
+    s.gate_f2(c)
+    s.run("select", c, "H-001", "--radical", "H-002")
+    for where in (c / "f2", c / "f3" / "H-001", c / "f4" / "H-001"):
+        d = where / s.N("00-sentinel")
+        d.mkdir(parents=True)
+        (d / s.N("SENTINEL.md")).write_text("checked\n", encoding="utf-8")
+        check(f"{L}: a sentinel in {where.relative_to(c)} does not count (only f5)",
+              not V.sentinel_found(V.Convening.load(c)))
+        shutil.rmtree(d)
+    s.f3(c, "H-001")
+    s.f4(c, "H-001", correctness="proven")
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x")
+    assert rc == 0, out
+    s.closure(c)
+    rc, out = s.run("gate", c, "f5", "--notes", "x", "--verify")
+    check(f"{L}: «closed» with the radical neither funded nor closed: refused", rc == 1 and "H-002" in out, out)
+    s.closure(c, closed=False, extra="H-002 never funded\n")
+    rc, out = s.run("gate", c, "f5", "--notes", "x", "--verify")
+    check(f"{L}: «not closed» naming the radical: approved", rc == 0, out)
+    rc, out = s.run("close-branch", c, "H-002", "--reason", "no budget")
+    assert rc == 0, out
+    s.closure(c)
+    rc, out = s.run("gate", c, "f5", "--notes", "x")
+    check(f"{L}: the radical closed as not funded: G5 closes", rc == 0, out)
+    rc, out = s.run("fund", c, "H-002")
+    check(f"{L}: fund after G5: refused", rc == 1 and "f5" in out, out)
+    rc, out = s.run("close-branch", c, "H-001", "--reason", "x", "--deciding-test", "t")
+    check(f"{L}: close-branch after G5: refused", rc == 1 and "f5" in out, out)
+    check(f"{L}: G5 still approved", s.st("status_approved", phase="f5") in s.status(c))
+
+
+def t14_review_old(s: Swarm):
+    """Review of the upgrade path: a convening of the rules 1 with an amendment without «Amends», a radical declared
+    unresolved without a test, G4 and G5 under --rules 2, the keys of 5.0 in its gates, status."""
+    L = f"T14 [{s.lang}]"
+    c = s.classic(rules=1)
+    a1 = c / s.N("AMENDMENT_A1.md")
+    a1.write_text("git allowed in a throwaway repository\n", encoding="utf-8")
+    s.run("seal", c, a1)
+    rc, out = s.run("gate", c, "A1", "--notes", "x")
+    raw = s.gate_json(c, "A1")[0] if rc == 0 else {}
+    check(f"{L}: rules 1: an amendment without «{s.line('Amends', 'Modifica')}» passes A1 with a warning",
+          rc == 0 and s.line("Amends", "Modifica") in out and not ({"warnings", "avvisi", "rules", "regole"} & set(raw)),
+          (out, raw))
+    rc, out = s.run("gate", c, "A1", "--notes", "x", "--verify", "--rules", "2")
+    check(f"{L}: under --rules 2 the same amendment is refused", rc == 1 and s.line("Amends", "Modifica") in out, out)
+    s.gate_f2(c)
+    s.run("select", c, "H-001", "--radical", "H-002")
+    owner = next((c / "f4" / "H-001").glob("00-*"))
+    shutil.rmtree(owner)   # as select of 5.0 wrote it: no revision, no sentinel
+    shutil.rmtree(c / "f5" / s.N("00-sentinel"))
+    rc, out = s.run("close-branch", c, "H-002", "--reason", "measured inside H-001")
+    task = (c / "f5" / "01-arbitro" / "TASK.md").read_text(encoding="utf-8")
+    check(f"{L}: rules 1: the closure brief names no revision and no sentinel that were never briefed",
+          rc == 0 and s.N("REVISION.md") not in task and s.N("SENTINEL.md") not in task, task)
+    check(f"{L}: rules 1: close-branch leaves the briefs of the branch, as in 5.0",
+          (c / "f4" / "H-002" / "09-arbitro" / "TASK.md").is_file())
+    s.f3(c, "H-001")
+    s.f4(c, "H-001", line=False)
+    s.run("gate", c, "f3/H-001", "--notes", "re-gated after the dossier")
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x")
+    assert rc == 0, out
+    s.closure(c)
+    rc, out = s.run("gate", c, "f5", "--notes", "x", "--verify", "--rules", "2")
+    check(f"{L}: G5 --rules 2 on a G4 of the rules 1 without the Correctness line: refused, with the way out",
+          rc == 1 and "no H# proven" in out and "f4/H-001 --rules 2" in out, out)
+    check(f"{L}: G5 --rules 2 asks the test of the branch declared unresolved, and says how to add it",
+          "H-002: declared unresolved" in out and "--deciding-test" in out.split("H-002: declared unresolved")[1], out)
+    rc, out = s.run("close-branch", c, "H-002", "--reason", "x", "--deciding-test", "run the oracle")
+    e = C.to_canonical(json.loads((c / "f3" / "H-002" / s.N("EARLY_CLOSURE.json")).read_text(encoding="utf-8")),
+                       C.CONVENE_KEYS["early_closure"])
+    check(f"{L}: close-branch --deciding-test adds the test to the old closure, and keeps its reason",
+          rc == 0 and e["deciding_test"] == "run the oracle" and e["reason"] == "measured inside H-001", (out, e))
+    rc, out = s.run("close-branch", c, "H-002", "--reason", "x", "--deciding-test", "another")
+    check(f"{L}: and only once", rc == 1, out)
+    s.f4(c, "H-001", correctness="proven")
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x", "--rules", "2")
+    check(f"{L}: G4 --rules 2 over the amendment gated under the rules 1", rc == 0, out)
+    check(f"{L}: the sentinel warning says it is the rules 2 that would require it",
+          "sentinel" not in out or "--rules 2" in out, out)
+    check(f"{L}: status: the G3 of the rules 1 holds once its G4 is of the rules 2",
+          s.st("status_approved", phase="f3/H-001") in s.status(c), s.status(c))
+    rc, out = s.run("gate", c, "f5", "--notes", "x", "--verify", "--rules", "2")
+    check(f"{L}: G5 --rules 2 once the verdict has its line and the test is recorded", rc == 0, out)
+    rc, out = s.run("gate", c, "f5", "--notes", "x")
+    raw = s.gate_json(c, "f5")[0] if rc == 0 else {}
+    check(f"{L}: a G5 of the rules 1 writes only the keys of 5.0",
+          rc == 0 and set(raw) <= {"phase", "time", "notes", "not_delivered", "fingerprints",
+                                   "fase", "ora", "note", "non_consegnati", "impronte"}, raw)
+    s.closure(c, closed=False, extra="H-001\n")
+    s.run("gate", c, "f5", "--notes", "x")
+    out = s.status(c)
+    check(f"{L}: status of a G5 of the rules 1 with «not closed»", s.st("status_not_closed", phase="f5") in out, out)
+    (c / s.N("AMENDMENT_1.md")).write_text("x\n", encoding="utf-8")
+    rc, out = s.run("status", c)
+    check(f"{L}: rules 1: two spellings of A1, status reports it and does not abort",
+          rc == 0 and "two amendments" in out, out)
+
+
+def t11_compatibility(s: Swarm, base: Path):
+    """T11: a convening without gate_rules gates as 5.0 did; the 4.0 fixture still shows f0 approved."""
+    L = f"T11 [{s.lang}]"
+    c = s.classic(rules=1)
+    s.gate_f2(c)
+    rc, out = s.run("select", c, "H-001", "--radical", "H-002")
+    check(f"{L}: under the rules 1 select briefs the radical at once", rc == 0 and (c / "f4" / "H-002").is_dir(), out)
+    s.f3(c, "H-001")
+    s.f3(c, "H-002")
+    s.f4(c, "H-001", audit=False, line=False)
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x", "--verify")
+    check(f"{L}: under the rules 1 the completed dossier invalidates G3, as in 5.0: G4 refused", rc == 1, out)
+    s.run("gate", c, "f3/H-001", "--notes", "re-gated after the dossier")
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x")
+    check(f"{L}: G4 of the rules 1: no Correctness line, no V2, no sentinel required", rc == 0, out)
+    m = s.manifest(c)
+    contract = c / s.N("CONTRACT.md")
+    for phase in ("f0", "f1", "f2", "f3/H-001", "f3/H-002", "f4/H-001"):
+        g = s.gate_json(c, phase)[1]
+        ok = "rules" not in g and g["fingerprints"] == legacy_fingerprints(c, m, phase, contract)
+        check(f"{L}: GATE {phase} without «rules», fingerprints of 5.0", ok, sorted(g))
+    s.f4(c, "H-002", correctness="refuted")
+    out = s.status(c)
+    check(f"{L}: status: the G3 of the rules 1 is no longer valid once the dossier is completed",
+          s.st("status_invalid", phase="f3/H-002") in out, out)
+    rc, out = s.run("gate", c, "f4/H-002", "--notes", "x", "--rules", "2")
+    g = s.gate_json(c, "f4/H-002")[1]
+    check(f"{L}: gate --rules 2 on one G4: approved over a G3 of the rules 1 without its dossier",
+          rc == 0 and g.get("rules") == 2, out)
+    out = s.status(c)
+    check(f"{L}: status: that G3 of the rules 1 is approved again, beside its G4 of the rules 2",
+          s.st("status_approved", phase="f3/H-002") in out and s.st("status_approved", phase="f4/H-002") in out, out)
+    s.closure(c)
+    rc, out = s.run("gate", c, "f5", "--notes", "x")
+    check(f"{L}: G5 of the rules 1: «proven» taken from the G4 of the rules 1, with a warning",
+          rc == 0 and "rules 1" in out, out)
+    src = FIXTURES / "convening-4.0"
+    if s.it and src.is_dir():
+        work = base / "fixture40"
+        for p in sorted(src.rglob("*")):
+            q = work / p.relative_to(src)
+            if p.is_dir():
+                q.mkdir(parents=True, exist_ok=True)
+            else:
+                q.parent.mkdir(parents=True, exist_ok=True)
+                q.write_text(p.read_text(encoding="utf-8").replace("@FIXTURE_ROOT@", str(work)), encoding="utf-8")
+        f = next(p for p in work.iterdir() if p.is_dir() and not p.name.startswith("."))
+        out = s.status(f)
+        check(f"{L}: the 4.0 fixture still shows f0 approved", s.st("status_approved", phase="f0") in out, out)
+
+
+def main():
+    with tempfile.TemporaryDirectory() as b:
+        base = Path(b)
+        for lang in ("en", "it"):
+            s = Swarm(base, lang)
+            for t in (t1_dossier, t2_fields, t3_foreign, t4_binding, t5_sentinel, t6_v2, t7_outcome, t8_radical,
+                      t9_closure_brief, t10_amendments, t12_review_g4, t13_review_g5, t14_review_old):
+                t(s)
+            t11_compatibility(s, base)
+    failed = [n for n, ok in results if not ok]
+    print(f"\n{len(results) - len(failed)}/{len(results)} checks passed")
+    sys.exit(1 if failed else 0)
+
+
+if __name__ == "__main__":
+    main()
 #==== swarmer.sh: file tests/test_jury.py ====
 #!/usr/bin/env python3
 """Test battery of the swarmer 5.0 jury (JURY.md, engine/jury.py): python3 -I -B tests/test_jury.py
@@ -17776,8 +19584,16 @@ def convening(base: Path, lang: str, sa: Path, sb: Path, same):
     both("select --radical --owner", ["select", ca, "H-001", "--radical", "H-002", "--owner", "architetto"],
          ["seleziona", cb, "H-001", "--radicale", "H-002", "--responsabile", "architetto"])
     check(f"M3 [{lang}]: select and seleziona write the same names", shape(ca) == shape(cb))
-    both("close-branch --reason", ["close-branch", ca, "H-002", "--reason", "no time"],
-         ["chiudi-ramo", cb, "H-002", "--motivo", "no time"])
+    both("gate --rules", ["gate", ca, "f2", "--notes", "x", "--rules", "2", "--verify"],
+         ["cancello", cb, "f2", "--note", "x", "--regole", "2", "--verifica"])
+    # gate rules 2: select records the radical, fund briefs it, a funded branch closes only with its deciding test
+    both("fund", ["fund", ca, "H-002"], ["finanzia", cb, "H-002"])
+    check(f"M3 [{lang}]: fund and finanzia write the same names", shape(ca) == shape(cb))
+    both("close-branch --reason of a funded branch, without the test", ["close-branch", ca, "H-002", "--reason", "x"],
+         ["chiudi-ramo", cb, "H-002", "--motivo", "x"], expect=1)
+    both("close-branch --reason --deciding-test", ["close-branch", ca, "H-002", "--reason", "no time",
+                                                   "--deciding-test", "the oracle on 10 cases"],
+         ["chiudi-ramo", cb, "H-002", "--motivo", "no time", "--prova-decisiva", "the oracle on 10 cases"])
     both("status at the end", ["status", ca], ["stato", cb])
     # prepare of a fan-out with --n, --form and --rule
     x = py(sa / "convene.py", "prepare", "--name", "f", "--strategy", "fan-out", "--profile", "code", "--question", "q",

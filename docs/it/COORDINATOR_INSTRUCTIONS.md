@@ -128,17 +128,20 @@ Sei nella radice del progetto dell'utente. Gli agenti hanno gli strumenti e i pe
 | `ruoli [--domanda TESTO]` | i ruoli con il nucleo; con `--domanda`, solo quelli le cui parole chiave compaiono nel testo, e i profili |
 | `prepara --nome N --strategia S --profilo P --domanda TESTO [--ruoli a,b] [--dest D] [--seme N]` | lo scheletro: `MANIFESTO.json`, `CONTRATTO.md` da compilare, le cartelle delle fasi, le consegne di f0 e f1 (corsie dal nome casuale, con il canarino); stampa il percorso della mappa delle corsie, che è solo tua |
 | `fotografa C` | appena le corsie hanno consegnato, prima di leggerle: registra se ogni file è stato letto dopo l'ultima scrittura |
-| `cancello C FASE --note TESTO [--verifica]` | controlla le condizioni del cancello (f0, f1, f2, f3/H-001, f4/H-001, f5) e scrive `GATE_<fase>.json` con lo sha256 dei file; `--verifica` rifà i controlli senza scrivere |
-| `sigilla C FILE…` | ora e sha256 in `SIGILLI.jsonl`: il triage dopo le firme, le previsioni nate in f4 prima delle loro prove |
-| `seleziona C H-001 [H-002 H-003] [--radicale H-00x] [--responsabile SIGLA]` | dopo G2, solo H# del triage: apre i rami f3 e f4 con le consegne e il dossier; `--responsabile` cambia il ruolo che scrive la soluzione (di norma il primo di f3 nel profilo) |
-| `chiudi-ramo C H-00x --motivo TESTO` | chiude un ramo prima del G3 come «non risolto dichiarato» |
+| `cancello C FASE --note TESTO [--verifica] [--regole 2]` | controlla le condizioni del cancello (f0, A1 per un emendamento, f1, f2, f3/H-001, f4/H-001, f5) e scrive `GATE_<fase>.json` con lo sha256 dei file e le regole con cui l'ha controllato; `--verifica` rifà i controlli senza scrivere; `--regole 2` applica le regole 2 dei cancelli a questo cancello di una convocazione più vecchia |
+| `sigilla C FILE…` | ora e sha256 in `SIGILLI.jsonl`: il triage dopo le firme, gli emendamenti, le previsioni nate in f4 prima delle loro prove |
+| `seleziona C H-001 [H-002 H-003] [--radicale H-00x] [--responsabile SIGLA]` | dopo G2, solo H# del triage: apre i rami f3 e f4 con le consegne e il dossier, e scrive le consegne della sentinella e della chiusura; con le regole 2 la radicale è solo registrata; `--responsabile` cambia il ruolo che scrive la soluzione (di norma il primo di f3 nel profilo) |
+| `finanzia C H-00x [--responsabile SIGLA]` | con le regole 2: dà al ramo radicale il dossier e le consegne |
+| `chiudi-ramo C H-00x --motivo TESTO [--prova-decisiva TESTO]` | chiude un ramo prima del G3: una radicale mai finanziata come «non finanziato»; un ramo finanziato come «non risolto dichiarato», con la prova che lo deciderebbe (obbligatoria con le regole 2); su un ramo già dichiarato non risolto senza prova, `--prova-decisiva` la aggiunge |
 | `stato C` | a che punto è ogni fase e ogni ramo |
 
 Lo script usa solo la libreria standard, non lancia agenti e non approva niente da solo. I nomi inglesi dei comandi
 e delle opzioni (`prepare`, `--question`, …) valgono anche loro. Una convocazione resta nella lingua in cui è nata:
 una inglese (`MANIFEST.json`, `CONTRACT.md`, `DELIVERABLE.md`, `f1/agent-<k>/`) tiene i nomi inglesi anche in
 un'installazione italiana, e le sue righe si leggono nelle due lingue (`Esito: chiuso` o `Outcome: closed`,
-`decide: sì` o `decides: yes`, `Controfirma: arbitro` o `Countersign: arbitro`).
+`decide: sì` o `decides: yes`, `Controfirma: arbitro` o `Countersign: arbitro`, `Correttezza: dimostrata` o
+`Correctness: proven`, `Modifica: Quota` o `Amends: Budget`, `Dichiarato mancante: sentinella: …` o
+`Declared missing: sentinel: …`).
 
 ## Chi orchestra da sé (un modello raggiunto per API, senza sottoagenti)
 

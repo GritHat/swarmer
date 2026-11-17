@@ -177,7 +177,7 @@ VALUES = {
                 "localization": "localizzazione", "sensors": "sensori", "latency": "latenza", "general": "generale"},
     "lane": {"A": "A", "B": "B", "all": "tutti", "slices": "fette", "race": "gara", "mixed": "mista",
              "single": "singolo"},
-    "closure_status": {"declared unresolved": "non risolto dichiarato"},
+    "closure_status": {"declared unresolved": "non risolto dichiarato", "not funded": "non finanziato"},
     "authority": {"binding": "vincolante", "recommendation": "raccomandazione"},
     "jury_form": {"ordinary": "ordinaria", "light": "leggera", "plenary": "plenaria"},
     "test_outcome": {"pass": "passa", "fail": "fallisce"},
@@ -223,6 +223,17 @@ LINE_VALUES = {
     "test_outcome": {"pass": "pass", "fail": "fail", "passa": "pass", "fallisce": "fail"},
     "class": {"light": "light", "ordinary": "ordinary", "plenary": "plenary", "leggera": "light",
               "ordinaria": "ordinary", "plenaria": "plenary"},
+    # the Correctness line of a VERDICT.md (a convening): every spelling, lower case → canonical
+    "correctness": {"proven": "proven", "verified": "verified", "supported": "supported", "refuted": "refuted",
+                    "unresolved": "unresolved",
+                    "dimostrato": "proven", "dimostrata": "proven", "provato": "proven", "provata": "proven",
+                    "verificato": "verified", "verificata": "verified",
+                    "sostenuto": "supported", "sostenuta": "supported", "supportato": "supported",
+                    "supportata": "supported",
+                    "smentito": "refuted", "smentita": "refuted", "confutato": "refuted", "confutata": "refuted",
+                    "non risolto": "unresolved", "non risolta": "unresolved"},
+    # the outcome of a CLOSURE.md
+    "outcome": {"closed": "closed", "not closed": "not closed", "chiuso": "closed", "non chiuso": "not closed"},
 }
 # The sealed last line of a file of a jury, by language (the regular expressions accept every language).
 SEAL_LINE = {"en": "sha256 of the bytes before this line: {sha}", "it": "sha256 dei byte che precedono questa riga: {sha}"}
@@ -250,8 +261,20 @@ CONVENE_LINES = {
     "canary": {"en": "Canary:", "it": "Canarino:"},
     "decides_re": r"^(?:decides|decide): (?:yes|no|sì|si)\s*$",
     "decides": {"en": "«decides: yes» or «decides: no»", "it": "«decide: sì» o «decide: no»"},
-    "outcome_re": r"^(?:Outcome: (?:closed|not closed)|Esito: (?:chiuso|non chiuso))\b",
+    "outcome_re": r"^(?:Outcome: (closed|not closed)|Esito: (chiuso|non chiuso))\b",
     "outcome": {"en": "«Outcome: closed» or «Outcome: not closed»", "it": "«Esito: chiuso» o «Esito: non chiuso»"},
+    # the Correctness line of a verdict (gate rules 2): «proven» means proven or verified
+    "correctness_re": r"^(?:Correctness|Correttezza): (proven|verified|supported|refuted|unresolved|dimostrat[ao]|"
+                      r"provat[ao]|verificat[ao]|sostenut[ao]|supportat[ao]|smentit[ao]|confutat[ao]|non risolt[ao])\b",
+    "correctness": {"en": "«Correctness: proven|verified|supported|refuted|unresolved»",
+                    "it": "«Correttezza: dimostrata|verificata|sostenuta|smentita|non risolta»"},
+    # a missing sentinel declared in CLOSURE.md, with its reason
+    "declared_missing_re": r"^(?:Declared missing|Dichiarato mancante): (sentinel|sentinella)\s*[:—-]\s*(\S.*)$",
+    "declared_missing": {"en": "«Declared missing: sentinel: <reason>»",
+                         "it": "«Dichiarato mancante: sentinella: <motivo>»"},
+    # the fields of the contract that an amendment changes
+    "amends_re": r"^(?:Amends|Modifica): *(\S.*)$",
+    "amends": {"en": "«Amends: <contract fields>»", "it": "«Modifica: <campi del contratto>»"},
     "countersign": {"en": "Countersign: arbitro", "it": "Controfirma: arbitro"},
     "not_relevant": {"en": "not relevant:", "it": "non pertinente:"},
     "results": {"DONE": "FATTO", "ISSUES": "PROBLEMI", "BLOCKED": "BLOCCATO"},
@@ -537,6 +560,7 @@ MANIFEST_SCHEMA = Schema("manifest", {
     "f1": ("f1", None, {"*": (None, None, {"folder": ("cartella",), "lane": ("corsia", VALUES["lane"]),
                                            "role": ("ruolo",)})}),
     "selected": ("selezionate",), "radical": ("radicale",), "map": ("mappa",),
+    "gate_rules": ("regole_cancelli",), "radical_funded": ("radicale_finanziato",),
     "fan_out": ("ventaglio", None, {"n": ("n",), "form": ("forma", VALUES["form"]), "rule": ("regola", VALUES["rule"])}),
 }, keymaps={("f1", "*"): [("agent-", "agente-")]})
 CONVENE_KEYS = {
@@ -545,9 +569,11 @@ CONVENE_KEYS = {
         "mtime": ("mtime",), "read_after": ("letto_dopo",)})})}),
     "seal": Schema("seal", {"time": ("ora",), "file": ("file",), "sha256": ("sha256",), "bytes": ("byte",)}),
     "gate": Schema("gate", {"phase": ("fase",), "time": ("ora",), "notes": ("note",),
-                            "not_delivered": ("non_consegnati",), "fingerprints": ("impronte", None, {"*": (None,)})}),
+                            "not_delivered": ("non_consegnati",), "fingerprints": ("impronte", None, {"*": (None,)}),
+                            "rules": ("regole",), "closed": ("chiuso",), "warnings": ("avvisi",)}),
     "early_closure": Schema("early closure", {"time": ("ora",), "hypothesis": ("ipotesi",), "reason": ("motivo",),
-                                              "status": ("stato", VALUES["closure_status"])}),
+                                              "status": ("stato", VALUES["closure_status"]),
+                                              "deciding_test": ("prova_decisiva",)}),
     # the map of the lanes (not in the 4.0 list of the spec, but written by prepare: role → folder, lane, canary)
     "map": Schema("map", {"*": (None, None, {"folder": ("cartella",), "lane": ("corsia", VALUES["lane"]),
                                              "canary": ("canarino",)})}),
@@ -566,11 +592,14 @@ CONVENE_FILES = {
     "PREDICTIONS.md": "PREVISIONI.md", "COUNTERCHECKS.md": "CONTROPROVE.md", "DEFECTS.md": "DIFETTI.md",
     "MEASUREMENTS.md": "MISURE.md", "VERDICT.md": "VERDETTO.md", "CLOSURE.md": "CHIUSURA.md",
     "HYPOTHESIS_CARD.md": "SCHEDA_IPOTESI.md",
+    "00-sentinel": "00-sentinella", "SENTINEL.md": "SENTINELLA.md", "HIDDEN_ASSUMPTIONS.md": "ASSUNZIONI_NASCOSTE.md",
+    "REVISION.md": "REVISIONE.md", "work": "lavoro", "status.md": "stato.md",
 }
 # Names with a variable part: (canonical regex, canonical template, Italian regex, Italian template).
 CONVENE_PATTERNS = [
     (r"agent-(\d+)", "agent-{0}", r"agente-(\d+)", "agente-{0}"),
     (r"\.(.+)\.lanes", ".{0}.lanes", r"\.(.+)\.corsie", ".{0}.corsie"),
+    (r"AMENDMENT_(A?\d+)\.md", "AMENDMENT_{0}.md", r"EMENDAMENTO_(A?\d+)\.md", "EMENDAMENTO_{0}.md"),
 ]
 JURY_FILES = {"jury.json": "giuria.json", "PROPOSAL.md": "PROPOSTA.md", "SEALS.md": "SIGILLI.md",
               "DELEGATION.md": "DELEGA.md", "RELEVANCE.md": "PERTINENZA.md"}

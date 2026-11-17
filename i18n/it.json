@@ -215,6 +215,9 @@
   "select": [
    "seleziona"
   ],
+  "fund": [
+   "finanzia"
+  ],
   "close-branch": [
    "chiudi-ramo"
   ],
@@ -328,6 +331,9 @@
   "--verify": [
    "--verifica"
   ],
+  "--rules": [
+   "--regole"
+  ],
   "--radical": [
    "--radicale"
   ],
@@ -336,6 +342,9 @@
   ],
   "--reason": [
    "--motivo"
+  ],
+  "--deciding-test": [
+   "--prova-decisiva"
   ],
   "--install": [
    "--installa"
@@ -427,14 +436,14 @@
   "translations": "traduzioni"
  },
  "missions": {
-  "closure": "La chiusura: almeno una H# provata, nessuna contraddizione aperta su una conclusione adottata, previsioni risolte o dichiarate non risolte con la prova che le deciderebbe, le quattro verifiche dei risultati fondanti. Scrivi anche {closure_file} con la riga «Esito: chiuso» o «Esito: non chiuso», e al più tre decisioni per l'utente.",
+  "closure": "La chiusura: almeno una H# provata (Correttezza dimostrata o verificata nel suo verdetto), nessuna contraddizione aperta su una conclusione adottata, previsioni risolte o dichiarate non risolte con la prova che le deciderebbe, le quattro verifiche dei risultati fondanti. Scrivi anche {closure_file} con la riga «Esito: chiuso» o «Esito: non chiuso», e al più tre decisioni per l'utente. «Esito: non chiuso» è una non chiusura registrata: nomina ogni ramo senza verdetto. Se la sentinella non ha lavorato, scrivi la riga «Dichiarato mancante: sentinella: <motivo>».",
   "owner_solution": "Sei il responsabile di {h}. Scrivi la soluzione: passi, invarianti, costo, «dipende da», «invalidata se cambia». Le previsioni con la soglia in PREVISIONI.md, con la riga «decide: sì» o «decide: no».",
   "proof": "Scrivi la prova o la verifica di {h}, dopo SOLUZIONE.md del responsabile: che cosa la rende corretta, con quali ipotesi, e come la si controlla.",
   "measurement_plan": "Il piano delle misure di {h}: che cosa si misura, con quale soglia, prima delle prove. Se non servono misure, scrivilo con il perché.",
   "attack": "L'attacco a {h}: i casi che dovrebbero romperla, con le previsioni prima.",
   "counterchecks": "Esegui le controprove di {h}, dalla più economica: prima le falsificazioni, poi la correttezza, poi il controllo dissimile. Le previsioni nate ora vanno sigillate dal coordinatore prima delle prove.",
   "defects": "Le anomalie delle controprove di {h} e i difetti nascosti, ciascuno con la causa provata o «non spiegata». Se non ci sono anomalie, elenca i controlli fatti.",
-  "verdict": "Il verdetto di {h} per proprietà (correttezza, completezza, efficacia, costo), e il dossier {dossier} completato campo per campo («manca» dove manca).",
+  "verdict": "Il verdetto di {h} per proprietà (correttezza, completezza, efficacia, costo), con la riga «Correttezza: dimostrata», «verificata», «sostenuta», «smentita» o «non risolta» (dimostrata o verificata solo sul dominio d'uso), e il dossier {dossier} completato campo per campo («manca» dove manca). Un campo può continuare sulle righe rientrate sotto di lui. Il dossier è legato al cancello G4, non al G3: completalo prima del G4.",
   "proof_contribution": "Il tuo contributo alle prove di {h}, sul piano delle misure, dopo le controprove.",
   "cards": "Una scheda per idea: oggetto, enunciato preciso, tipo, rischi, ipotesi critica e controesempio candidato, come la si verifica. Niente fusioni: due idee sono la stessa solo se enunciato e tipo coincidono. Ogni scheda dice da quale consegna viene.",
   "triage": "Assegna gli H# nella forma H-001, con la classe TESTARE, RIFORMULARE, APERTA o SMENTITA (solo con una prova), e le prime tre in ordine. Il coordinatore sigilla il triage appena arriva.",
@@ -446,7 +455,10 @@
   "global_round": "Tornata globale, dal tuo punto di vista: al più tre osservazioni o proposte, ciascuna con la prova o il falsificatore. Se il tuo campo non c'entra, scrivi «non pertinente: …» in una riga. Al più mezza pagina.",
   "single": "Esegui la richiesta nel tuo ruolo, per intero, e rileggiti con le tue «domande che si pone sempre» prima di consegnare.",
   "fan_out_slice": "Sei un agente di un ventaglio, con una fetta del lavoro: la tua è scritta qui sotto dal coordinatore. Fai solo la tua fetta, per intero, e verifica il criterio di fatto prima di consegnare.",
-  "race": "Sei un braccio di una gara: altri agenti hanno la tua stessa consegna, e il coordinatore sceglierà con la regola dichiarata nel contratto. Lavora da solo, per intero, e verifica il criterio di fatto prima di consegnare."
+  "race": "Sei un braccio di una gara: altri agenti hanno la tua stessa consegna, e il coordinatore sceglierà con la regola dichiarata nel contratto. Lavora da solo, per intero, e verifica il criterio di fatto prima di consegnare.",
+  "owner_revision": "Sei il responsabile di {h}. Dopo le controprove e i difetti, scrivi la revisione: che cosa cambia nella soluzione e perché, ogni cambio con la controprova o il difetto a cui risponde; che cosa non cambia, con il motivo. Una previsione nata ora va in PREVISIONI.md e la sigilla il coordinatore prima della sua prova.",
+  "hidden_assumption_audit": "L'audit delle ipotesi nascoste (V2) di {h}: non hai preso parte né alla costruzione né alla rilettura. Elenca le condizioni necessarie non dichiarate dei suoi risultati fondanti: versioni, rappresentazioni dei dati, codifiche, cache e stato, ordine delle chiamate, bordi, domini vuoti, limiti operativi, differenze fra la teoria e il comportamento del sistema. Per ciascuna: dove è assunta, se regge, e il controllo che lo dice. Un audit negativo elenca le condizioni controllate.",
+  "sentinel": "Sei la sentinella: un ruolo non convocato, in sola lettura, venti minuti. Metti alla prova un presupposto condiviso dai rami con un controllo esterno, e riconta dai file le cifre e gli identificativi dei dossier. Una K# tua entra solo con un file. Non scrivere nulla fuori dalla tua cartella."
  },
  "convene": {
   "agent": "Agente",
@@ -501,6 +513,15 @@
   "status_pending": "  {phase}: da approvare",
   "status_approved": "  {phase}: approvato",
   "status_invalid": "  {phase}: NON PIÙ VALIDO (file cambiati)",
-  "translation_pending": "Traduzione in attesa in «{language}» (translation-pending) per: {roles}. Prima di lanciarli traduci ogni scheda e registrala: {command}"
+  "translation_pending": "Traduzione in attesa in «{language}» (translation-pending) per: {roles}. Prima di lanciarli traduci ogni scheda e registrala: {command}",
+  "gate_approved_not_closed": "Cancello {phase} approvato come non chiusura registrata ({n} file legati): la convocazione non è chiusa",
+  "gate_warning": "  avviso: {text}",
+  "branch_not_funded": "{h} chiusa: non finanziata (il ramo radicale non ha mai avuto consegne)",
+  "branch_funded": "{h} finanziata: il suo dossier e le sue consegne sono scritti",
+  "radical_recorded": "Radicale {h} registrata, non finanziata: finanzia C {h} le dà le consegne, chiudi-ramo C {h} --motivo … la chiude",
+  "status_not_closed": "  {phase}: approvato, NON CHIUSO (una non chiusura registrata)",
+  "status_not_funded": "  {phase}: radicale non finanziata (finanzia C {h}, oppure chiudi-ramo C {h})",
+  "deciding_test_added": "{h}: la prova che la deciderebbe è registrata nella sua chiusura anticipata",
+  "status_clash": "  ATTENZIONE: {text}"
  }
 }

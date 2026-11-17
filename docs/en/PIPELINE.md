@@ -165,7 +165,7 @@ A failure stops the branch and preserves its counterexample.
   3. the counterexamples;
   4. the arbiter's consolidation.
 - The arbiter closes only if these three conditions hold:
-  - at least one H# proved;
+  - at least one H# proved (Correctness proven or verified in its verdict);
   - no open contradiction on an adopted conclusion;
   - every prediction resolved, or declared unresolved with the test that would decide it.
 
@@ -424,11 +424,37 @@ approval makes the gate invalid. A gate is not approved because the files exist.
 | gate | conditions |
 |---|---|
 | G0 | complete contract: question, criterion, inputs, constraints, quota, profile |
+| GA (per amendment) | after G0, the amendment sealed and, under the rules 2, with the line «Amends: <fields of the contract>» (under the rules 1 its absence is a warning); it binds the amendment alone, so the contract and G0 stay as they are |
 | G1 | deliverables from all the lanes (or "not delivered" after two stops), no canary of one lane in the other, the snapshot of the reads taken before reading |
 | G2 | authors' signatures before the triage seal, seal before the tournament, selection only among the triage's H#, the arbiter's countersignature |
-| G3 (per H#) | solution, verification, measurement plan and predictions frozen; the thresholds reachable and with a test that can decide them |
-| G4 (per H#) | counter-tests before any cost; classes in order; predictions sealed before their tests; anomalies explained or declared; dossier complete |
-| G5 | the arbiter's closure conditions and the four verifications of the foundational results |
+| G3 (per H#) | solution, verification, measurement plan and predictions frozen; the thresholds reachable and with a test that can decide them; the dossier excluded (it is bound at G4) |
+| G4 (per H#) | counter-tests before any cost; classes in order; predictions sealed before their tests; anomalies explained or declared; dossier complete and bound; under the rules 2, the line «Correctness: …» in the verdict, a deliverable from every role with a brief (the statistician too) or its "not delivered", and V2 (`HIDDEN_ASSUMPTIONS.md`) in the folder of a role outside the f3 team when correctness is proven or verified; the line only in the arbiter's verdict |
+| G5 | the arbiter's closure conditions and the four verifications of the foundational results. «Outcome: closed» needs at least one H# proven (Correctness proven or verified in the arbiter's verdict) and every branch with a G4 or an early closure (under the rules 2 a radical never funded too: closed as "not funded"); «Outcome: not closed» is approved as a recorded non-closure that names the open branches, and the convening stays not closed. Under the rules 2, also the sentinel (or «Declared missing: sentinel: <reason>») and the deciding test of every branch declared unresolved |
+
+**The rules of the gates.** The conditions and the files a gate binds have a version, the `gate_rules` key of the
+manifest: a new convening is born with the rules 2, and a missing key means 1 (the convenings of 4.0 and of 5.0).
+Each gate records its rules and is always recomputed under them, so an approved gate never becomes invalid because
+the engine was upgraded. `gate C PHASE --rules 2` applies the rules 2 to one new gate of an older convening. The
+relaxations (a field continued on the next lines, the copies inside a workspace) hold under every rule; the stricter
+conditions only under the rules 2, with one exception: «Outcome: closed» needs an H# proven under every rule. Under the
+rules 1 a valid G4 whose verdict has no Correctness line still counts as proven, with a warning; under the rules 2 it
+does not, and the way out is to add the line and gate that G4 again with `--rules 2`. An amendment written without
+the line «Amends:» passes its gate under the rules 1, with a warning, so that the later gates of an older convening
+can be checked with `--rules 2`.
+
+**What a gate binds.** Under the rules 1, the `.md` files of the phase, and the `.json` files of f3 and f4. Under the
+rules 2, every file of the phase, of any kind (code, raw outputs, archives), except `GATE_*`, `__pycache__`, `*.pyc`
+and `.git`; a symbolic link is bound by its target (the sha256 of the file, or the tree of the folder, it points to).
+A role's workspace (a `work/` folder), a nested convening (a folder with the manifest of a convening; the `NN-<role>`
+folder of a branch never is one) or state folder, and a crowded folder are each bound as a single entry, the sha256
+of their tree. A folder is crowded with more than 200 files in its whole subtree; the folder of the phase and its
+`NN-<role>` folders only with more than 200 files of their own. The files
+under a workspace or a nested convening are not the branch's own: a `PREDICTIONS.md` copied into a corpus is not
+taken as born in f4.
+
+**Known limit: shared formats.** The formats frozen in `SELECTION.md` (a record, a line, a file that several branches
+share) have no record of their own and no propagation: a change made by one branch is not told to the others, and no
+gate notices it. The crossroads extension handles this, not the engine.
 
 ### Lane blindness
 
@@ -449,6 +475,11 @@ read-only mode and delivers:
 - the figures and identifiers of the dossier, recounted from the files.
 
 A K# of its own enters only with a file. It serves to find what no profile would have convened.
+
+`select` (and `fund`) writes its brief in `f5/00-sentinel/TASK.md`, for a role drawn with the convening's seed among
+those in no lane and in no team; it delivers `f5/00-sentinel/SENTINEL.md`, and only there: f5 is bound by G5 alone, so
+the sentinel invalidates no earlier gate. Under the rules 2, G4 warns while it is missing and G5 refuses without it, unless
+`CLOSURE.md` has the line «Declared missing: sentinel: <reason>». A branch never funded does not count among the two.
 
 ### Anomalies: the debugger
 
@@ -485,10 +516,48 @@ closure rests. The four verifications are distinct:
 Independence is per instance: a new instance of a role, which has not read the others' judgments, counts as
 independent. A negative audit ("no hidden assumption found") is a procedural requirement, not a guarantee.
 
+In each branch `select` writes the V2 brief in `f4/<H#>/08-<role>/`: the inverter, if it is not in the f3 team,
+otherwise a new instance of the debugger. It delivers `HIDDEN_ASSUMPTIONS.md`; under the rules 2, G4 requires it, in
+the `NN-<role>/` folder of a role outside the f3 team, whenever the verdict says correctness proven or verified.
+
 ### The dossier
 
 Every H# has a stable ID (H-001) and a dossier based on the `HYPOTHESIS_CARD.md` template, which the arbiter completes with the verdict,
 field by field, with references to the branch's files. An empty field is written "missing".
+- **Fields on several lines.** A field may continue on the indented lines below it (a list, a table): it is not empty.
+  Under the rules 2 a field left exactly as in the template is empty.
+- **Bound at G4.** The arbiter completes the dossier in f4, so G3 does not bind it and G4 does.
+- **Proven.** The arbiter's verdict, `f4/<H#>/09-arbitro/VERDICT.md`, carries the line «Correctness: proven»,
+  «verified», «supported», «refuted» or «unresolved». For the gates, «proven» means proven or verified, and only the
+  arbiter's line counts: under the rules 2 the line in another `VERDICT.md` of the branch refuses G4.
+
+### Amendments
+
+A change to the contract after G0 is not written into `CONTRACT.md`: it is an amendment, `AMENDMENT_<n>.md` at the
+root of the convening (`AMENDMENT_A1.md` is accepted too), with the line «Amends: Constraints, Budget» that names the
+fields of the contract it changes. The coordinator seals it (`seal C AMENDMENT_1.md`) and approves its gate,
+`gate C A1`, which binds the amendment alone: the contract and G0 stay valid. Under the rules 2 no later gate passes
+while an amendment has no valid gate, or while a gate binds an amendment whose file is gone; the briefs written
+afterwards read the gated amendments.
+
+### Branches, workspaces and the closure
+
+- **The radical branch.** Under the rules 2 `select` records the radical H# without briefing it, and
+  `fund C H-00x` gives it its dossier and its briefs. A radical never funded is closed with `close-branch` as "not
+  funded", with no test; under the rules 2, G5 does not close while it is neither funded nor closed. After G5
+  neither `fund` nor `close-branch` runs.
+- **The early closure** of a funded branch is "declared unresolved" and, under the rules 2, needs
+  `--deciding-test TEXT`, the test that would decide it, and the folders of the branch that hold only their untouched
+  brief are removed (under the rules 1 they stay, as in 5.0). A closure declared unresolved without its test (5.0)
+  gets it with `close-branch C H-00x --reason … --deciding-test TEXT`.
+- **The owner's revision.** In f4 the owner of the branch has a brief in `f4/<H#>/00-<owner>/`, and delivers
+  `REVISION.md` after the counterchecks and the defects.
+- **The workspace.** A role keeps its scratch files, copies and corpora in a `work/` folder inside its own folder: the
+  gates bind it as one entry, and its files are not read as the branch's own.
+- **The closure.** The arbiter's brief, `f5/01-arbitro/TASK.md`, names as its output `f5/CLOSURE.md`, the file G5
+  reads. Its inputs are the contract with its gated amendments, the selection, the dossier, the revision and the verdict
+  of every branch (or its early closure), the sentinel and the gates; the revision and the sentinel where they were
+  briefed. `select`, `fund` and `close-branch` rewrite it.
 
 ## The full strategy in detail
 
@@ -556,6 +625,18 @@ field by field, with references to the branch's files. An empty field is written
   the status of what it claims, the open items and at most three decisions that are theirs to make.
 
 ## What changes
+
+**The rules 2 of the gates.**
+- **Versioned gates.** `gate_rules` in the manifest, `--rules` on one gate; every gate is recomputed under its own
+  rules, and the convenings born before keep their approved gates.
+- **The dossier** is bound at G4, where the arbiter completes it; a field continued on the next lines is not empty.
+- **The files bound** are every file of the phase, with a workspace or a crowded folder as one tree entry; the copies
+  of a convening inside a workspace are no longer read as the branch's own.
+- **G4** wants the Correctness line of the verdict, the deliverable of every briefed role, V2 on a proven result.
+- **G5** tells «Outcome: closed» (an H# proven by its verdict) from a recorded non-closure, and wants the sentinel and
+  the deciding test of every branch declared unresolved.
+- **New:** the amendments with their gate (GA), `fund` for the radical branch, the briefs of the owner's revision, of
+  V2 and of the sentinel, the brief of the closure with all its inputs.
 
 **Compared with 4.0.**
 - **The name** is swarmer: the script is `swarmer.sh` (`sciame.sh` stays as an alias), the code is in `engine/`, the

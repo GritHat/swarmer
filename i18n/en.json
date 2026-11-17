@@ -154,6 +154,7 @@
   "gate": [],
   "seal": [],
   "select": [],
+  "fund": [],
   "close-branch": [],
   "status": [],
   "targets": []
@@ -194,9 +195,11 @@
   "--notes": [],
   "--not-delivered": [],
   "--verify": [],
+  "--rules": [],
   "--radical": [],
   "--owner": [],
   "--reason": [],
+  "--deciding-test": [],
   "--install": [],
   "--remove-instructions": [],
   "--list": [],
@@ -277,14 +280,14 @@
   "translations": "translations"
  },
  "missions": {
-  "closure": "The closure: at least one H# proven, no open contradiction on an adopted conclusion, predictions resolved or declared unresolved with the test that would decide them, the four checks of the founding results. Also write {closure_file} with the line «Outcome: closed» or «Outcome: not closed», and at most three decisions for the user.",
+  "closure": "The closure: at least one H# proven (Correctness proven or verified in its verdict), no open contradiction on an adopted conclusion, predictions resolved or declared unresolved with the test that would decide them, the four checks of the founding results. Also write {closure_file} with the line «Outcome: closed» or «Outcome: not closed», and at most three decisions for the user. «Outcome: not closed» is a recorded non-closure: name in it every branch without a verdict. If the sentinel did not work, write the line «Declared missing: sentinel: <reason>».",
   "owner_solution": "You own {h}. Write the solution: steps, invariants, cost, «depends on», «invalidated if it changes». The predictions with their threshold go in PREDICTIONS.md, with the line «decides: yes» or «decides: no».",
   "proof": "Write the proof or the check of {h}, after the owner's SOLUTION.md: what makes it correct, under which assumptions, and how it is checked.",
   "measurement_plan": "The measurement plan of {h}: what is measured, with which threshold, before the tests. If no measurements are needed, say so and why.",
   "attack": "The attack on {h}: the cases that should break it, with the predictions first.",
   "counterchecks": "Run the counterchecks of {h}, cheapest first: first the falsifications, then correctness, then the dissimilar check. Predictions born now must be sealed by the coordinator before the tests.",
   "defects": "The anomalies of the counterchecks of {h} and the hidden defects, each with its proven cause or «unexplained». If there are no anomalies, list the checks you made.",
-  "verdict": "The verdict of {h} by property (correctness, completeness, effectiveness, cost), and the dossier {dossier} completed field by field («missing» where something is missing).",
+  "verdict": "The verdict of {h} by property (correctness, completeness, effectiveness, cost), with the line «Correctness: proven», «verified», «supported», «refuted» or «unresolved» (proven or verified only on the domain of use), and the dossier {dossier} completed field by field («missing» where something is missing). A field may continue on the indented lines below it. The dossier is bound at the gate G4, not at G3: complete it before G4.",
   "proof_contribution": "Your contribution to the tests of {h}, on the measurement plan, after the counterchecks.",
   "cards": "One card per idea: object, precise statement, type, risks, critical assumption and candidate counterexample, how it is checked. No merging: two ideas are the same only if statement and type coincide. Each card says which deliverable it comes from.",
   "triage": "Assign the H# in the form H-001, with the class TEST, REFORMULATE, OPEN or REFUTED (only with evidence), and the top three in order. The coordinator seals the triage as soon as it arrives.",
@@ -296,7 +299,10 @@
   "global_round": "Global round, from your point of view: at most three observations or proposals, each with its evidence or falsifier. If your field is not involved, write «not relevant: …» in one line. Half a page at most.",
   "single": "Carry out the request in your role, in full, and reread your work with your «questions it always asks» before delivering.",
   "fan_out_slice": "You are an agent of a fan-out, with one slice of the work: yours is written below by the coordinator. Do only your slice, in full, and check the done criterion before delivering.",
-  "race": "You are one arm of a race: other agents have your same brief, and the coordinator will choose with the rule declared in the contract. Work alone, in full, and check the done criterion before delivering."
+  "race": "You are one arm of a race: other agents have your same brief, and the coordinator will choose with the rule declared in the contract. Work alone, in full, and check the done criterion before delivering.",
+  "owner_revision": "You own {h}. After the counterchecks and the defects, write the revision: what changes in the solution and why, each change with the countercheck or the defect it answers; what does not change, with the reason. A prediction born now goes in PREDICTIONS.md and is sealed by the coordinator before its test.",
+  "hidden_assumption_audit": "The hidden-assumption audit (V2) of {h}: you took part neither in the construction nor in the reread. List the unstated necessary conditions of its founding results: versions, data representations, encodings, caches and state, call order, edges, empty domains, operational limits, differences between the theory and the behavior of the system. For each: where it is assumed, whether it holds, and the check that says so. A negative audit lists the conditions checked.",
+  "sentinel": "You are the sentinel: a role that was not convened, read only, twenty minutes. Put one assumption shared by the branches to the test with an external check, and recount from the files the figures and the identifiers of the dossiers. A K# of your own enters only with a file. Write nothing outside your folder."
  },
  "convene": {
   "agent": "Agent",
@@ -351,6 +357,15 @@
   "status_pending": "  {phase}: to approve",
   "status_approved": "  {phase}: approved",
   "status_invalid": "  {phase}: NO LONGER VALID (files changed)",
-  "translation_pending": "Translation pending in «{language}» (translation-pending) for: {roles}. Before launching them translate each card and register it: {command}"
+  "translation_pending": "Translation pending in «{language}» (translation-pending) for: {roles}. Before launching them translate each card and register it: {command}",
+  "gate_approved_not_closed": "Gate {phase} approved as a recorded non-closure ({n} files bound): the convening is not closed",
+  "gate_warning": "  warning: {text}",
+  "branch_not_funded": "{h} closed: not funded (the radical branch was never briefed)",
+  "branch_funded": "{h} funded: its dossier and its briefs are written",
+  "radical_recorded": "Radical {h} recorded, not funded: fund C {h} briefs it, close-branch C {h} --reason … closes it",
+  "status_not_closed": "  {phase}: approved, NOT CLOSED (a recorded non-closure)",
+  "status_not_funded": "  {phase}: radical not funded (fund C {h}, or close-branch C {h})",
+  "deciding_test_added": "{h}: the test that would decide it is recorded in its early closure",
+  "status_clash": "  WARNING: {text}"
  }
 }
