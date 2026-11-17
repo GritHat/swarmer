@@ -141,22 +141,19 @@ def package() -> dict[str, bytes]:
 
 # --- the documentation pages (GitHub Pages: docs/, docs/it/) ---
 
-UI = {
-    "en": {"docs": "Documentation", "contents": "Contents", "source": "Source", "generated": "Generated from",
-           "other": ("it", "Italiano"), "formats": "Formats", "license": "MIT license",
-           "intro": "The documentation of swarmer and of its extensions, generated from the repository on every change.",
-           "swarmer": "swarmer: a universal agent swarm for coding agents: strategies, installation, targets, languages.",
-           "crossroads": "crossroads: the decisions of the project as a graph, and the way back to an upstream fork.",
-           "formats_d": "The shared formats of crossroads: ids, records, the derived graph, the page bound."},
-    "it": {"docs": "Documentazione", "contents": "Indice", "source": "Sorgente", "generated": "Generata da",
-           "other": ("en", "English"), "formats": "Formati", "license": "licenza MIT",
-           "intro": "La documentazione di swarmer e delle sue estensioni, generata dal repository a ogni modifica.",
-           "swarmer": "swarmer: uno sciame di agenti universale per gli agenti di programmazione: strategie, "
-                      "installazione, strumenti, lingue.",
-           "crossroads": "crossroads (incroci): le decisioni del progetto come grafo, e la via del ritorno a un "
-                         "bivio a monte.",
-           "formats_d": "I formati condivisi di crossroads: id, record, il grafo derivato, il limite di pagina."},
-}
+def _labels(lang: str) -> dict:
+    """The labels of the documentation pages, from .github/scripts/docs_ui.<lang>.md («key: value» per line): the
+    Italian ones stay in Italian material, out of the code."""
+    out = {}
+    for line in (Path(__file__).resolve().parent / f"docs_ui.{lang}.md").read_text(encoding="utf-8").splitlines():
+        if not line.strip() or line.startswith("#"):
+            continue
+        key, _, value = line.partition(": ")
+        out[key.strip()] = tuple(value.split(" ", 1)) if key.strip() == "other" else value
+    return out
+
+
+UI = {lang: _labels(lang) for lang in ("en", "it")}
 CSS = """:root{color-scheme:light dark;--bg:#ffffff;--fg:#1f2328;--muted:#59636e;--line:#d1d9e0;--code:#f6f8fa;--link:#0969da}
 @media (prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--muted:#9198a1;--line:#3d444d;--code:#161b22;--link:#4493f8}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
