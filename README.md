@@ -21,6 +21,9 @@ bash swarmer.sh install --targets codex,gemini   # only some tools (default: the
 /plugin marketplace add GritHat/swarmer
 /plugin install swarmer
 /swarmer-install en
+
+# or from Agensi (agensi.io): SKILL.md and a small script that reads the roles and the protocol on demand
+# from the catalog published on GitHub Pages (nothing to install)
 ```
 
 Then reopen the session of your coding agent and convene the swarm with a skill (in Claude Code also a slash command;
@@ -135,6 +138,7 @@ languages are optional, and an installation translates a missing one at its firs
 | `tests/` | the test batteries |
 | `swarmer.sh` | the single-file build: `python3 -I -B engine/swarmer.py --swarm . build --output swarmer.sh` |
 | `sciame.sh` | a byte-for-byte copy of `swarmer.sh`, so the 4.0 download URL keeps working |
+| `agensi/` | the Agensi edition: `SKILL.md` and `scripts/swarm.py`, which reads on demand the catalog that `.github/scripts/agensi.py` generates from `db/` and `docs/en/` (one JSON file per role, strategy and document) and `.github/workflows/agensi.yml` publishes on GitHub Pages (`gh-pages`, `api/v1/`), with the package as a release |
 | `skills/` | the installer skills `swarmer-install` and `sciame-installa` (Agent Skills format: any tool that reads skills) |
 | `.claude-plugin/` | the manifests of the Claude Code plugin, one of the ways to install |
 
