@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The generator of swarmer 5.1: from the database, the documents of the language and the local overrides it
+"""The generator of swarmer 5.2: from the database, the documents of the language and the local overrides it
 generates, in the project root, the catalog, the agents, the skills and the documents in the chosen language, for
 every active target (the coding agents that read them: Claude Code, Codex, Antigravity, Gemini CLI, and the open
 standard AGENTS.md + Agent Skills that many other tools read).
@@ -13,7 +13,9 @@ The sources:
   generic role with the same id, and a local-only role is added;
 - the local translations (`<swarm>/local/translations/<language>/<id>.json`, K.3): the texts of an entry that the
   database does not have in the language of the installation; without one, the agent is generated from the English
-  text and carries the sign `translation-pending: <language>` (K.2).
+  text and carries the sign `translation-pending: <language>` (K.2);
+- the enabled extensions (`<swarm>/extensions/<name>/`, 5.2): their documents, their skills and the coordinator block
+  they append to every strategy skill (extensions.py).
 
 What it writes always carries the GENERATED note: a file without the note (for instance an agent of the project) is
 never touched nor deleted, in every target. Agents and skills take the prefix of `prefix_of` (D). Used by
@@ -30,10 +32,11 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import compat as C  # noqa: E402
+import extensions as E  # noqa: E402
 import paths as S  # noqa: E402
 import professionals as P  # noqa: E402
 
-VERSION = "5.1"
+VERSION = "5.2"
 STRATEGIES = P.STRATEGIES
 # The costly strategies start only on an explicit request of the user.
 ONLY_USER = {"full", "plenary"}
@@ -120,11 +123,54 @@ def skill_names(lang: str, prefix: str) -> dict[str, str]:
 
 
 def all_skill_names() -> set[str]:
-    """Every skill name the swarm may have generated (both prefixes, every language)."""
+    """Every skill name the swarm may have generated (both prefixes, every language), those of every available
+    extension included: so targets --remove, extensions --remove and remove clean them up."""
     out = set()
     for p in C.AGENT_PREFIXES:
         for l in C.LANGUAGES:
             out |= set(skill_names(l, p).values())
+    for name, ids in extension_skill_ids(HERE.parent).items():
+        for p in C.AGENT_PREFIXES:
+            for l in C.LANGUAGES:
+                out |= {f"{p}-{x}" for x in ids.get(l, {}).values()}
+    return out
+
+
+def extension_skill_ids(swarm: Path) -> dict:
+    """extension → language → {skill id: localized skill id} (the i18n key skill_names of the extension)."""
+    out = {}
+    for name, m in E.manifests(swarm)[0].items():
+        out[name] = {}
+        for l in C.LANGUAGES:
+            t = E.i18n(swarm, name, l)
+            out[name][l] = {sid: t.get("skill_names", {}).get(sid, sid) for sid in m.get("skills", {})}
+    return out
+
+
+def extension_doc_names(swarm: Path) -> list[str]:
+    """The canonical names of the documents of every available extension."""
+    return sorted({d for m in E.manifests(swarm)[0].values() for d in m.get("documents", [])})
+
+
+def extensions_data(swarm: Path, lang: str, names) -> list[dict]:
+    """The enabled extensions as the generator uses them: texts, documents, skills, coordinator block."""
+    ms = E.available(swarm)
+    E.check_requires(ms, names, VERSION)
+    out = []
+    for name in names:
+        m = ms[name]
+        t = E.i18n(swarm, name, lang)
+        docs = Path(swarm) / E.FOLDER / name / "docs"
+        dl = lang if (docs / lang).is_dir() else "en"
+        documents = {n: (docs / dl / n).read_text(encoding="utf-8") for n in m.get("documents", [])}
+        skills = {}
+        for sid, f in m.get("skills", {}).items():
+            skills[sid] = {"name": t.get("skill_names", {}).get(sid, sid), "body": (docs / dl / f).read_text(encoding="utf-8"),
+                           "description": t.get("skill_description", {}).get(sid, ""),
+                           "arguments": t.get("skill_arguments", {}).get(sid, "")}
+        out.append({"name": name, "version": m["version"], "documents": documents, "skills": skills,
+                    "coordinator": E.block(swarm, name, dl, m["coordinator"]) if m.get("coordinator") else "",
+                    "texts": t})
     return out
 
 
@@ -290,10 +336,12 @@ def doc_name(swarm: Path, canonical: str, lang: str) -> str:
     return S.localized_name(swarm, canonical, lang)
 
 
-def catalog(swarm: Path, root: Path, lang: str) -> dict:
-    """Everything needed to generate: roles (generic and local, local first), profiles, texts."""
+def catalog(swarm: Path, root: Path, lang: str, extensions=None) -> dict:
+    """Everything needed to generate: roles (generic and local, local first), profiles, texts, the enabled
+    extensions (`extensions`: those names instead of the ones of config.json, for verify)."""
     swarm, root = Path(swarm), Path(root)
     cfg = S.config(root)
+    ext = extensions_data(swarm, lang, E.enabled(root) if extensions is None else list(extensions))
     d = P.load(swarm / "db")
     # the installation generates also the entries without its language (K.2): English is checked by verify and propose
     errors = P.validate(d, [lang], existing=[v.get("id") for v in d["entries"]], required=())
@@ -347,7 +395,10 @@ def catalog(swarm: Path, root: Path, lang: str) -> dict:
         r["prompt"] = role_prompt(r, rules, t)
     table = profiles(pipe["profiles"], ids)
     fingerprint = hashlib.sha256(json.dumps([d["entries"], d["cores"], sorted(texts.items()),
-                                             [(r["id"], r["card"]) for r in roles if r["origin"] != "generic"]],
+                                             [(r["id"], r["card"]) for r in roles if r["origin"] != "generic"]]
+                                            + ([[(x["name"], x["version"], sorted(x["documents"].items()),
+                                                  sorted((k, v["body"]) for k, v in x["skills"].items()))
+                                                 for x in ext]] if ext else []),
                                             ensure_ascii=False, sort_keys=True).encode()).hexdigest()
     cores = [{"id": n["id"], "name": P.core_name(d, n["id"], lang)} for n in d["cores"]]
     if any(r["core"] == "local" for r in roles):
@@ -380,6 +431,7 @@ def catalog(swarm: Path, root: Path, lang: str) -> dict:
                   "agent_environments": {"project": t.get("agent_environment", ""),
                                          "without-tools": t.get("environment_without_tools", "")}},
         "documents": texts, "agents_head": t.get("agents_head", ""), "i18n": t, "db": d,
+        "extensions": ext,
         "names": {"swarm": default_folder, "local": S.localized_name(swarm, "local", lang),
                   "agents": S.localized_name(swarm, "AGENTS.md", lang),
                   "docs": {n: doc_name(swarm, n, lang) for n in DOCUMENTS + ("AGENTS.md",)}},
@@ -506,7 +558,9 @@ def skill(data: dict, strategy: str, target: str = "claude") -> str:
             head.append("disable-model-invocation: true")
     head.append("---")
     parts = ["\n".join(head), S.note(t.get("skill_note", ""), data["language"]),
-             f"# {t.get('skill_title', {}).get(strategy, strategy)}", x["coordinator"], x["brief"], x["environment"]]
+             f"# {t.get('skill_title', {}).get(strategy, strategy)}", x["coordinator"]]
+    parts += [e["coordinator"] for e in data.get("extensions", []) if e["coordinator"]]
+    parts += [x["brief"], x["environment"]]
     st = x["strategies"]
     if strategy == "auto":
         parts += [t.get("auto_preamble", "")] + [st[s] for s in ("auto", "single", "fan-out", "classic", "jury",
@@ -524,6 +578,17 @@ def skill(data: dict, strategy: str, target: str = "claude") -> str:
     text = "\n\n".join(parts) + "\n"
     yaml_head, _, body = text.partition("\n---\n")
     return yaml_head + "\n---\n" + adapt(data, body)
+
+
+def extension_skill(data: dict, sk: dict, target: str = "claude") -> str:
+    """The skill of an extension: name and description (argument-hint in Claude Code), the note, the body."""
+    name = f"{data['prefix']}-{sk['name']}"
+    head = ["---", f"name: {name}", f"description: {yaml_str(sk['description'])}"]
+    if target == "claude":
+        head.append(f"argument-hint: {yaml_str(sk['arguments'])}")
+    head.append("---")
+    body = sk["body"] if sk["body"].endswith("\n") else sk["body"] + "\n"
+    return "\n".join(head) + "\n" + S.note(data["i18n"].get("skill_note", ""), data["language"]) + "\n\n" + adapt(data, body)
 
 
 def project_owned(data: dict, r: dict, target: str) -> bool:
@@ -551,12 +616,20 @@ def generated_files(data: dict) -> dict[str, str]:
             rel = f"{TARGETS[tg]['skills']}/{name}/SKILL.md"
             if rel not in files:
                 files[rel] = skill(data, s, kind)
+        for e in data.get("extensions", []):
+            for sk in e["skills"].values():
+                rel = f"{TARGETS[tg]['skills']}/{data['prefix']}-{sk['name']}/SKILL.md"
+                if rel not in files:
+                    files[rel] = extension_skill(data, sk, kind)
     return files
 
 
 def catalog_json(data: dict) -> dict:
-    cat = {k: v for k, v in data.items() if k not in ("documents", "i18n", "agents_head", "roles", "names", "db")}
+    cat = {k: v for k, v in data.items() if k not in ("documents", "i18n", "agents_head", "roles", "names", "db",
+                                                      "extensions")}
     cat["roles"] = [dict(r) for r in data["roles"]]
+    if data.get("extensions"):
+        cat["extensions"] = [{"name": e["name"], "version": e["version"]} for e in data["extensions"]]
     return cat
 
 
@@ -570,14 +643,18 @@ def swarm_files(data: dict, swarm: Path) -> dict[str, str]:
     d = data.get("db") or P.load(Path(swarm) / "db")
     out[data["names"]["docs"]["AGENTS.md"]] = note + adapt(data, P.agents_md(d, data["language"], data["agents_head"],
                                                                              data["prefix"]))
+    for e in data.get("extensions", []):
+        for n, text in e["documents"].items():
+            out[S.localized_name(swarm, n, data["language"])] = note + adapt(data, text)
     return out
 
 
 def other_doc_names(swarm: Path, data: dict) -> set[str]:
     """The names the generated documents have in the other languages (and in the 4.0), not used now."""
-    now = set(data["names"]["docs"].values())
+    now = set(data["names"]["docs"].values()) | {S.localized_name(swarm, n, data["language"])
+                                                 for e in data.get("extensions", []) for n in e["documents"]}
     out = set()
-    for n in DOCUMENTS + ("AGENTS.md",):
+    for n in DOCUMENTS + ("AGENTS.md",) + tuple(extension_doc_names(swarm)):
         out |= set(S.all_names(swarm, n))
         if n in C.OLD_DOCS:
             out.add(C.OLD_DOCS[n])

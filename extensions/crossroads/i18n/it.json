@@ -1,0 +1,181 @@
+{
+ "skill_names": {
+  "crossroads": "incroci"
+ },
+ "skill_description": {
+  "crossroads": "Incroci dello sciame: registra le decisioni dell'utente, dello sciame e delle giurie come un grafo navigabile, con le opzioni scartate, le motivazioni e l'impatto; le lega ai commit divisi per area; quando il progetto è bloccato, trova la decisione a monte, ne legge la sintesi e propone un'inversione su un ramo nuovo. Usala quando l'utente sceglie tra opzioni, cambia strada, chiede perché si è deciso qualcosa o vuole tornare a un bivio precedente."
+ },
+ "skill_arguments": {
+  "crossroads": "[deriva | mostra ID | raggio ID | sintesi ID | piano ID | …]"
+ },
+ "help": "ESTENSIONE incroci (crossroads): il grafo delle decisioni e la strada per tornare indietro\n  incroci (crossroads) <comando>  deriva (derive) | controlla (check) | decidi (decide) | nota (note)\n                               | prepara (stage) | realizza (realize) | trailer (trailers) | mostra (show)\n                               | modifiche (changes) | lint | raggio (radius) | sintesi (brief) | piano (plan)\n                               | applica (apply) | verifica (verify) | controlla-commit (check-commits)\n                               (`incroci --help`)\n",
+ "full_resync": "cursore sconosciuto {cursor}: risincronizzazione completa (leggi view/INDEX.tsv)",
+ "unknown_decision": "decisione sconosciuta {id}: vedi view/INDEX.tsv",
+ "record_dprime": "registra prima la nuova decisione, con decidi … --sostituisce, poi deriva",
+ "stale_plan": "piano scaduto: i suoi dati sono cambiati dopo plan.json; rifai piano",
+ "dry_run": "prova a vuoto: aggiungi --esegui solo dopo il sì esplicito dell'utente (crea un ramo, non unisce mai)",
+ "record_exists": "errore: questo record esiste già (stessi byte, stesso id)",
+ "ref_free": "il testo libero non è un riferimento: scrivilo in --motivazione (o più tardi nella --motivazione di una nota)",
+ "ref_file": "un file del progetto fuori dalle convocazioni e dalle giurie non è un riferimento di evidenza (FORMATI_INCROCI §2): indica il suo percorso in --motivazione",
+ "ref_under": "un file di una sorgente si cita come {ref}",
+ "ref_nofile": "nessun file con questo nome sotto {anchor}",
+ "ref_sha": "lo sha12 del file ora è {now}: cita {ref}",
+ "ref_handle": "un handle è una chiave di visualizzazione, mai registrata: scrivi l'id {ref}",
+ "ref_unknown": "id sconosciuto: né in records/ né nelle sorgenti (esegui deriva; un id si copia dall'output di decidi o da view/INDEX.tsv)",
+ "ref_notdec": "{ref} è {kind}, non una decisione",
+ "ref_notr": "{ref} non è un record di realizzazione (R-…)",
+ "ref_none": "«none» sta da solo",
+ "ref_label": "{dec} non ha l'opzione ({label}): le sue opzioni sono {opts}",
+ "ref_commit": "un commit git non è un riferimento di evidenza (FORMATI_INCROCI §2): nominalo in --motivazione",
+ "ref_space": "un riferimento con uno spazio non si può registrare (FORMATI_INCROCI §2 separa i riferimenti sugli spazi): cita {alt} e nomina il resto in --motivazione",
+ "kind_option": "un'opzione",
+ "kind_convening": "una convocazione",
+ "kind_jury": "una giuria",
+ "kind_realization": "un record di realizzazione",
+ "kind_note": "una nota",
+ "kind_record": "un record",
+ "ref_refused": "errore: {n} riferimenti non si risolvono: nulla scritto (un record è immutabile)",
+ "commands": {
+  "crossroads": [
+   "incroci"
+  ],
+  "derive": [
+   "deriva"
+  ],
+  "check": [
+   "controlla"
+  ],
+  "decide": [
+   "decidi"
+  ],
+  "note": [
+   "nota"
+  ],
+  "stage": [
+   "prepara"
+  ],
+  "realize": [
+   "realizza"
+  ],
+  "trailers": [
+   "trailer"
+  ],
+  "show": [
+   "mostra"
+  ],
+  "changes": [
+   "modifiche"
+  ],
+  "lint": [],
+  "radius": [
+   "raggio"
+  ],
+  "brief": [
+   "sintesi"
+  ],
+  "plan": [
+   "piano"
+  ],
+  "apply": [
+   "applica"
+  ],
+  "verify": [
+   "verifica"
+  ],
+  "check-commits": [
+   "controlla-commit"
+  ]
+ },
+ "options": {
+  "--question": [
+   "--domanda"
+  ],
+  "--options": [
+   "--opzioni"
+  ],
+  "--chose": [
+   "--scelta"
+  ],
+  "--rationale": [
+   "--motivazione"
+  ],
+  "--reject": [
+   "--scarta"
+  ],
+  "--impact": [
+   "--impatto"
+  ],
+  "--evidence": [
+   "--evidenza"
+  ],
+  "--depends": [
+   "--richiede"
+  ],
+  "--supersedes": [
+   "--sostituisce"
+  ],
+  "--authority": [
+   "--autorita"
+  ],
+  "--about": [
+   "--riguarda"
+  ],
+  "--concern": [
+   "--area"
+  ],
+  "--since": [
+   "--da-cursore"
+  ],
+  "--level": [
+   "--livello"
+  ],
+  "--keep": [
+   "--mantieni"
+  ],
+  "--margin": [
+   "--margine"
+  ],
+  "--tests": [
+   "--prove"
+  ],
+  "--execute": [
+   "--esegui"
+  ],
+  "--source": [
+   "--sorgente"
+  ],
+  "--strict": [
+   "--rigoroso"
+  ],
+  "--reverse": [
+   "--inverti"
+  ],
+  "--dprime": [
+   "--nuova"
+  ],
+  "--lexicon": [
+   "--lessico"
+  ],
+  "--git": [],
+  "--mode": [
+   "--modo"
+  ],
+  "--time": [
+   "--ora"
+  ],
+  "--by": [
+   "--autore"
+  ],
+  "--withdraws": [
+   "--ritira"
+  ],
+  "--verbose": [
+   "--dettagli"
+  ]
+ },
+ "files": {
+  "crossroads": "incroci",
+  "CROSSROADS.md": "INCROCI.md",
+  "CROSSROADS_FORMATS.md": "FORMATI_INCROCI.md"
+ }
+}

@@ -389,7 +389,7 @@ def commands(base: Path):
             check(f"M3 [{lang}]: {label}: canonical and alias give the same effect", ok, (x, y))
             return x
         for a in (["help"], ["language"], ["roles", "a Kalman filter"], ["professionals"], ["check"], ["regenerate"],
-                  ["models"], ["requests"]):
+                  ["models"], ["requests"], ["extensions"]):
             same(" ".join(a[:1]), a, compare_trees=a[0] == "regenerate")
         for s in ("single", "fan-out", "classic", "jury", "light-jury", "full", "plenary", "expert"):
             same(f"{s} --show", [s, "--show", "--profile", "code", "--roles", "logico", "--language", "en", "x"])
@@ -1014,7 +1014,8 @@ def italian_words():
         rel = p.relative_to(SOURCE).as_posix()
         if not p.is_file() or ".git/" in rel or "__pycache__" in rel or rel.startswith(("_work", "_lavoro")):
             continue
-        if rel.startswith(EXEMPT) or rel.endswith(".it.md") or rel == "UPSTREAM":
+        if rel.startswith(EXEMPT) or rel.endswith(".it.md") or rel == "UPSTREAM" \
+                or re.match(r"extensions/[^/]+/(docs/it/|i18n/it\.json$)", rel):   # an extension's Italian material
             continue
         if p.suffix not in (".py", ".sh", ".json", ".md", ".txt", ".yml", ".yaml", "") or p.name.startswith(".") and \
                 p.name != ".gitignore":

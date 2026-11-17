@@ -114,6 +114,11 @@
  "sh_needs_folder": "-C wants a folder",
  "sh_not_a_project": "{root} does not look like a project: -C FOLDER install",
  "sh_unknown_option": "{command}: unknown option: {option}",
+ "cli_extension_disabled": "the extension {name} is not enabled in this project: {command}",
+ "cli_extension_state_kept": "{name}: its state folder {path} is kept (it is the project's: delete it by hand if you want)",
+ "cli_extensions_changed": "enabled extensions: {names}",
+ "cli_extensions_enabled": "enabled extensions: {names}",
+ "cli_extensions_available": "available extensions: {names} (enable one with extensions --add NAME)",
  "commands": {
   "install": [],
   "update": [],
@@ -157,7 +162,8 @@
   "fund": [],
   "close-branch": [],
   "status": [],
-  "targets": []
+  "targets": [],
+  "extensions": []
  },
  "options": {
   "--from": [],

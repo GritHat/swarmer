@@ -110,13 +110,17 @@ def remove_file(base: Path, p: Path) -> None:
 # --- localized names and files of the project (A.3, A.4) ---
 
 def _i18n_files(swarm, lang: str) -> dict:
+    """The section "files" of i18n/<lang>.json, joined with those of the extensions (5.2): the core wins."""
     if swarm is None:
         return {}
-    p = Path(swarm) / "i18n" / f"{lang}.json"
-    try:
-        return json.loads(p.read_text(encoding="utf-8")).get("files", {}) if p.is_file() else {}
-    except (OSError, json.JSONDecodeError):
-        return {}
+    out = {}
+    ext = Path(swarm) / "extensions"
+    for p in (sorted(ext.glob(f"*/i18n/{lang}.json")) if ext.is_dir() else []) + [Path(swarm) / "i18n" / f"{lang}.json"]:
+        try:
+            out.update(json.loads(p.read_text(encoding="utf-8")).get("files", {}) if p.is_file() else {})
+        except (OSError, json.JSONDecodeError, AttributeError):
+            continue
+    return out
 
 
 def localized_name(swarm, canonical: str, lang: str) -> str:

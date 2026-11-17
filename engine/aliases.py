@@ -29,8 +29,48 @@ def _as_list(v) -> list[str]:
     return [str(x) for x in v]
 
 
+def _sections(t: dict) -> dict:
+    return {"commands": {k: _as_list(v) for k, v in t.get("commands", {}).items()},
+            "options": {k: _as_list(v) for k, v in t.get("options", {}).items()},
+            "values": {c: {k: _as_list(v) for k, v in m.items()}
+                       for c, m in t.get("values", {}).items() if isinstance(m, dict)}}
+
+
+def _merge(into: dict, sec: dict, core: dict) -> None:
+    """An extension's sections join the table; a canonical of the core keeps the core's aliases (an extension never
+    adds an alias to a core command, option or value: `verify` reports one that tries, see core_additions)."""
+    for k in ("commands", "options"):
+        for c, names in sec[k].items():
+            if c in core[k]:
+                continue
+            lst = into[k].setdefault(c, [])
+            lst += [x for x in names if x not in lst]
+    for cat, m in sec["values"].items():
+        for c, names in m.items():
+            if c in core["values"].get(cat, {}):
+                continue
+            lst = into["values"].setdefault(cat, {}).setdefault(c, [])
+            lst += [x for x in names if x not in lst]
+
+
+def core_additions(core: dict, sec: dict) -> list[str]:
+    """The aliases an extension section gives to a canonical of the core that the core does not have."""
+    out = []
+    for k in ("commands", "options"):
+        for c, names in sec[k].items():
+            if c in core[k]:
+                out += [f"«{x}» for the core «{c}»" for x in names if x not in core[k][c]]
+    for cat, m in sec["values"].items():
+        for c, names in m.items():
+            if c in core["values"].get(cat, {}):
+                out += [f"«{x}» for the core value «{c}»" for x in names if x not in core["values"][cat][c]]
+    return out
+
+
 def per_language(swarm) -> dict[str, dict]:
-    """The alias sections of each i18n file: lang → {"commands", "options", "values"}."""
+    """The alias sections of each i18n file: lang → {"commands", "options", "values"}. The sections of the
+    extensions (extensions/*/i18n/<lang>.json, 5.2) join those of the core: one table covers both, and the collision
+    checks see both."""
     out = {}
     d = Path(swarm) / "i18n" if swarm else None
     for p in sorted(d.glob("*.json")) if d and d.is_dir() else []:
@@ -38,10 +78,17 @@ def per_language(swarm) -> dict[str, dict]:
             t = json.loads(p.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             continue
-        out[p.stem] = {"commands": {k: _as_list(v) for k, v in t.get("commands", {}).items()},
-                       "options": {k: _as_list(v) for k, v in t.get("options", {}).items()},
-                       "values": {c: {k: _as_list(v) for k, v in m.items()}
-                                  for c, m in t.get("values", {}).items() if isinstance(m, dict)}}
+        out[p.stem] = _sections(t)
+    core = {l: json.loads(json.dumps(v)) for l, v in out.items()}
+    ext = Path(swarm) / "extensions" if swarm else None
+    for p in sorted(ext.glob("*/i18n/*.json")) if ext and ext.is_dir() else []:
+        if p.stem not in out:
+            continue
+        try:
+            t = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        _merge(out[p.stem], _sections(t), core[p.stem])
     return out
 
 
