@@ -147,4 +147,9 @@ altre lingue sono facoltative, e un'installazione traduce quella che manca al pr
 | `skills/` | le skill d'installazione `swarmer-install` e `sciame-installa` (formato Agent Skills: ogni strumento che legge le skill) |
 | `.claude-plugin/` | i manifesti del plugin di Claude Code, uno dei modi d'installazione |
 
+## Sostieni il progetto
+
+swarmer è libero e con licenza MIT. Se ti fa risparmiare tempo, puoi sostenerne lo sviluppo su
+[Ko-fi](https://ko-fi.com/GritHat).
+
 Licenza: MIT.
