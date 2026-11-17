@@ -7,8 +7,9 @@ Codex, Antigravity, Gemini CLI e ogni strumento che legge `AGENTS.md` e le Agent
 per una richiesta, con una di otto strategie. I ruoli sono **professionisti** (le competenze generali) e
 **sottoprofessionisti** (le loro specializzazioni), in un database unico, in inglese e, se si vuole, nelle altre lingue della skill. Tutta la skill
 (documenti, database e motore) sta in un file solo, `swarmer.sh`, con la sola bash e la libreria standard di Python.
-La versione 5.1 la rende universale (la 5.0 era solo per Claude Code, e succedeva a `sciame` 4.0, che aggiorna sul
-posto).
+La versione 5.2 aggiunge le estensioni facoltative, la prima delle quali è incroci (le decisioni di un progetto come
+grafo, e la via del ritorno a un bivio a monte), e cancelli più severi per le convocazioni; la 5.1 l'ha resa
+universale (la 5.0 era solo per Claude Code, e succedeva a `sciame` 4.0, che aggiorna sul posto).
 
 ## Installare
 
@@ -122,6 +123,13 @@ registro degli esperti, parole vietate, convocazioni e giurie restano con i loro
 riconta identico byte per byte. Una 4.0 italiana resta italiana, con gli stessi agenti e le stesse skill `sciame-*`;
 una 4.0 inglese passa a `swarmer-*` e ai nomi inglesi, con `sciame.sh`, `convoca.py` e `giuria.py` come alias. Un
 aggiornamento interrotto riprende con lo stesso comando.
+
+## Aggiornare dalla 5.1
+
+Lo stesso `aggiorna` non attiva nessuna estensione (`bash sciame/sciame.sh estensioni --aggiungi incroci` quando la
+vuoi) e lascia validi tutti i cancelli già approvati: una convocazione cominciata prima tiene le regole 1 dei suoi
+cancelli, una nuova nasce con le regole 2, e `cancello C FASE --regole 2` le applica a un cancello nuovo di una
+convocazione più vecchia.
 
 ## Aggiornare dalla 5.0
 

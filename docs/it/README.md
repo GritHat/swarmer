@@ -156,6 +156,11 @@ convocazioni e giurie) non si rinominano mai. Una 4.0 italiana resta italiana, c
 skill (`sciame-*`); `sciame.sh`, `convoca.py`, `giuria.py` e `genera_agenti.py` restano come alias. Il ritorno
 alla 4.0 non è supportato.
 
-**Dalla 5.0.** L'aggiornamento alla 5.1 lascia un'installazione 5.0 com'era: solo Claude Code, gli stessi agenti
+**Dalla 5.0.** L'aggiornamento alla 5.1 o successiva lascia un'installazione 5.0 com'era: solo Claude Code, gli stessi agenti
 byte per byte, le stesse skill (con la sezione nuova su come delegare in ogni strumento). Le altre destinazioni si aggiungono a richiesta:
 `bash sciame/sciame.sh destinazioni --aggiungi codex,gemini`.
+
+**Dalla 5.1.** L'aggiornamento alla 5.2 non attiva nessuna estensione
+(`bash sciame/sciame.sh estensioni --aggiungi incroci` quando la vuoi) e lascia validi tutti i cancelli già
+approvati: una convocazione cominciata prima tiene le regole 1 dei suoi cancelli, una nuova nasce con le regole 2
+(`PIPELINE.md`, §«Le regole dei cancelli»).

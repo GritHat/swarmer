@@ -4,7 +4,7 @@ description: "A swarm of more than a hundred specialist professionals and sub-pr
 version: @@VERSION@@
 author: GritHat
 license: MIT
-homepage: https://github.com/GritHat/swarmer
+homepage: https://grithat.github.io/swarmer/docs/swarmer/
 external_urls:
   - @@API@@
 permissions:

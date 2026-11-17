@@ -1,6 +1,7 @@
 # Swarm convenings: eight strategies
 
-**Status.** Version 5.0 (swarmer) of 16 November 2026: the strategies and rules of 4.0, with English names for
+**Status.** Version 5.2 (swarmer): the rules 2 of the gates (§«The rules of the gates»), with every gate approved
+before still valid. Version 5.0 of 16 November 2026: the strategies and rules of 4.0, with English names for
 commands, files and protocol lines (§«What changes»). Version 4.0 added to the four strategies of 3.1 (single,
 classic, full, auto):
 - the **jury**, which decides a proposal by vote;

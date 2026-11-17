@@ -1,6 +1,7 @@
 # Le convocazioni dello sciame: otto strategie
 
-**Stato.** Versione 5.0 (swarmer) del 16 novembre 2026: le strategie e le regole sono quelle della 4.0, con
+**Stato.** Versione 5.2 (swarmer): le regole 2 dei cancelli (§«Le regole dei cancelli»), con ogni cancello
+approvato prima ancora valido. Versione 5.0 del 16 novembre 2026: le strategie e le regole sono quelle della 4.0, con
 i nomi inglesi accanto agli italiani (§«Che cosa cambia»). La 4.0 aggiunse alle quattro strategie della 3.1 (singolo, classica, completa, auto)
 aggiunge:
 - la **giuria**, che decide una proposta con un voto;

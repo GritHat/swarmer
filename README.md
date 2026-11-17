@@ -6,8 +6,10 @@
 tool that reads `AGENTS.md` and Agent Skills — that a coordinator convenes for one request, with one of eight
 strategies. The roles are **professionals** (general skills) and **sub-professionals** (their
 specialisations), kept in one database, in English and optionally in the other languages of the skill. The whole skill — documents, database
-and engine — fits in a single file, `swarmer.sh`, using only bash and the Python standard library. Version 5.1 makes it universal (5.0
-was for Claude Code only, and the successor of `sciame` 4.0, which it updates in place).
+and engine — fits in a single file, `swarmer.sh`, using only bash and the Python standard library. Version 5.2 adds
+optional extensions, the first of which is crossroads (the decisions of a project as a graph, and the way back to an
+upstream fork), and stricter gates for the convenings; 5.1 made it universal (5.0 was for Claude Code only, and the
+successor of `sciame` 4.0, which it updates in place).
 
 ## Install
 
@@ -118,6 +120,12 @@ never the project's files: configuration, local cards, expert register, forbidde
 their names, and every jury outcome already voted is recounted byte for byte. An Italian 4.0 stays Italian, with the
 same `sciame-*` agents and skills; an English 4.0 moves to `swarmer-*` and English names, with `sciame.sh`,
 `convoca.py` and `giuria.py` kept as aliases. An interrupted update resumes with the same command.
+
+## Updating from swarmer 5.1
+
+The same `update` enables no extension (`bash swarmer/swarmer.sh extensions --add crossroads` when you want it) and
+leaves every gate already approved valid: a convening started before keeps the rules 1 of its gates, a new one is born
+with the rules 2, and `gate C PHASE --rules 2` applies them to one new gate of an older convening.
 
 ## Updating from swarmer 5.0
 

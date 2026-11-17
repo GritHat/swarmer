@@ -61,6 +61,7 @@ SKILL_LIMIT, SCRIPT_LIMIT = 9_000, 5_000   # bytes: SKILL.md is loaded, the scri
 REPO = "https://github.com/GritHat/swarmer"
 SITE = "https://grithat.github.io/swarmer"
 CROSSROADS = ROOT / "extensions" / "crossroads"
+SWARMER_DOCS = f"{SITE}/docs/swarmer/"
 CROSSROADS_DOCS = f"{SITE}/docs/crossroads/"
 BANNED = re.compile(r"ko-?fi|sponsor|donat", re.I)   # never on the documentation pages, nor in the packages
 
@@ -469,6 +470,11 @@ def test(api: Path, pkg: Path) -> list[str]:
     for c in ("guide", "roles", "profile", "card", "doc"):
         if f"swarm.py {c}" not in skill:
             errors.append(f"SKILL.md does not mention «swarm.py {c}»")
+    front = skill.split("\n---\n", 1)[0]
+    if f"\nhomepage: {SWARMER_DOCS}\n" not in front + "\n":
+        errors.append(f"SKILL.md: the front matter lacks «homepage: {SWARMER_DOCS}»")
+    if REPO not in skill.split("\n---\n", 1)[-1]:
+        errors.append(f"SKILL.md: the body does not link the repository {REPO}")
     with tempfile.TemporaryDirectory() as tmp:
         script = Path(tmp, "swarm.py")   # as Agensi runs it: alone, in a temporary folder
         shutil.copy(pkg / "scripts" / "swarm.py", script)

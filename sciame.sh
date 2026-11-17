@@ -1198,7 +1198,7 @@ def is_v1(d: dict) -> bool:
 IMPORT_LABELS = ("In breve", "In short", "Nucleo", "Core", "Parole chiave", "Keywords", "Origine", "Origin")
 #==== swarmer.sh: file engine/convene.py ====
 #!/usr/bin/env python3
-"""swarmer 5.0: prepares the skeleton of a convening (single, fan-out, classic or full) and checks its gates. Jury
+"""swarmer 5.2: prepares the skeleton of a convening (single, fan-out, classic or full) and checks its gates. Jury
 and plenary are counted with jury.py.
 
 It is the general form of the convening as a graph. It keeps:
@@ -13953,7 +13953,8 @@ in the dialect of the jury.
 #==== swarmer.sh: file docs/en/PIPELINE.md ====
 # Swarm convenings: eight strategies
 
-**Status.** Version 5.0 (swarmer) of 16 November 2026: the strategies and rules of 4.0, with English names for
+**Status.** Version 5.2 (swarmer): the rules 2 of the gates (§«The rules of the gates»), with every gate approved
+before still valid. Version 5.0 of 16 November 2026: the strategies and rules of 4.0, with English names for
 commands, files and protocol lines (§«What changes»). Version 4.0 added to the four strategies of 3.1 (single,
 classic, full, auto):
 - the **jury**, which decides a proposal by vote;
@@ -14919,8 +14920,12 @@ words, convenings and juries) are never renamed. An Italian 4.0 stays Italian, w
 (`sciame-*`); an English 4.0 moves to `swarmer-*`, with `sciame.sh`, `convoca.py` and `giuria.py` kept as aliases.
 Going back to 4.0 is not supported.
 
-**From 5.0.** The update to 5.1 keeps a 5.0 installation as it was: Claude Code only, the same agents byte for
+**From 5.0.** The update to 5.1 or later keeps a 5.0 installation as it was: Claude Code only, the same agents byte for
 byte, the same skills (with the new section on delegating in each tool). Other targets are added on request: `bash swarmer/swarmer.sh targets --add codex,gemini`.
+
+**From 5.1.** The update to 5.2 enables no extension (`bash swarmer/swarmer.sh extensions --add crossroads` when you
+want it) and leaves every gate already approved valid: a convening started before keeps the rules 1 of its gates, a
+new one is born with the rules 2 (`PIPELINE.md`, §«The rules of the gates»).
 #==== swarmer.sh: file docs/en/_CLAUDE.md ====
 ## Agent swarm
 
@@ -15715,7 +15720,8 @@ della giuria.
 #==== swarmer.sh: file docs/it/PIPELINE.md ====
 # Le convocazioni dello sciame: otto strategie
 
-**Stato.** Versione 5.0 (swarmer) del 16 novembre 2026: le strategie e le regole sono quelle della 4.0, con
+**Stato.** Versione 5.2 (swarmer): le regole 2 dei cancelli (§«Le regole dei cancelli»), con ogni cancello
+approvato prima ancora valido. Versione 5.0 del 16 novembre 2026: le strategie e le regole sono quelle della 4.0, con
 i nomi inglesi accanto agli italiani (§«Che cosa cambia»). La 4.0 aggiunse alle quattro strategie della 3.1 (singolo, classica, completa, auto)
 aggiunge:
 - la **giuria**, che decide una proposta con un voto;
@@ -16690,9 +16696,14 @@ convocazioni e giurie) non si rinominano mai. Una 4.0 italiana resta italiana, c
 skill (`sciame-*`); `sciame.sh`, `convoca.py`, `giuria.py` e `genera_agenti.py` restano come alias. Il ritorno
 alla 4.0 non è supportato.
 
-**Dalla 5.0.** L'aggiornamento alla 5.1 lascia un'installazione 5.0 com'era: solo Claude Code, gli stessi agenti
+**Dalla 5.0.** L'aggiornamento alla 5.1 o successiva lascia un'installazione 5.0 com'era: solo Claude Code, gli stessi agenti
 byte per byte, le stesse skill (con la sezione nuova su come delegare in ogni strumento). Le altre destinazioni si aggiungono a richiesta:
 `bash sciame/sciame.sh destinazioni --aggiungi codex,gemini`.
+
+**Dalla 5.1.** L'aggiornamento alla 5.2 non attiva nessuna estensione
+(`bash sciame/sciame.sh estensioni --aggiungi incroci` quando la vuoi) e lascia validi tutti i cancelli già
+approvati: una convocazione cominciata prima tiene le regole 1 dei suoi cancelli, una nuova nasce con le regole 2
+(`PIPELINE.md`, §«Le regole dei cancelli»).
 #==== swarmer.sh: file docs/it/_CLAUDE.md ====
 ## Sciame di agenti
 

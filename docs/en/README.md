@@ -152,5 +152,9 @@ words, convenings and juries) are never renamed. An Italian 4.0 stays Italian, w
 (`sciame-*`); an English 4.0 moves to `swarmer-*`, with `sciame.sh`, `convoca.py` and `giuria.py` kept as aliases.
 Going back to 4.0 is not supported.
 
-**From 5.0.** The update to 5.1 keeps a 5.0 installation as it was: Claude Code only, the same agents byte for
+**From 5.0.** The update to 5.1 or later keeps a 5.0 installation as it was: Claude Code only, the same agents byte for
 byte, the same skills (with the new section on delegating in each tool). Other targets are added on request: `bash swarmer/swarmer.sh targets --add codex,gemini`.
+
+**From 5.1.** The update to 5.2 enables no extension (`bash swarmer/swarmer.sh extensions --add crossroads` when you
+want it) and leaves every gate already approved valid: a convening started before keeps the rules 1 of its gates, a
+new one is born with the rules 2 (`PIPELINE.md`, §«The rules of the gates»).

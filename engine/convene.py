@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""swarmer 5.0: prepares the skeleton of a convening (single, fan-out, classic or full) and checks its gates. Jury
+"""swarmer 5.2: prepares the skeleton of a convening (single, fan-out, classic or full) and checks its gates. Jury
 and plenary are counted with jury.py.
 
 It is the general form of the convening as a graph. It keeps:
