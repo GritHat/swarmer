@@ -1,7 +1,9 @@
 # Dossier di un'ipotesi (il modello: se ne fa uno per ogni H#)
 
-`convoca.py seleziona` lo copia in `f3/<H#>/<H#>.md`. Lo completa l'arbitro con il verdetto, campo per campo, con il
-rimando al file della squadra che lo sostiene. Un campo vuoto si scrive «manca», non si omette.
+`convoca.py seleziona` lo copia in `f3/<H#>/<H#>.md` (`finanzia`, per il ramo radicale). Lo completa l'arbitro con il
+verdetto, campo per campo, con il rimando al file della squadra che lo sostiene. Un campo vuoto si scrive «manca», non
+si omette; un campo può continuare sulle righe rientrate sotto di lui. Il dossier si lega al cancello G4.
+Provata = dimostrata o verificata (la riga «Correttezza: …» di `VERDETTO.md`).
 
 ## Identità e contratto
 

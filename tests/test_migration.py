@@ -598,8 +598,16 @@ def convening(base: Path, lang: str, sa: Path, sb: Path, same):
     both("select --radical --owner", ["select", ca, "H-001", "--radical", "H-002", "--owner", "architetto"],
          ["seleziona", cb, "H-001", "--radicale", "H-002", "--responsabile", "architetto"])
     check(f"M3 [{lang}]: select and seleziona write the same names", shape(ca) == shape(cb))
-    both("close-branch --reason", ["close-branch", ca, "H-002", "--reason", "no time"],
-         ["chiudi-ramo", cb, "H-002", "--motivo", "no time"])
+    both("gate --rules", ["gate", ca, "f2", "--notes", "x", "--rules", "2", "--verify"],
+         ["cancello", cb, "f2", "--note", "x", "--regole", "2", "--verifica"])
+    # gate rules 2: select records the radical, fund briefs it, a funded branch closes only with its deciding test
+    both("fund", ["fund", ca, "H-002"], ["finanzia", cb, "H-002"])
+    check(f"M3 [{lang}]: fund and finanzia write the same names", shape(ca) == shape(cb))
+    both("close-branch --reason of a funded branch, without the test", ["close-branch", ca, "H-002", "--reason", "x"],
+         ["chiudi-ramo", cb, "H-002", "--motivo", "x"], expect=1)
+    both("close-branch --reason --deciding-test", ["close-branch", ca, "H-002", "--reason", "no time",
+                                                   "--deciding-test", "the oracle on 10 cases"],
+         ["chiudi-ramo", cb, "H-002", "--motivo", "no time", "--prova-decisiva", "the oracle on 10 cases"])
     both("status at the end", ["status", ca], ["stato", cb])
     # prepare of a fan-out with --n, --form and --rule
     x = py(sa / "convene.py", "prepare", "--name", "f", "--strategy", "fan-out", "--profile", "code", "--question", "q",

@@ -165,7 +165,7 @@ Un fallimento ferma il ramo e ne conserva il controesempio.
   3. i controesempi;
   4. il consolidamento dell'arbitro.
 - L'arbitro chiude solo se ci sono queste tre condizioni:
-  - almeno una H# provata;
+  - almeno una H# provata (Correttezza dimostrata o verificata nel suo verdetto);
   - nessuna contraddizione aperta su una conclusione adottata;
   - ogni previsione risolta, o dichiarata non risolta con la prova che la deciderebbe.
 
@@ -424,11 +424,38 @@ l'approvazione rende il cancello non valido. Un cancello non si approva perché 
 | cancello | condizioni |
 |---|---|
 | G0 | contratto completo: domanda, criterio, ingressi, vincoli, quota, profilo |
+| GA (per emendamento) | dopo il G0, l'emendamento sigillato e, con le regole 2, con la riga «Modifica: <campi del contratto>» (con le regole 1 la sua assenza è un avviso); lega solo l'emendamento, così il contratto e il G0 restano come sono |
 | G1 | consegne di tutte le corsie (o «non consegnato» dopo due arresti), nessun canarino di una corsia nell'altra, la foto delle letture fatta prima di leggere |
 | G2 | firme degli autori prima del sigillo del triage, sigillo prima del torneo, selezione solo fra gli H# del triage, controfirma dell'arbitro |
-| G3 (per H#) | soluzione, verifica, piano delle misure e previsioni congelati; le soglie raggiungibili e con una prova che le possa decidere |
-| G4 (per H#) | controprove prima di ogni costo; classi in ordine; previsioni sigillate prima delle loro prove; le anomalie spiegate o dichiarate; dossier completo |
-| G5 | le condizioni di chiusura dell'arbitro e le quattro verifiche dei risultati fondanti |
+| G3 (per H#) | soluzione, verifica, piano delle misure e previsioni congelati; le soglie raggiungibili e con una prova che le possa decidere; il dossier escluso (lo lega il G4) |
+| G4 (per H#) | controprove prima di ogni costo; classi in ordine; previsioni sigillate prima delle loro prove; le anomalie spiegate o dichiarate; dossier completo e legato; con le regole 2, la riga «Correttezza: …» nel verdetto, una consegna da ogni ruolo con una consegna da svolgere (anche lo statistico) o il suo «non consegnato», e V2 (`ASSUNZIONI_NASCOSTE.md`) nella cartella di un ruolo fuori dalla squadra di f3 quando la correttezza è dimostrata o verificata; la riga solo nel verdetto dell'arbitro |
+| G5 | le condizioni di chiusura dell'arbitro e le quattro verifiche dei risultati fondanti. «Esito: chiuso» vuole almeno una H# provata (Correttezza dimostrata o verificata nel verdetto dell'arbitro) e ogni ramo con un G4 o una chiusura anticipata (con le regole 2 anche una radicale mai finanziata: chiusa come «non finanziato»); «Esito: non chiuso» si approva come non chiusura registrata che nomina i rami aperti, e la convocazione resta non chiusa. Con le regole 2, anche la sentinella (o «Dichiarato mancante: sentinella: <motivo>») e la prova decisiva di ogni ramo dichiarato non risolto |
+
+**Le regole dei cancelli.** Le condizioni e i file che un cancello lega hanno una versione, la chiave
+`regole_cancelli` del manifesto: una convocazione nuova nasce con le regole 2, e una chiave assente vale 1 (le
+convocazioni della 4.0 e della 5.0). Ogni cancello registra le sue regole e si ricalcola sempre con quelle, così un
+cancello approvato non diventa mai non valido perché si è aggiornato il motore. `cancello C FASE --regole 2` applica le
+regole 2 a un cancello nuovo di una convocazione più vecchia. Gli allentamenti (un campo che continua sulle righe
+dopo, le copie dentro uno spazio di lavoro) valgono con ogni regola; le condizioni più strette solo con le regole 2,
+con un'eccezione: «Esito: chiuso» vuole una H# provata con ogni regola. Con le regole 1 un G4 valido il cui verdetto
+non ha la riga Correttezza conta ancora come provato, con un avviso; con le regole 2 no, e la via d'uscita è
+aggiungere la riga e approvare di nuovo quel G4 con `--regole 2`. Un emendamento scritto senza la riga «Modifica:»
+passa il suo cancello con le regole 1, con un avviso, così i cancelli successivi di una convocazione più vecchia si
+possono verificare con `--regole 2`.
+
+**Che cosa lega un cancello.** Con le regole 1, i file `.md` della fase, e i `.json` di f3 e f4. Con le regole 2, ogni
+file della fase, di ogni tipo (codice, uscite grezze, archivi), tranne `GATE_*`, `__pycache__`, `*.pyc` e `.git`; un
+collegamento simbolico si lega con la sua destinazione (lo sha256 del file, o l'albero della cartella, a cui punta).
+Lo spazio di lavoro di un ruolo (una cartella `lavoro/`), una convocazione annidata (una cartella con il manifesto di
+una convocazione; la cartella `NN-<ruolo>` di un ramo non lo è mai) o una cartella di stato annidata, e una cartella
+affollata si legano ciascuno come una voce sola, lo sha256 del loro albero. Una cartella è affollata con più di 200
+file in tutto il suo sottoalbero; la cartella della fase e le sue cartelle `NN-<ruolo>` solo con più di 200 file
+propri. I file sotto uno spazio di lavoro o una convocazione annidata non sono del ramo: una
+`PREVISIONI.md` copiata in un corpus non si prende per nata in f4.
+
+**Limite noto: i formati condivisi.** I formati congelati in `SELEZIONE.md` (un record, una riga, un file che più
+rami condividono) non hanno un registro proprio né una propagazione: un cambio fatto da un ramo non arriva agli altri,
+e nessun cancello se ne accorge. Lo tratta l'estensione crossroads, non il motore.
 
 ### La cecità delle corsie
 
@@ -449,6 +476,13 @@ sola lettura e consegna:
 - le cifre e gli identificativi del dossier, ricontati dai file.
 
 Un suo K# entra solo con un file. Serve a trovare ciò che nessun profilo avrebbe convocato.
+
+`seleziona` (e `finanzia`) scrive la sua consegna in `f5/00-sentinella/TASK.md`, per un ruolo estratto con il seme
+della convocazione fra quelli che non sono in nessuna corsia e in nessuna squadra; consegna
+`f5/00-sentinella/SENTINELLA.md`, e solo lì: la fase f5 la lega solo il G5, così la sentinella non invalida nessun cancello
+precedente. Con le
+regole 2, il G4 avvisa finché manca e il G5 rifiuta senza di lei, salvo che `CHIUSURA.md` abbia la riga «Dichiarato
+mancante: sentinella: <motivo>». Un ramo mai finanziato non conta fra i due.
 
 ### Le anomalie: il debugger
 
@@ -485,10 +519,50 @@ chiusura. Le quattro verifiche sono distinte:
 L'indipendenza è per istanza: un'istanza nuova di un ruolo, che non ha letto i giudizi degli altri, conta come
 indipendente. Un audit negativo («nessuna ipotesi nascosta trovata») è un requisito procedurale, non una garanzia.
 
+In ogni ramo `seleziona` scrive la consegna di V2 in `f4/<H#>/08-<ruolo>/`: il rovesciatore, se non è nella squadra di
+f3, altrimenti un'istanza nuova del debugger. Consegna `ASSUNZIONI_NASCOSTE.md`; con le regole 2 il G4 la vuole, nella
+cartella `NN-<ruolo>/` di un ruolo fuori dalla squadra di f3, ogni volta che il verdetto dice la correttezza dimostrata
+o verificata.
+
 ### Il dossier
 
 Ogni H# ha un ID stabile (H-001) e un dossier dal modello `SCHEDA_IPOTESI.md`, che l'arbitro completa con il verdetto,
 campo per campo, con i rimandi ai file del ramo. Un campo vuoto si scrive «manca».
+- **Campi su più righe.** Un campo può continuare sulle righe rientrate sotto di lui (un elenco, una tabella): non è
+  vuoto. Con le regole 2 un campo lasciato esattamente come nel modello è vuoto.
+- **Legato al G4.** L'arbitro completa il dossier in f4, perciò il G3 non lo lega e il G4 sì.
+- **Provata.** Il verdetto dell'arbitro, `f4/<H#>/09-arbitro/VERDETTO.md`, ha la riga «Correttezza: dimostrata»,
+  «verificata», «sostenuta», «smentita» o «non risolta». Per i cancelli, «provata» vuol dire dimostrata o verificata, e
+  conta solo la riga dell'arbitro: con le regole 2 la riga in un altro `VERDETTO.md` del ramo fa rifiutare il G4.
+
+### Gli emendamenti
+
+Un cambio del contratto dopo il G0 non si scrive in `CONTRATTO.md`: è un emendamento, `EMENDAMENTO_<n>.md` alla radice
+della convocazione (vale anche `EMENDAMENTO_A1.md`), con la riga «Modifica: Vincoli, Quota» che nomina i campi del
+contratto che cambia. Il coordinatore lo sigilla (`sigilla C EMENDAMENTO_1.md`) e ne approva il cancello,
+`cancello C A1`, che lega solo l'emendamento: il contratto e il G0 restano validi. Con le regole 2 nessun cancello
+successivo passa finché un emendamento non ha un cancello valido, o finché un cancello lega un emendamento il cui file
+non c'è più; le consegne scritte dopo leggono gli emendamenti approvati.
+
+### I rami, gli spazi di lavoro e la chiusura
+
+- **Il ramo radicale.** Con le regole 2 `seleziona` registra la H# radicale senza darle consegne, e
+  `finanzia C H-00x` le dà il dossier e le consegne. Una radicale mai finanziata si chiude con `chiudi-ramo` come «non
+  finanziato», senza prova; con le regole 2 il G5 non chiude finché non è né finanziata né chiusa. Dopo il G5 non
+  girano né `finanzia` né `chiudi-ramo`.
+- **La chiusura anticipata** di un ramo finanziato è «non risolto dichiarato» e, con le regole 2, vuole
+  `--prova-decisiva TESTO`, la prova che lo deciderebbe, e le cartelle del ramo che hanno solo la loro consegna intatta
+  si tolgono (con le regole 1 restano, come nella 5.0). Una chiusura dichiarata non risolta senza la sua prova (5.0) la
+  riceve con `chiudi-ramo C H-00x --motivo … --prova-decisiva TESTO`.
+- **La revisione del responsabile.** In f4 il responsabile del ramo ha una consegna in `f4/<H#>/00-<responsabile>/`, e
+  consegna `REVISIONE.md` dopo le controprove e i difetti.
+- **Lo spazio di lavoro.** Un ruolo tiene i file di prova, le copie e i corpus in una cartella `lavoro/` dentro la sua
+  cartella: i cancelli la legano come una voce sola, e i suoi file non si leggono come quelli del ramo.
+- **La chiusura.** La consegna dell'arbitro, `f5/01-arbitro/TASK.md`, nomina come uscita `f5/CHIUSURA.md`, il file che
+  legge il G5. I suoi ingressi sono il contratto con i suoi emendamenti approvati, la selezione, il dossier, la revisione e
+  il verdetto di ogni ramo (o la sua chiusura anticipata), la sentinella e i cancelli; la revisione e la sentinella dove
+  hanno avuto una consegna. `seleziona`, `finanzia` e
+  `chiudi-ramo` la riscrivono.
 
 ## La strategia completa nei dettagli
 
@@ -556,6 +630,19 @@ campo per campo, con i rimandi ai file del ramo. Un campo vuoto si scrive «manc
   gli stati di ciò che afferma, gli aperti e al più tre decisioni che spettano a lui.
 
 ## Che cosa cambia
+
+**Le regole 2 dei cancelli.**
+- **Cancelli con la versione.** `regole_cancelli` nel manifesto, `--regole` su un cancello; ogni cancello si ricalcola
+  con le sue regole, e le convocazioni nate prima tengono i loro cancelli approvati.
+- **Il dossier** si lega al G4, dove l'arbitro lo completa; un campo che continua sulle righe dopo non è vuoto.
+- **I file legati** sono tutti i file della fase, con uno spazio di lavoro o una cartella affollata come una voce
+  d'albero; le copie di una convocazione dentro uno spazio di lavoro non si leggono più come quelle del ramo.
+- **Il G4** vuole la riga Correttezza del verdetto, la consegna di ogni ruolo con una consegna, V2 su un risultato
+  provato.
+- **Il G5** distingue «Esito: chiuso» (una H# provata dal suo verdetto) da una non chiusura registrata, e vuole la
+  sentinella e la prova decisiva di ogni ramo dichiarato non risolto.
+- **Nuovi:** gli emendamenti con il loro cancello (GA), `finanzia` per il ramo radicale, le consegne della revisione del
+  responsabile, di V2 e della sentinella, la consegna della chiusura con tutti i suoi ingressi.
 
 **Rispetto alla 4.0.**
 - **Il nome** è swarmer: lo script è `swarmer.sh` (`sciame.sh` resta come alias), il codice è in `engine/`, i

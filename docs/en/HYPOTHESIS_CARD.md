@@ -1,7 +1,9 @@
 # Dossier of a hypothesis (the template: one is made for each H#)
 
-`convene.py select` copies it into `f3/<H#>/<H#>.md`. The arbiter completes it with the verdict, field by field, with a
-reference to the team's file that supports it. An empty field is written "missing", not omitted.
+`convene.py select` copies it into `f3/<H#>/<H#>.md` (`fund`, for the radical branch). The arbiter completes it with the
+verdict, field by field, with a reference to the team's file that supports it. An empty field is written "missing",
+not omitted; a field may continue on the indented lines below it. The dossier is bound at gate G4.
+Proven = proven or verified (the line «Correctness: …» of `VERDICT.md`).
 
 ## Identity and contract
 
