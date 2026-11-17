@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>swarmer-crossroads 1.0: the decisions of the project as a graph, and the way back</title>
+<link rel="alternate" hreflang="it" href="../it/crossroads/">
+<style>
+:root{color-scheme:light dark;--bg:#ffffff;--fg:#1f2328;--muted:#59636e;--line:#d1d9e0;--code:#f6f8fa;--link:#0969da}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--muted:#9198a1;--line:#3d444d;--code:#161b22;--link:#4493f8}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:60rem;margin:0 auto;padding:0 16px}header{border-bottom:1px solid var(--line)}
+header .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem 1.25rem;padding-top:.75rem;padding-bottom:.75rem}
+header img{height:40px;width:auto}header nav{display:flex;flex-wrap:wrap;gap:.25rem 1rem;margin-left:auto}
+a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}main{padding:1rem 0 2rem;overflow-wrap:break-word}
+h1,h2,h3,h4{line-height:1.25;margin:1.6em 0 .6em}h1{font-size:1.9rem}h2{font-size:1.45rem;border-bottom:1px solid var(--line);padding-bottom:.25em}
+.anchor{float:left;margin-left:-1em;padding-right:.2em;opacity:0;color:var(--muted)}h1:hover .anchor,h2:hover .anchor,h3:hover .anchor,h4:hover .anchor{opacity:1}
+code{font:.88em/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--code);padding:.1em .3em;border-radius:4px}
+pre{background:var(--code);border:1px solid var(--line);border-radius:6px;padding:.8rem 1rem;overflow-x:auto}pre code{padding:0;background:none}
+.table{overflow-x:auto;margin:1rem 0}table{border-collapse:collapse}th,td{border:1px solid var(--line);padding:.35rem .6rem;vertical-align:top}th{background:var(--code)}
+blockquote{margin:1rem 0;padding:0 1rem;color:var(--muted);border-left:4px solid var(--line)}hr{border:0;border-top:1px solid var(--line)}
+details.toc{border:1px solid var(--line);border-radius:6px;padding:.5rem 1rem;margin:1rem 0}details.toc ul{margin:.4rem 0}
+footer{border-top:1px solid var(--line);color:var(--muted);font-size:.9rem;padding:1rem 0 2rem}
+.cards{list-style:none;padding:0}.cards li{border:1px solid var(--line);border-radius:6px;padding:.75rem 1rem;margin:.75rem 0}
+</style>
+</head>
+<body>
+<header><div class="wrap"><a href="../"><img src="../../media/crossroads/logo.png" alt="crossroads"></a><nav><a href="../">Documentation</a><a href="../swarmer/">swarmer</a><a href="./">crossroads</a><a href="formats/">Formats</a><a href="../it/crossroads/" hreflang="it">Italiano</a></nav></div></header>
+<main class="wrap">
+<h1 id="swarmer-crossroads-10-the-decisions-of-the-project-as-a-graph-and-the-way-back"><a class="anchor" href="#swarmer-crossroads-10-the-decisions-of-the-project-as-a-graph-and-the-way-back" aria-hidden="true">#</a>swarmer-crossroads 1.0: the decisions of the project as a graph, and the way back</h1>
+<details class="toc"><summary>Contents</summary><ul><li><a href="#enabling-it">Enabling it</a></li><li><a href="#the-store">The store</a></li><li><a href="#the-commands">The commands</a></li><li><a href="#the-protocol-lines">The protocol lines</a></li><li><a href="#commits-by-concern">Commits by concern</a></li><li><a href="#the-way-back">The way back</a></li><li><a href="#limits">Limits</a></li></ul></details>
+<p>crossroads is an extension of swarmer (5.2 or later). It records the decisions of the user, of the swarm (triage, selection) and of the juries as a navigable graph, with their discarded options and reasons, rationale, impact, evidence and dependencies. It ties each decision to the commits that realize it, one concern per commit. When the project is stuck, it finds the upstream decision D, gives its brief in bounded pages and plans its reversal on a new branch, without rebuilding the context. The formats are in <code>CROSSROADS_FORMATS.md</code>; the skill <code>swarmer-crossroads</code> tells the coding agent when to use each command.</p>
+<h2 id="enabling-it"><a class="anchor" href="#enabling-it" aria-hidden="true">#</a>Enabling it</h2>
+<p><code>bash swarmer/swarmer.sh extensions --add crossroads</code> (Italian <code>estensioni --aggiungi incroci</code>) writes the key <code>extensions</code> of <code>.swarmer/config.json</code> and regenerates: the skill <code>swarmer-crossroads</code> appears in every active target and every strategy skill gets the coordinator block below. <code>extensions --remove crossroads</code> takes them away again; the store <code>.swarmer/crossroads/</code> stays, because it is the project's.</p>
+<h2 id="the-store"><a class="anchor" href="#the-store" aria-hidden="true">#</a>The store</h2>
+<p><code>.swarmer/crossroads/</code> (Italian <code>.sciame/incroci/</code>):</p>
+<ul><li>
+<code>records/</code>: the canonical records, immutable and content-addressed: <code>U-…</code> (a user decision), <code>R-…</code> (a realization: the hunks of one decision in one concern), <code>N-…</code> (a note). Commit them, in a commit of their own;
+</li><li>
+<code>view/</code>: derived and disposable: <code>graph.jsonl</code> (format (e)), <code>INDEX.tsv</code> (one L0 row per node), <code>REPORT.md</code> (one page: the hard and report findings, the info ones counted), <code>REPORT.tsv</code> (every finding), <code>realized.tsv</code> (one row per realized hunk), and the brief, plan and index files of the backtrack;
+</li><li>
+<code>log/</code>: the snapshots of the graph (the last 20) and the list of every record ever seen;
+</li><li>
+<code>stage/</code>: the before-images of the no-git mode;
+</li><li>
+<code>CONCERNS.md</code>, optional, written by the project: lines <code>CONCERN &lt;name&gt; &lt;glob&gt;…</code>. <code>view/</code>, <code>log/</code> and <code>stage/</code> are git-ignored by the <code>.gitignore</code> crossroads writes in the store.
+</li></ul>
+<h2 id="the-commands"><a class="anchor" href="#the-commands" aria-hidden="true">#</a>The commands</h2>
+<p><code>bash swarmer/swarmer.sh crossroads &lt;command&gt;</code> (Italian <code>incroci</code>). Exit codes: 0 ok, 1 error or blocking issue, 2 findings, stale plan or dry run. The commands that read the view derive it again first when it is missing or stale.</p>
+<div class="table"><table><thead><tr><th>command</th><th>Italian</th><th>does</th></tr></thead><tbody><tr><td><code>derive [--source DIR]… [--git auto|yes|no] [--strict] [-v]</code></td><td><code>deriva</code></td><td>writes <code>view/</code> and <code>log/</code>; prints the snapshot and the findings that are not info</td></tr><tr><td><code>check [--reverse ID,…]</code></td><td><code>controlla</code></td><td>prints every finding, writes nothing</td></tr><tr><td><code>decide --question Q --options &quot;(a) t | (b) t&quot; --chose a --rationale T [--reject &quot;(b) reason&quot;]… [--impact &quot;c…&quot;] [--evidence &quot;id-or-ref…&quot;] [--depends &quot;id…&quot;] [--supersedes &quot;id…&quot;] [--authority owner|delegated:&lt;ref&gt;]</code></td><td><code>decidi</code></td><td>writes a U record, prints its id. Every reference is resolved when written, against <code>records/</code> and the sources (a record written a moment ago counts, before any derive): <code>--evidence</code> takes space-separated ids (records, options, anchors, decisions), <code>who:&lt;role&gt;</code>, <code>concern:&lt;name&gt;</code> or <code>&lt;anchor&gt;/&lt;relpath&gt;[@sha12]</code> of a source file; <code>--depends</code>, <code>--supersedes</code> take decision ids; <code>delegated:&lt;ref&gt;</code> takes one evidence ref. A token that does not resolve is refused (exit 1, nothing written, the token and the remedy printed): free text goes in <code>--rationale</code>, a source file is cited as <code>&lt;anchor&gt;/&lt;relpath&gt;@&lt;sha12&gt;</code> (printed for you), a project file outside the sources and a git commit are named in <code>--rationale</code>; a reference holding a space (an option label, a file name) cannot be stored, since §2 splits references on whitespace: cite its decision or anchor</td></tr><tr><td><code>note --about ID [--rationale T] [--reject &quot;(b) r&quot;]… [--withdraws R-…]…</code></td><td><code>nota</code></td><td>writes an N record; <code>--about</code> must be a known id, <code>--withdraws</code> a known R record, <code>--evidence</code> as in <code>decide</code>: refused otherwise, nothing written</td></tr><tr><td><code>stage FILE…</code></td><td><code>prepara</code></td><td>no git: the before-images, before editing</td></tr><tr><td><code>realize ID --concern C [--mode auto|git|nogit]</code></td><td><code>realizza</code></td><td>writes an R record from the staged diff (git) or the stage (no git); ID must be a known decision, refused otherwise, nothing written</td></tr><tr><td><code>trailers ID CONCERN</code></td><td><code>trailer</code></td><td>prints the two trailer lines of the commit; never commits</td></tr><tr><td><code>show ID|HANDLE [--level 0|1|2]</code></td><td><code>mostra</code></td><td>the L0 row, the L1 card or the L2 page of a node</td></tr><tr><td><code>changes --since SNAPSHOT_&lt;sha12&gt;</code></td><td><code>modifiche</code></td><td>what changed since a snapshot</td></tr><tr><td><code>lint FILE… [--lexicon]</code></td><td><code>lint</code></td><td>the near-misses of the protocol lines; FOREIGN-H in a triage or selection</td></tr><tr><td><code>radius ID</code></td><td><code>raggio</code></td><td>Rad(ID)</td></tr><tr><td><code>brief ID</code></td><td><code>sintesi</code></td><td>the paged brief <code>view/brief/&lt;h&gt;/p&lt;n&gt;.md</code> (each page ≤ 7276 B)</td></tr><tr><td><code>plan ID [--keep X…] [--margin N]</code></td><td><code>piano</code></td><td>the read-only plan <code>view/plan/&lt;h&gt;/PLAN.md</code> and <code>plan.json</code>, with the D′ draft and the <code>decide</code> command to record it</td></tr><tr><td><code>apply PLAN.json --dprime ID [--tests CMD] [--execute]</code></td><td><code>applica</code></td><td>without <code>--execute</code> a dry run (exit 2); with it, after the user's yes, the branch <code>crossroads/&lt;h12(D′)&gt;</code></td></tr><tr><td><code>verify PLAN.json --dprime ID [--tests CMD]</code></td><td><code>verifica</code></td><td>I1–I3 blocking; I4, I5 and the tests reported: OK, OK-BROKEN or FAILED</td></tr><tr><td><code>check-commits RANGE</code></td><td><code>controlla-commit</code></td><td>the trailer rules: one decision and one concern per commit, concerns, plain reverts, TRAILER-MISMATCH</td></tr></tbody></table></div>
+<h2 id="the-protocol-lines"><a class="anchor" href="#the-protocol-lines" aria-hidden="true">#</a>The protocol lines</h2>
+<p>In a triage (<code>TRIAGE.md</code>), a selection (<code>SELECTION.md</code>, <code>SELEZIONE.md</code>), a jury proposal (<code>PROPOSAL.md</code>, <code>PROPOSTA.md</code>) and in the side file <code>CROSSROADS.md</code> (Italian <code>INCROCI.md</code>) next to a triage or a selection, at column 0 and outside ``` blocks, written before the seal or never (a late line is a note):</p>
+<pre><code>QUESTION|DOMANDA &lt;loc&gt; &lt;text&gt;            RATIONALE|MOTIVAZIONE &lt;loc&gt; &lt;text&gt;
+REJECTED|SCARTATA &lt;loc&gt; (&lt;label&gt;) &lt;reason&gt;
+EVIDENCE|EVIDENZA &lt;loc&gt;[(&lt;label&gt;)] &lt;ref&gt;…   IMPACT|IMPATTO &lt;loc&gt; &lt;concern&gt;…
+DEPENDS-ON|RICHIEDE &lt;loc&gt; &lt;id&gt;…          SUPERSEDES|SOSTITUISCE &lt;loc&gt; &lt;id&gt;…
+TRIAGE H-### TEST|REFORMULATE|OPEN|REFUTED (TESTARE/PROVA, RIFORMULARE, APERTA, SMENTITA/CONFUTATA) [text]
+loc = D&lt;digit&gt;… | H-### | select</code></pre>
+<p><code>DIPENDE-DA</code> is never read. The lines are invisible to <code>jury count</code>. A line of a triage or a selection that names an H# of another convening goes into the side file, which convene.py does not read (FOREIGN-H otherwise).</p>
+<p><strong>crossroads is enabled in this project</strong> (<code>bash swarmer/swarmer.sh crossroads …</code>, skill <code>swarmer-crossroads</code>).</p>
+<ul><li>
+In the brief of the triage arbiter, of the selection arbiter and of a jury's rapporteur, paste the protocol lines below and ask, for each decision, its question, its discarded options with reasons, its impact, its evidence and what it depends on: <code>QUESTION &lt;loc&gt; &lt;text&gt;</code> · <code>REJECTED &lt;loc&gt; (&lt;label&gt;) &lt;reason&gt;</code> · <code>RATIONALE &lt;loc&gt; &lt;text&gt;</code> · <code>IMPACT &lt;loc&gt; &lt;concern&gt;…</code> · <code>EVIDENCE &lt;loc&gt;[(&lt;label&gt;)] &lt;ref&gt;…</code> · <code>DEPENDS-ON &lt;loc&gt; &lt;id&gt;…</code> · <code>SUPERSEDES &lt;loc&gt; &lt;id&gt;…</code> · <code>TRIAGE H-### TEST|REFORMULATE|OPEN|REFUTED [text]</code> (<code>loc</code> = <code>D1…</code>, <code>H-###</code>, select; column 0, outside code blocks; an H# of another convening goes in <code>CROSSROADS.md</code> next to the file).
+</li><li>
+Before sealing those files run <code>crossroads lint FILE…</code> and fix every NEAR-MISS and FOREIGN-H.
+</li><li>
+After every seal of a phase or of a jury outcome, and before answering the user, run <code>crossroads derive</code> and read the hard findings of <code>view/REPORT.md</code>.
+</li><li>
+Record every answer of the user to a decision question with <code>crossroads decide</code> (with <code>--supersedes</code> when it replaces an earlier choice).
+</li></ul>
+<h2 id="commits-by-concern"><a class="anchor" href="#commits-by-concern" aria-hidden="true">#</a>Commits by concern</h2>
+<p>A commit carries one decision and one concern. Stage the changes of one decision in one concern, run <code>realize ID --concern C</code>, then <code>trailers ID C</code>, and propose to the user the <code>git commit</code> with those two trailer lines: the user runs it, or approves an explicit command. Then <code>check-commits &lt;range&gt;</code>: a commit without trailers that touches only the store (the records commit) is not flagged; any other commit without them is R1. swarmer never commits.</p>
+<h2 id="the-way-back"><a class="anchor" href="#the-way-back" aria-hidden="true">#</a>The way back</h2>
+<p><code>show</code> or <code>view/INDEX.tsv</code> finds D; <code>radius D</code> and <code>brief D</code> give the radius and page 1 (the L1 card of D, its discarded options with reasons, what changed since, the members); <code>plan D</code> gives the commits, the blocking issues and the D′ draft. The user chooses; <code>decide … --supersedes</code> records D′; <code>apply plan.json --dprime D′</code> is a dry run, and <code>--execute</code> (only on the user's explicit yes) writes one commit per commit of C_Rad on a new branch through one <code>git fast-import</code>: HEAD, the current branch and the worktree change only at the end (<code>git switch</code>). The new commits carry the user's git identity (<code>user.name</code>, <code>user.email</code>) and the current time; without an identity <code>apply</code> refuses. <code>verify</code> checks it: I1 protects the files (no path outside the plan's files changes), I2 the lines (every plan file equals the weave, so the lines of outside decisions inside radius files stay), I3 the trailers. OK means byte-safe, OK-BROKEN that the tests fail.</p>
+<h2 id="limits"><a class="anchor" href="#limits" aria-hidden="true">#</a>Limits</h2>
+<ul><li>
+<strong>Merges:</strong> a merge in the range is a stop (NONLINEAR). Merge commits are skipped by the commit scan; a hunk resolved inside a merge is R-UNMATCHED.
+</li><li>
+<strong>Renames:</strong> none is followed (<code>--no-renames</code>). The safe stops are REALIZATION-PATH-GONE, copies with edits (RN1) and a squash tagged with one decision without realization records (M2b).
+</li><li>
+<strong>Not supported:</strong> a typechange, a symbolic link (mode 120000) or a gitlink (mode 160000) on a radius path is UNSUPPORTED; <code>realize</code> refuses them.
+</li><li>
+<strong>Case-insensitive filesystems:</strong> CASE-COLLISION blocks two tracked paths that differ only by case; this is not verified on APFS or NTFS.
+</li><li>
+<strong>"OK" means byte-safe, not behaviour-safe.</strong> The radius is the declared one: a dependency nobody declared is caught only by the tests (OK-BROKEN). I4 and MISSING-DEPENDS are heuristics.
+</li><li>
+<strong>Page bound:</strong> 7276 bytes per page, which guarantees at most 7276 tokens. "At most 4000 tokens" holds only at the measured 1.819 bytes per token (cl100k) and is not verified for Claude. The calibration of Claude's tokenizer and the juror bias of the lines (jurors read them) are out of scope: they need the user's yes to send data to a third party.
+</li><li>
+<strong>Ids:</strong> the 48-bit ids protect against accidental edits only. <code>log/</code> is disposable, so RECORD-VANISHED needs <code>log/</code> to survive. A backdated TIME is not detected.
+</li><li>
+<strong>Not built:</strong> no Mermaid or HTML export, no CONCERNS editor, no revert engine, no patch of the swarmer engine beyond the extension mechanism (that is a separate patch).
+</li><li>
+<strong>Commits:</strong> swarmer never commits, merges or pushes; <code>apply --execute</code> only creates a branch, on an explicit yes.
+</li><li>
+<strong>An agent's first reversal:</strong> whether a fresh agent with only the failure text, the skill and the help finds D and plans its reversal within the page bound is unresolved until the run described in the tests' <code>--make-fixture</code> is made, with the user's yes.
+</li></ul>
+</main>
+<footer><div class="wrap">Source: <a href="https://github.com/GritHat/swarmer">https://github.com/GritHat/swarmer</a> · Generated from <a href="https://github.com/GritHat/swarmer/blob/main/extensions/crossroads/docs/en/CROSSROADS.md">extensions/crossroads/docs/en/CROSSROADS.md</a> · MIT license</div></footer>
+</body>
+</html>

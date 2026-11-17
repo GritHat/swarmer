@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sciame-incroci 1.0: le decisioni del progetto come grafo, e la strada per tornare indietro</title>
+<link rel="alternate" hreflang="en" href="../../crossroads/">
+<style>
+:root{color-scheme:light dark;--bg:#ffffff;--fg:#1f2328;--muted:#59636e;--line:#d1d9e0;--code:#f6f8fa;--link:#0969da}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--muted:#9198a1;--line:#3d444d;--code:#161b22;--link:#4493f8}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:60rem;margin:0 auto;padding:0 16px}header{border-bottom:1px solid var(--line)}
+header .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem 1.25rem;padding-top:.75rem;padding-bottom:.75rem}
+header img{height:40px;width:auto}header nav{display:flex;flex-wrap:wrap;gap:.25rem 1rem;margin-left:auto}
+a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}main{padding:1rem 0 2rem;overflow-wrap:break-word}
+h1,h2,h3,h4{line-height:1.25;margin:1.6em 0 .6em}h1{font-size:1.9rem}h2{font-size:1.45rem;border-bottom:1px solid var(--line);padding-bottom:.25em}
+.anchor{float:left;margin-left:-1em;padding-right:.2em;opacity:0;color:var(--muted)}h1:hover .anchor,h2:hover .anchor,h3:hover .anchor,h4:hover .anchor{opacity:1}
+code{font:.88em/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--code);padding:.1em .3em;border-radius:4px}
+pre{background:var(--code);border:1px solid var(--line);border-radius:6px;padding:.8rem 1rem;overflow-x:auto}pre code{padding:0;background:none}
+.table{overflow-x:auto;margin:1rem 0}table{border-collapse:collapse}th,td{border:1px solid var(--line);padding:.35rem .6rem;vertical-align:top}th{background:var(--code)}
+blockquote{margin:1rem 0;padding:0 1rem;color:var(--muted);border-left:4px solid var(--line)}hr{border:0;border-top:1px solid var(--line)}
+details.toc{border:1px solid var(--line);border-radius:6px;padding:.5rem 1rem;margin:1rem 0}details.toc ul{margin:.4rem 0}
+footer{border-top:1px solid var(--line);color:var(--muted);font-size:.9rem;padding:1rem 0 2rem}
+.cards{list-style:none;padding:0}.cards li{border:1px solid var(--line);border-radius:6px;padding:.75rem 1rem;margin:.75rem 0}
+</style>
+</head>
+<body>
+<header><div class="wrap"><a href="../"><img src="../../../media/crossroads/logo.png" alt="crossroads"></a><nav><a href="../">Documentazione</a><a href="../swarmer/">swarmer</a><a href="./">crossroads</a><a href="formats/">Formati</a><a href="../../crossroads/" hreflang="en">English</a></nav></div></header>
+<main class="wrap">
+<h1 id="sciame-incroci-10-le-decisioni-del-progetto-come-grafo-e-la-strada-per-tornare-indietro"><a class="anchor" href="#sciame-incroci-10-le-decisioni-del-progetto-come-grafo-e-la-strada-per-tornare-indietro" aria-hidden="true">#</a>sciame-incroci 1.0: le decisioni del progetto come grafo, e la strada per tornare indietro</h1>
+<details class="toc"><summary>Indice</summary><ul><li><a href="#attivarla">Attivarla</a></li><li><a href="#il-deposito">Il deposito</a></li><li><a href="#i-comandi">I comandi</a></li><li><a href="#le-righe-di-protocollo">Le righe di protocollo</a></li><li><a href="#commit-per-area">Commit per area</a></li><li><a href="#la-strada-per-tornare-indietro">La strada per tornare indietro</a></li><li><a href="#limiti">Limiti</a></li></ul></details>
+<p>incroci (in inglese crossroads) è un'estensione dello sciame (5.2 o successiva). Registra le decisioni dell'utente, dello sciame (triage, selezione) e delle giurie come un grafo navigabile, con le opzioni scartate e le ragioni, la motivazione, l'impatto, le evidenze e le dipendenze. Lega ogni decisione ai commit che la realizzano, un'area per commit. Quando il progetto è bloccato, trova la decisione a monte D, ne dà la sintesi in pagine limitate e pianifica la sua inversione su un ramo nuovo, senza ricostruire il contesto. I formati sono in <code>FORMATI_INCROCI.md</code>; la skill <code>sciame-incroci</code> dice all'agente quando usare ogni comando.</p>
+<h2 id="attivarla"><a class="anchor" href="#attivarla" aria-hidden="true">#</a>Attivarla</h2>
+<p><code>bash sciame/sciame.sh estensioni --aggiungi incroci</code> (in inglese <code>extensions --add crossroads</code>) scrive la chiave <code>estensioni</code> di <code>.sciame/config.json</code> e rigenera: la skill <code>sciame-incroci</code> compare in ogni destinazione attiva e ogni skill di strategia riceve il blocco del coordinatore qui sotto. <code>estensioni --togli incroci</code> le toglie di nuovo; il deposito <code>.sciame/incroci/</code> resta, perché è del progetto.</p>
+<h2 id="il-deposito"><a class="anchor" href="#il-deposito" aria-hidden="true">#</a>Il deposito</h2>
+<p><code>.sciame/incroci/</code> (in inglese <code>.swarmer/crossroads/</code>):</p>
+<ul><li>
+<code>records/</code>: i record canonici, immutabili e indirizzati dal contenuto: <code>U-…</code> (una decisione dell'utente), <code>R-…</code> (una realizzazione: i blocchi di modifica di una decisione in un'area), <code>N-…</code> (una nota). Mettili in un commit a parte;
+</li><li>
+<code>view/</code>: derivata e sacrificabile: <code>graph.jsonl</code> (formato (e)), <code>INDEX.tsv</code> (una riga L0 per nodo), <code>REPORT.md</code> (una pagina: i rilievi gravi e di rapporto, quelli informativi contati), <code>REPORT.tsv</code> (ogni rilievo), <code>realized.tsv</code> (una riga per blocco realizzato), e i file di sintesi, piano e indice del ritorno indietro;
+</li><li>
+<code>log/</code>: le istantanee del grafo (le ultime 20) e l'elenco di ogni record mai visto;
+</li><li>
+<code>stage/</code>: le immagini «prima» del modo senza git;
+</li><li>
+<code>CONCERNS.md</code>, facoltativo, scritto dal progetto: righe <code>CONCERN &lt;nome&gt; &lt;glob&gt;…</code>. <code>view/</code>, <code>log/</code> e <code>stage/</code> sono ignorati da git grazie al <code>.gitignore</code> che incroci scrive nel deposito. I nomi interni del deposito restano quelli canonici in ogni lingua: sono un formato di dati, come le chiavi dei record.
+</li></ul>
+<h2 id="i-comandi"><a class="anchor" href="#i-comandi" aria-hidden="true">#</a>I comandi</h2>
+<p><code>bash sciame/sciame.sh incroci &lt;comando&gt;</code> (in inglese <code>crossroads</code>). Codici d'uscita: 0 ok, 1 errore o blocco, 2 rilievi, piano scaduto o prova a vuoto. I comandi che leggono la vista la derivano di nuovo prima, se manca o è scaduta.</p>
+<div class="table"><table><thead><tr><th>comando</th><th>inglese</th><th>fa</th></tr></thead><tbody><tr><td><code>deriva [--sorgente DIR]… [--git auto|yes|no] [--rigoroso] [-v]</code></td><td><code>derive</code></td><td>scrive <code>view/</code> e <code>log/</code>; stampa l'istantanea e i rilievi che non sono informativi</td></tr><tr><td><code>controlla [--inverti ID,…]</code></td><td><code>check</code></td><td>stampa ogni rilievo, non scrive nulla</td></tr><tr><td><code>decidi --domanda D --opzioni &quot;(a) t | (b) t&quot; --scelta a --motivazione T [--scarta &quot;(b) ragione&quot;]… [--impatto &quot;a…&quot;] [--evidenza &quot;id-o-rif…&quot;] [--richiede &quot;id…&quot;] [--sostituisce &quot;id…&quot;] [--autorita owner|delegated:&lt;rif&gt;]</code></td><td><code>decide</code></td><td>scrive un record U, ne stampa l'id. Ogni riferimento è risolto alla scrittura, su <code>records/</code> e sulle sorgenti (vale anche un record appena scritto, prima di ogni deriva): <code>--evidenza</code> vuole id separati da spazi (record, opzioni, ancore, decisioni), <code>who:&lt;ruolo&gt;</code>, <code>concern:&lt;nome&gt;</code> o <code>&lt;ancora&gt;/&lt;percorso-relativo&gt;[@sha12]</code> di un file di una sorgente; <code>--richiede</code>, <code>--sostituisce</code> vogliono id di decisioni; <code>delegated:&lt;rif&gt;</code> vuole un riferimento di evidenza. Un elemento che non si risolve è rifiutato (exit 1, nulla scritto, l'elemento e il rimedio stampati): il testo libero va in <code>--motivazione</code>, un file di una sorgente si cita come <code>&lt;ancora&gt;/&lt;percorso-relativo&gt;@&lt;sha12&gt;</code> (stampato per te), un file del progetto fuori dalle sorgenti e un commit git si nominano in <code>--motivazione</code>; un riferimento che contiene uno spazio (un'etichetta di opzione, un nome di file) non si può registrare, perché §2 separa i riferimenti sugli spazi: cita la sua decisione o la sua ancora</td></tr><tr><td><code>nota --riguarda ID [--motivazione T] [--scarta &quot;(b) r&quot;]… [--ritira R-…]…</code></td><td><code>note</code></td><td>scrive un record N; <code>--riguarda</code> deve essere un id noto, <code>--ritira</code> un record R noto, <code>--evidenza</code> come in <code>decidi</code>: altrimenti rifiutato, nulla scritto</td></tr><tr><td><code>prepara FILE…</code></td><td><code>stage</code></td><td>senza git: le immagini «prima», prima di modificare</td></tr><tr><td><code>realizza ID --area C [--modo auto|git|nogit]</code></td><td><code>realize</code></td><td>scrive un record R dal diff in stage (git) o dallo stage (senza git); ID deve essere una decisione nota, altrimenti rifiutato, nulla scritto</td></tr><tr><td><code>trailer ID AREA</code></td><td><code>trailers</code></td><td>stampa le due righe di trailer del commit; non fa mai commit</td></tr><tr><td><code>mostra ID|HANDLE [--livello 0|1|2]</code></td><td><code>show</code></td><td>la riga L0, la scheda L1 o la pagina L2 di un nodo</td></tr><tr><td><code>modifiche --da-cursore SNAPSHOT_&lt;sha12&gt;</code></td><td><code>changes</code></td><td>ciò che è cambiato dopo un'istantanea</td></tr><tr><td><code>lint FILE… [--lessico]</code></td><td><code>lint</code></td><td>le righe di protocollo quasi giuste; FOREIGN-H in un triage o in una selezione</td></tr><tr><td><code>raggio ID</code></td><td><code>radius</code></td><td>Rad(ID)</td></tr><tr><td><code>sintesi ID</code></td><td><code>brief</code></td><td>la sintesi a pagine <code>view/brief/&lt;h&gt;/p&lt;n&gt;.md</code> (ogni pagina ≤ 7276 B)</td></tr><tr><td><code>piano ID [--mantieni X…] [--margine N]</code></td><td><code>plan</code></td><td>il piano in sola lettura <code>view/plan/&lt;h&gt;/PLAN.md</code> e <code>plan.json</code>, con la bozza di D′ e il comando <code>decidi</code> per registrarla</td></tr><tr><td><code>applica PLAN.json --nuova ID [--prove CMD] [--esegui]</code></td><td><code>apply</code></td><td>senza <code>--esegui</code> una prova a vuoto (uscita 2); con esso, dopo il sì dell'utente, il ramo <code>crossroads/&lt;h12(D′)&gt;</code></td></tr><tr><td><code>verifica PLAN.json --nuova ID [--prove CMD]</code></td><td><code>verify</code></td><td>I1–I3 bloccanti; I4, I5 e le prove riferiti: OK, OK-BROKEN o FAILED</td></tr><tr><td><code>controlla-commit INTERVALLO</code></td><td><code>check-commits</code></td><td>le regole dei trailer: una decisione e un'area per commit, aree, revert semplici, TRAILER-MISMATCH</td></tr></tbody></table></div>
+<h2 id="le-righe-di-protocollo"><a class="anchor" href="#le-righe-di-protocollo" aria-hidden="true">#</a>Le righe di protocollo</h2>
+<p>In un triage (<code>TRIAGE.md</code>), in una selezione (<code>SELEZIONE.md</code>, <code>SELECTION.md</code>), in una proposta di giuria (<code>PROPOSTA.md</code>, <code>PROPOSAL.md</code>) e nel file a fianco <code>INCROCI.md</code> (in inglese <code>CROSSROADS.md</code>) accanto a un triage o a una selezione, alla colonna 0 e fuori dai blocchi ```, scritte prima del sigillo o mai (una riga tardiva è una nota):</p>
+<pre><code>QUESTION|DOMANDA &lt;loc&gt; &lt;testo&gt;           RATIONALE|MOTIVAZIONE &lt;loc&gt; &lt;testo&gt;
+REJECTED|SCARTATA &lt;loc&gt; (&lt;etichetta&gt;) &lt;ragione&gt;
+EVIDENCE|EVIDENZA &lt;loc&gt;[(&lt;etichetta&gt;)] &lt;rif&gt;…   IMPACT|IMPATTO &lt;loc&gt; &lt;area&gt;…
+DEPENDS-ON|RICHIEDE &lt;loc&gt; &lt;id&gt;…          SUPERSEDES|SOSTITUISCE &lt;loc&gt; &lt;id&gt;…
+TRIAGE H-### TEST|REFORMULATE|OPEN|REFUTED (TESTARE/PROVA, RIFORMULARE, APERTA, SMENTITA/CONFUTATA) [testo]
+loc = D&lt;cifra&gt;… | H-### | select</code></pre>
+<p><code>DIPENDE-DA</code> non è mai letto. Le righe sono invisibili a <code>jury count</code>. Una riga di un triage o di una selezione che nomina un H# di un'altra convocazione va nel file a fianco, che convoca.py non legge (altrimenti FOREIGN-H).</p>
+<p><strong>incroci è attivo in questo progetto</strong> (<code>bash sciame/sciame.sh incroci …</code>, skill <code>sciame-incroci</code>).</p>
+<ul><li>
+Nel mandato dell'arbitro del triage, dell'arbitro della selezione e del relatore di una giuria, incolla le righe di protocollo qui sotto e chiedi, per ogni decisione, la domanda, le opzioni scartate con le ragioni, l'impatto, le evidenze e ciò da cui dipende: <code>DOMANDA &lt;loc&gt; &lt;testo&gt;</code> · <code>SCARTATA &lt;loc&gt; (&lt;etichetta&gt;) &lt;ragione&gt;</code> · <code>MOTIVAZIONE &lt;loc&gt; &lt;testo&gt;</code> · <code>IMPATTO &lt;loc&gt; &lt;area&gt;…</code> · <code>EVIDENZA &lt;loc&gt;[(&lt;etichetta&gt;)] &lt;rif&gt;…</code> · <code>RICHIEDE &lt;loc&gt; &lt;id&gt;…</code> · <code>SOSTITUISCE &lt;loc&gt; &lt;id&gt;…</code> · <code>TRIAGE H-### TESTARE|RIFORMULARE|APERTA|SMENTITA [testo]</code> (<code>loc</code> = <code>D1…</code>, <code>H-###</code>, select; colonna 0, fuori dai blocchi di codice; un H# di un'altra convocazione va in <code>INCROCI.md</code> accanto al file).
+</li><li>
+Prima di sigillare quei file esegui <code>incroci lint FILE…</code> e correggi ogni NEAR-MISS e FOREIGN-H.
+</li><li>
+Dopo ogni sigillo di una fase o di un esito di giuria, e prima di rispondere all'utente, esegui <code>incroci deriva</code> e leggi i rilievi gravi di <code>view/REPORT.md</code>.
+</li><li>
+Registra ogni risposta dell'utente a una domanda di decisione con <code>incroci decidi</code> (con <code>--sostituisce</code> quando sostituisce una scelta precedente).
+</li></ul>
+<h2 id="commit-per-area"><a class="anchor" href="#commit-per-area" aria-hidden="true">#</a>Commit per area</h2>
+<p>Un commit porta una decisione e un'area. Metti in stage le modifiche di una decisione in un'area, esegui <code>realizza ID --area C</code>, poi <code>trailer ID C</code>, e proponi all'utente il <code>git commit</code> con quelle due righe di trailer: l'utente lo esegue, o approva un comando esplicito. Poi <code>controlla-commit &lt;intervallo&gt;</code>: un commit senza trailer che tocca solo il deposito (il commit dei record) non è segnalato; ogni altro commit senza trailer è R1. Lo sciame non fa mai commit.</p>
+<h2 id="la-strada-per-tornare-indietro"><a class="anchor" href="#la-strada-per-tornare-indietro" aria-hidden="true">#</a>La strada per tornare indietro</h2>
+<p><code>mostra</code> o <code>view/INDEX.tsv</code> trova D; <code>raggio D</code> e <code>sintesi D</code> danno il raggio e la pagina 1 (la scheda L1 di D, le sue opzioni scartate con le ragioni, ciò che è cambiato dopo, i membri); <code>piano D</code> dà i commit, i blocchi e la bozza di D′. L'utente sceglie; <code>decidi … --sostituisce</code> registra D′; <code>applica plan.json --nuova D′</code> è una prova a vuoto, e <code>--esegui</code> (solo dopo il sì esplicito dell'utente) scrive un commit per ogni commit di C_Rad su un ramo nuovo con un solo <code>git fast-import</code>: HEAD, il ramo corrente e l'albero di lavoro cambiano solo alla fine (<code>git switch</code>). I commit nuovi portano l'identità git dell'utente (<code>user.name</code>, <code>user.email</code>) e l'ora corrente; senza un'identità <code>applica</code> rifiuta. <code>verifica</code> lo controlla: I1 protegge i file (nessun percorso fuori dai file del piano cambia), I2 le righe (ogni file del piano è uguale alla trama, quindi le righe delle decisioni esterne nei file del raggio restano), I3 i trailer. OK significa sicuro sui byte, OK-BROKEN che le prove falliscono.</p>
+<h2 id="limiti"><a class="anchor" href="#limiti" aria-hidden="true">#</a>Limiti</h2>
+<ul><li>
+<strong>Merge:</strong> un merge nell'intervallo è un arresto (NONLINEAR). I commit di merge sono saltati dalla scansione dei commit; un blocco risolto dentro un merge è R-UNMATCHED.
+</li><li>
+<strong>Rinomine:</strong> nessuna è seguita (<code>--no-renames</code>). Gli arresti sicuri sono REALIZATION-PATH-GONE, le copie con modifiche (RN1) e uno squash marcato con una sola decisione senza record di realizzazione (M2b).
+</li><li>
+<strong>Non supportati:</strong> un cambio di tipo, un collegamento simbolico (modo 120000) o un gitlink (modo 160000) su un percorso del raggio è UNSUPPORTED; <code>realizza</code> li rifiuta.
+</li><li>
+<strong>Filesystem che non distinguono maiuscole:</strong> CASE-COLLISION blocca due percorsi tracciati che differiscono solo per le maiuscole; non è verificato su APFS né su NTFS.
+</li><li>
+<strong>«OK» significa sicuro sui byte, non sul comportamento.</strong> Il raggio è quello dichiarato: una dipendenza che nessuno ha dichiarato è colta solo dalle prove (OK-BROKEN). I4 e MISSING-DEPENDS sono euristiche.
+</li><li>
+<strong>Limite di pagina:</strong> 7276 byte per pagina, che garantisce al più 7276 token. «Al più 4000 token» vale solo al rapporto misurato di 1,819 byte per token (cl100k) e non è verificato per Claude. La taratura del tokenizzatore di Claude e l'influenza delle righe sui giurati (i giurati le leggono) sono fuori ambito: richiedono il sì dell'utente per mandare dati a terzi.
+</li><li>
+<strong>Id:</strong> gli id da 48 bit proteggono solo da modifiche accidentali. <code>log/</code> è sacrificabile, quindi RECORD-VANISHED richiede che <code>log/</code> sopravviva. Un TIME retrodatato non è rilevato.
+</li><li>
+<strong>Non costruiti:</strong> nessuna esportazione Mermaid o HTML, nessun editor di CONCERNS, nessun motore a revert, nessuna modifica del motore dello sciame oltre al meccanismo delle estensioni (quella è una modifica a parte).
+</li><li>
+<strong>Commit:</strong> lo sciame non fa mai commit, merge né push; <code>applica --esegui</code> crea solo un ramo, dopo un sì esplicito.
+</li><li>
+<strong>La prima inversione di un agente:</strong> se un agente nuovo, con solo il testo del guasto, la skill e l'aiuto, trova D e pianifica l'inversione entro il limite di pagina resta non risolto finché non si fa la prova descritta da <code>--make-fixture</code> delle prove, con il sì dell'utente.
+</li></ul>
+</main>
+<footer><div class="wrap">Sorgente: <a href="https://github.com/GritHat/swarmer">https://github.com/GritHat/swarmer</a> · Generata da <a href="https://github.com/GritHat/swarmer/blob/main/extensions/crossroads/docs/it/CROSSROADS.md">extensions/crossroads/docs/it/CROSSROADS.md</a> · licenza MIT</div></footer>
+</body>
+</html>
