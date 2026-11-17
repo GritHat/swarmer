@@ -1,0 +1,162 @@
+{
+ "skill_names": {
+  "crossroads": "incroci"
+ },
+ "skill_description": {
+  "crossroads": "Incroci dello sciame: registra le decisioni dell'utente, dello sciame e delle giurie come un grafo navigabile, con le opzioni scartate, le motivazioni e l'impatto; le lega ai commit divisi per area; quando il progetto è bloccato, trova la decisione a monte, ne legge la sintesi e propone un'inversione su un ramo nuovo. Usala quando l'utente sceglie tra opzioni, cambia strada, chiede perché si è deciso qualcosa o vuole tornare a un bivio precedente."
+ },
+ "skill_arguments": {
+  "crossroads": "[deriva | mostra ID | raggio ID | sintesi ID | piano ID | …]"
+ },
+ "help": "ESTENSIONE incroci (crossroads): il grafo delle decisioni e la strada per tornare indietro\n  incroci (crossroads) <comando>  deriva (derive) | controlla (check) | decidi (decide) | nota (note)\n                               | prepara (stage) | realizza (realize) | trailer (trailers) | mostra (show)\n                               | modifiche (changes) | lint | raggio (radius) | sintesi (brief) | piano (plan)\n                               | applica (apply) | verifica (verify) | controlla-commit (check-commits)\n                               (`incroci --help`)\n",
+ "full_resync": "cursore sconosciuto {cursor}: risincronizzazione completa (leggi view/INDEX.tsv)",
+ "unknown_decision": "decisione sconosciuta {id}: vedi view/INDEX.tsv",
+ "record_dprime": "registra prima la nuova decisione, con decidi … --sostituisce, poi deriva",
+ "stale_plan": "piano scaduto: i suoi dati sono cambiati dopo plan.json; rifai piano",
+ "dry_run": "prova a vuoto: aggiungi --esegui solo dopo il sì esplicito dell'utente (crea un ramo, non unisce mai)",
+ "record_exists": "errore: questo record esiste già (stessi byte, stesso id)",
+ "evidence_words": "attenzione: --evidenza vuole id o riferimenti <ancora>/<percorso> separati da spazi, non testo libero; queste parole saranno DANGLING: {words}",
+ "commands": {
+  "crossroads": [
+   "incroci"
+  ],
+  "derive": [
+   "deriva"
+  ],
+  "check": [
+   "controlla"
+  ],
+  "decide": [
+   "decidi"
+  ],
+  "note": [
+   "nota"
+  ],
+  "stage": [
+   "prepara"
+  ],
+  "realize": [
+   "realizza"
+  ],
+  "trailers": [
+   "trailer"
+  ],
+  "show": [
+   "mostra"
+  ],
+  "changes": [
+   "modifiche"
+  ],
+  "lint": [],
+  "radius": [
+   "raggio"
+  ],
+  "brief": [
+   "sintesi"
+  ],
+  "plan": [
+   "piano"
+  ],
+  "apply": [
+   "applica"
+  ],
+  "verify": [
+   "verifica"
+  ],
+  "check-commits": [
+   "controlla-commit"
+  ]
+ },
+ "options": {
+  "--question": [
+   "--domanda"
+  ],
+  "--options": [
+   "--opzioni"
+  ],
+  "--chose": [
+   "--scelta"
+  ],
+  "--rationale": [
+   "--motivazione"
+  ],
+  "--reject": [
+   "--scarta"
+  ],
+  "--impact": [
+   "--impatto"
+  ],
+  "--evidence": [
+   "--evidenza"
+  ],
+  "--depends": [
+   "--richiede"
+  ],
+  "--supersedes": [
+   "--sostituisce"
+  ],
+  "--authority": [
+   "--autorita"
+  ],
+  "--about": [
+   "--riguarda"
+  ],
+  "--concern": [
+   "--area"
+  ],
+  "--since": [
+   "--da-cursore"
+  ],
+  "--level": [
+   "--livello"
+  ],
+  "--keep": [
+   "--mantieni"
+  ],
+  "--margin": [
+   "--margine"
+  ],
+  "--tests": [
+   "--prove"
+  ],
+  "--execute": [
+   "--esegui"
+  ],
+  "--source": [
+   "--sorgente"
+  ],
+  "--strict": [
+   "--rigoroso"
+  ],
+  "--reverse": [
+   "--inverti"
+  ],
+  "--dprime": [
+   "--nuova"
+  ],
+  "--lexicon": [
+   "--lessico"
+  ],
+  "--git": [],
+  "--mode": [
+   "--modo"
+  ],
+  "--time": [
+   "--ora"
+  ],
+  "--by": [
+   "--autore"
+  ],
+  "--withdraws": [
+   "--ritira"
+  ],
+  "--verbose": [
+   "--dettagli"
+  ]
+ },
+ "files": {
+  "crossroads": "incroci",
+  "CROSSROADS.md": "INCROCI.md",
+  "CROSSROADS_FORMATS.md": "FORMATI_INCROCI.md"
+ }
+}

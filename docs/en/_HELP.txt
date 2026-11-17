@@ -26,6 +26,9 @@ COMMANDS (bash swarmer/swarmer.sh <command>)
   translate ID FILE.json [--language L]  registers the translation of a role marked translation-pending (local,
                                never published); with --language en, the English texts of a local entry
   verify | build               the checks before publishing; the rebuild of swarmer.sh
+  extensions [--add X] [--remove X]  the extensions: without options the enabled and the available ones; --add
+                               enables one (its skill, its documents, its block in every strategy skill), --remove
+                               disables it (its state folder stays, it is the project's)
 
 Abbreviated options are not accepted: write them in full. The Italian names of the commands and options
 (installa, aggiorna, --cartella, …) work in every installation.

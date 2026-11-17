@@ -496,7 +496,7 @@ CONFIG_SCHEMA = Schema("config.json", {
     "folder": ("cartella",), "local": ("locale",), "project_managed": ("gestiti_dal_progetto",),
     "models": ("modelli", None, {"*": (None,)}), "prefix": ("prefisso",),
     "swarmer_sh_copies": ("copie_sciame_sh",), "local_repository": ("repository_locale",),
-    "targets": ("destinazioni",), "cli": ("cli",),
+    "targets": ("destinazioni",), "cli": ("cli",), "extensions": ("estensioni",),
 })
 JURY_SCHEMA = Schema("jury.json", {
     "subject": ("oggetto",), "rapporteur": ("relatore",), "clerk": ("cancelliere",),

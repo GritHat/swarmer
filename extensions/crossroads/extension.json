@@ -1,0 +1,27 @@
+{
+ "name": "crossroads",
+ "version": "1.0",
+ "requires": {
+  "swarmer": ">=5.2",
+  "extensions": {}
+ },
+ "commands": {
+  "crossroads": "engine/crossroads.py"
+ },
+ "documents": [
+  "CROSSROADS.md",
+  "CROSSROADS_FORMATS.md"
+ ],
+ "skills": {
+  "crossroads": "SKILL.md"
+ },
+ "coordinator": "CROSSROADS.md#coordinator",
+ "state": [
+  "crossroads"
+ ],
+ "provides": {
+  "crossroads/view/graph.jsonl": "format-e",
+  "crossroads/view/INDEX.tsv": "L0",
+  "crossroads/log/": "changes-cursor"
+ }
+}

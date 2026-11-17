@@ -1,4 +1,4 @@
-# swarmer: lo sciame di agenti universale per gli agenti di programmazione (versione 5.1)
+# swarmer: lo sciame di agenti universale per gli agenti di programmazione (versione 5.2)
 
 Uno sciame di professionisti e sottoprofessionisti specialistici, che un coordinatore convoca per una richiesta con
 una di otto strategie. Il coordinatore è la sessione dell'agente di programmazione aperta nel progetto (Claude Code,
@@ -117,6 +117,15 @@ arrivate alla soglia. Approvata la creazione, `bash sciame/sciame.sh approva <sc
 `bash sciame/sciame.sh proponi <sigla> --invia` apre la pull request al repository pubblico dello sciame (serve `gh`),
 sempre in inglese: una voce senza i testi inglesi completi si rifiuta finché `traduci <sigla> <file.json> --lingua en`
 non li aggiunge.
+
+## Le estensioni
+Un'estensione aggiunge comandi, una skill, documenti e un blocco di istruzioni per il coordinatore, e tiene il proprio
+stato sotto `.sciame/`. Ogni estensione viaggia dentro `sciame.sh` (cartella `extensions/`); attivarla è una scelta
+del progetto: `bash sciame/sciame.sh estensioni` le elenca, `estensioni --aggiungi <nome>` ne attiva una (chiave
+`estensioni` di `.sciame/config.json`, poi rigenera), `estensioni --togli <nome>` la disattiva e lascia la sua
+cartella di stato, che è del progetto. La prima è **incroci** (`bash sciame/sciame.sh incroci …`, skill
+`sciame-incroci`, documenti `INCROCI.md` e `FORMATI_INCROCI.md`): le decisioni dell'utente, dello sciame e delle
+giurie come grafo, i commit per area, e la strada per tornare a un bivio a monte su un ramo nuovo.
 
 ## I file di questa cartella
 

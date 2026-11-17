@@ -29,6 +29,10 @@ COMANDI (bash sciame/sciame.sh <comando>; fra parentesi il nome inglese, che val
   traduci (translate) SIGLA FILE.json [--lingua L]  registra la traduzione di un ruolo segnato translation-pending
                                (locale, mai pubblicata); con --lingua en, i testi inglesi di una voce locale
   verifica (verify) | costruisci (build)  i controlli prima di pubblicare; la ricostruzione di sciame.sh
+  estensioni (extensions) [--aggiungi X] [--togli X]  le estensioni: senza opzioni quelle attive e quelle
+                               disponibili; --aggiungi ne attiva una (la sua skill, i suoi documenti, il suo blocco in
+                               ogni skill di strategia), --togli la disattiva (la sua cartella di stato resta, è del
+                               progetto)
 
 Le opzioni abbreviate non si accettano più: si scrivono per intero. I nomi inglesi dei comandi e delle opzioni
 (install, update, --folder, …) valgono anche qui; sciame.sh passa a swarmer.sh, che contiene tutto.

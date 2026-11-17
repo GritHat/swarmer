@@ -114,6 +114,11 @@
  "sh_needs_folder": "-C vuole una cartella",
  "sh_not_a_project": "{root} non sembra un progetto: -C CARTELLA installa",
  "sh_unknown_option": "{command}: opzione sconosciuta: {option}",
+ "cli_extension_disabled": "l'estensione {name} non è attiva in questo progetto: {command}",
+ "cli_extension_state_kept": "{name}: la sua cartella di stato {path} resta (è del progetto: cancellala a mano se vuoi)",
+ "cli_extensions_changed": "estensioni attive: {names}",
+ "cli_extensions_enabled": "estensioni attive: {names}",
+ "cli_extensions_available": "estensioni disponibili: {names} (attivane una con estensioni --aggiungi NOME)",
  "commands": {
   "install": [
    "installa"
@@ -223,6 +228,9 @@
   ],
   "targets": [
    "destinazioni"
+  ],
+  "extensions": [
+   "estensioni"
   ]
  },
  "options": {

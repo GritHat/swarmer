@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#: SWARMER, A UNIVERSAL AGENT SWARM FOR CODING AGENTS, version 5.1
+#: SWARMER, A UNIVERSAL AGENT SWARM FOR CODING AGENTS, version 5.2
 #: (Claude Code, Codex, Antigravity, Gemini CLI, and every tool that reads AGENTS.md and Agent Skills)
 #:
 #: One file: the swarm's documents, its database of professionals and its engine, plus the commands to install
@@ -10,6 +10,7 @@
 #:   bash swarmer.sh install [--language en|it] [--targets claude,codex,...|auto] [--instructions] [--folder DIR]
 #:   bash swarmer/swarmer.sh <single|fan-out|classic|jury|light-jury|full|plenary|expert|auto> "request"
 #:   bash swarmer/swarmer.sh help            # every command, in the chosen language
+#:   bash swarmer/swarmer.sh extensions --add crossroads   # the decision graph and the way back (an extension)
 #:
 #: Commands and options have aliases in every available language (see help).
 
@@ -254,6 +255,11 @@ main() {
                 local l="$SH_LANG"
                 [ -f "$ROOT_DIR/$SWARM_DIR/docs/$l/_HELP.txt" ] || l="en"
                 [ -f "$ROOT_DIR/$SWARM_DIR/docs/$l/_HELP.txt" ] && cat "$ROOT_DIR/$SWARM_DIR/docs/$l/_HELP.txt"
+                # the help lines of the enabled extensions (their i18n key «help»)
+                if command -v python3 >/dev/null 2>&1 && [ -f "$ROOT_DIR/$SWARM_DIR/engine/swarmer.py" ]; then
+                    python3 -I -B -c 'import sys, pathlib; s = pathlib.Path(sys.argv[1]).resolve(); sys.path.insert(0, str(s / "engine")); import swarmer; print(swarmer.extensions_help(s, sys.argv[2]), end="")' \
+                        "$ROOT_DIR/$SWARM_DIR" "$l" 2>/dev/null || true
+                fi
             fi
             return 0 ;;
         install|update)

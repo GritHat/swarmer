@@ -1,0 +1,74 @@
+{
+ "skill_names": {
+  "crossroads": "crossroads"
+ },
+ "skill_description": {
+  "crossroads": "Crossroads of the swarm: records the decisions of the user, the swarm and the juries as a navigable graph with their discarded options, rationale and impact; ties them to commits split by concern; when the project is stuck, finds the upstream decision, reads its brief and proposes a reversal on a new branch. Use it when the user decides between options, changes course, asks why something was decided, or wants to go back to an earlier fork."
+ },
+ "skill_arguments": {
+  "crossroads": "[derive | show ID | radius ID | brief ID | plan ID | …]"
+ },
+ "help": "EXTENSION crossroads: the decision graph and the way back\n  crossroads <command>         derive | check | decide | note | stage | realize | trailers | show | changes | lint\n                               | radius | brief | plan | apply | verify | check-commits (`crossroads --help`)\n",
+ "full_resync": "unknown cursor {cursor}: full resync (read view/INDEX.tsv)",
+ "unknown_decision": "unknown decision {id}: see view/INDEX.tsv",
+ "record_dprime": "record the new decision first, with decide … --supersedes, then derive",
+ "stale_plan": "stale plan: its inputs changed since plan.json; run plan again",
+ "dry_run": "dry run: add --execute only after the user's explicit yes (it creates a branch, never merges)",
+ "record_exists": "error: this record already exists (same bytes, same id)",
+ "evidence_words": "warning: --evidence takes space-separated ids or <anchor>/<path> refs, not free text; these words will be DANGLING: {words}",
+ "commands": {
+  "crossroads": [],
+  "derive": [],
+  "check": [],
+  "decide": [],
+  "note": [],
+  "stage": [],
+  "realize": [],
+  "trailers": [],
+  "show": [],
+  "changes": [],
+  "lint": [],
+  "radius": [],
+  "brief": [],
+  "plan": [],
+  "apply": [],
+  "verify": [],
+  "check-commits": []
+ },
+ "options": {
+  "--question": [],
+  "--options": [],
+  "--chose": [],
+  "--rationale": [],
+  "--reject": [],
+  "--impact": [],
+  "--evidence": [],
+  "--depends": [],
+  "--supersedes": [],
+  "--authority": [],
+  "--about": [],
+  "--concern": [],
+  "--since": [],
+  "--level": [],
+  "--keep": [],
+  "--margin": [],
+  "--tests": [],
+  "--execute": [],
+  "--source": [],
+  "--strict": [],
+  "--reverse": [],
+  "--dprime": [],
+  "--lexicon": [],
+  "--git": [],
+  "--mode": [],
+  "--time": [],
+  "--by": [],
+  "--withdraws": [],
+  "--verbose": []
+ },
+ "files": {
+  "crossroads": "crossroads",
+  "CROSSROADS.md": "CROSSROADS.md",
+  "CROSSROADS_FORMATS.md": "CROSSROADS_FORMATS.md"
+ }
+}

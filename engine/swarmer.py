@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""swarmer 5.1: the command line. Usually run as `bash swarmer/swarmer.sh <command>`; `help` says everything.
+"""swarmer 5.2: the command line. Usually run as `bash swarmer/swarmer.sh <command>`; `help` says everything.
 
 Standard library only. It launches no agent: it starts the coding agent of the project (Claude Code, Codex,
 Antigravity or Gemini CLI) with the skill of the strategy, or prepares,
 counts and checks. Actions towards the outside (a pull request) happen only on an explicit, confirmed command, and
 never with the local files. No write follows a symbolic link, and no file of the project that is not the swarm's is
-overwritten (paths.py). Commands, options and values have aliases in every language of i18n/ (aliases.py).
+overwritten (paths.py). Commands, options and values have aliases in every language of i18n/ (aliases.py). The
+commands of the enabled extensions (extensions/, extensions.py) run through the same entry point.
 """
 from __future__ import annotations
 
@@ -27,11 +28,12 @@ SWARM = HERE.parent                             # the swarm folder in the projec
 sys.path.insert(0, str(HERE))
 import aliases as A  # noqa: E402
 import compat as C  # noqa: E402
+import extensions as E  # noqa: E402
 import generate as G  # noqa: E402
 import paths as S  # noqa: E402
 import professionals as P  # noqa: E402
 
-DISTRIBUTED = ("engine", "db", "docs", "i18n", "wrappers", "tests")   # what swarmer.sh carries
+DISTRIBUTED = ("engine", "db", "docs", "i18n", "wrappers", "tests", "extensions")   # what swarmer.sh carries
 NOT_DISTRIBUTED = ("tests/fixtures/",)
 ID_ARG = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
 ROOT_WRAPPERS = {"convene.py": "wrappers/convene.py", "jury.py": "wrappers/jury.py",
@@ -1224,14 +1226,16 @@ def _compare_i18n(a, b, where: str, out: list[str], alias_section: bool = False)
             out.append(f"{where}: placeholders different from en.json")
 
 
-def cli_namespaces() -> dict:
+def cli_namespaces(swarm: Path = SWARM) -> dict:
     """The namespaces of the command line (B): the commands of each parser, the options of each command, the values
-    of each option."""
+    of each option; every extension command is a parser of its own («crossroads», «crossroads derive»)."""
     empty = {"commands": {}, "options": {}, "values": {c: {} for c in A.VALUE_CATEGORIES}}
     out = {}
     import convene
     import jury
-    parsers = {"swarmer": build_parser(empty), "convene": convene.build_parser(empty)}
+    parsers = {"swarmer": build_parser(empty, swarm), "convene": convene.build_parser(empty)}
+    for cmd, name in sorted(E.commands(swarm).items()):
+        parsers[cmd] = E.entry(swarm, name, cmd).build_parser(empty)
     for pname, p in parsers.items():
         sub = next(a for a in p._actions if isinstance(a, argparse._SubParsersAction))
         out[pname] = {"commands": list(sub.choices)}
@@ -1260,7 +1264,7 @@ def alias_collisions(swarm: Path) -> list[str]:
             for c, names in m.items():
                 lst = union["values"].setdefault(cat, {}).setdefault(c, [])
                 lst += [x for x in names if x not in lst]
-    return A.collisions({**per_lang, "all": union}, cli_namespaces())
+    return A.collisions({**per_lang, "all": union}, cli_namespaces(swarm))
 
 
 def verify(swarm: Path, publication: bool = False, extra_words: list[str] | None = None) -> list[str]:
@@ -1296,13 +1300,26 @@ def verify(swarm: Path, publication: bool = False, extra_words: list[str] | None
         for k in set(t) & set(en):
             _compare_i18n(en[k], t[k], f"i18n/{l}.json:{k}", errors,
                           alias_section=k in ("commands", "options", "values", "files"))
+    ext, probs = E.manifests(swarm)
+    errors += probs
+    errors += verify_extensions(swarm, ext, langs)
     errors += alias_collisions(swarm)
+    commands = cli_namespaces(swarm)["swarmer"]["commands"]
+    ext_cmds = E.commands(swarm)
+    core = sorted(c for c in commands if c not in ext_cmds)
+    if set(core) != set(E.RESERVED):
+        errors.append("engine/extensions.py: RESERVED differs from the commands of the parser: "
+                      + ", ".join(sorted(set(core) ^ set(E.RESERVED))))
+    word = lambda c, text: re.search(rf"(?<![\w-]){re.escape(c)}(?![\w-])", text)
     for l in langs:
         h = swarm / "docs" / l / "_HELP.txt"
         text = h.read_text(encoding="utf-8") if h.is_file() else ""
-        for c in cli_namespaces()["swarmer"]["commands"]:
-            if not re.search(rf"(?<![\w-]){re.escape(c)}(?![\w-])", text):
+        for c in core:
+            if not word(c, text):
                 errors.append(f"docs/{l}/_HELP.txt: no line for the command «{c}»")
+        for c, n in sorted(ext_cmds.items()):   # an extension carries its own help line (i18n key «help»)
+            if not word(c, str(E.i18n(swarm, n, l).get("help", ""))):
+                errors.append(f"{E.FOLDER}/{n}/i18n/{l}.json: the key «help» has no line for the command «{c}»")
     words = (forbidden(swarm) if installed(swarm) else S.forbidden(swarm, swarm)[0]) + list(extra_words or [])
     to_check = list(files_to_distribute(swarm))
     npub = not_published()
@@ -1338,6 +1355,8 @@ def verify(swarm: Path, publication: bool = False, extra_words: list[str] | None
         for l in langs:
             try:
                 G.catalog(swarm, Path(tmp), l)
+                if ext:
+                    G.catalog(swarm, Path(tmp), l, extensions=list(ext))   # every extension enabled
             except C.Error as e:
                 errors.append(f"language {l}: {e}")
         if not installed(swarm) and (swarm / "swarmer.sh").is_file():
@@ -1361,6 +1380,107 @@ def verify(swarm: Path, publication: bool = False, extra_words: list[str] | None
                 if (swarm / name).exists() or (swarm / name).is_symlink():
                     errors.append(f"{name}: a file of a target (agents, skills, instructions) must not be published")
     return errors
+
+
+def verify_extensions(swarm: Path, ext: dict, langs: list[str]) -> list[str]:
+    """Every extension: its documents and skill bodies with the same blocks in every language, its i18n files with
+    the keys and placeholders of en.json, every path it provides named in one of its documents."""
+    errors = []
+    for name, m in sorted(ext.items()):
+        d = E.folder(swarm) / name
+        for f in list(m.get("documents", [])) + list(m.get("skills", {}).values()):
+            per = {l: set(G.blocks((d / "docs" / l / f).read_text(encoding="utf-8"))) for l in langs
+                   if (d / "docs" / l / f).is_file()}
+            if len({frozenset(b) for b in per.values()}) > 1:
+                errors.append(f"{E.FOLDER}/{name}/docs/*/{f}: the blocks differ between the languages: "
+                              + "; ".join(f"{l}={sorted(b)}" for l, b in per.items()))
+        en_p = d / "i18n" / "en.json"
+        en = json.loads(en_p.read_text(encoding="utf-8")) if en_p.is_file() else {}
+        for l in langs:
+            if l == "en" or not (d / "i18n" / f"{l}.json").is_file():
+                continue
+            t = json.loads((d / "i18n" / f"{l}.json").read_text(encoding="utf-8"))
+            where = f"{E.FOLDER}/{name}/i18n/{l}.json"
+            if set(t) != set(en):
+                errors.append(f"{where}: keys different from en.json: " + ", ".join(sorted(set(t) ^ set(en))[:8]))
+            for k in set(t) & set(en):
+                _compare_i18n(en[k], t[k], f"{where}:{k}", errors,
+                              alias_section=k in ("commands", "options", "values", "files"))
+        for l in langs:                          # an extension never adds an alias to a core name
+            core_p, ext_p = swarm / "i18n" / f"{l}.json", d / "i18n" / f"{l}.json"
+            if core_p.is_file() and ext_p.is_file():
+                add = A.core_additions(A._sections(json.loads(core_p.read_text(encoding="utf-8"))),
+                                       A._sections(json.loads(ext_p.read_text(encoding="utf-8"))))
+                errors += [f"{E.FOLDER}/{name}/i18n/{l}.json: an alias added to the core: {x}" for x in add]
+        for l in langs:
+            texts = "".join((d / "docs" / l / f).read_text(encoding="utf-8") for f in m.get("documents", [])
+                            if (d / "docs" / l / f).is_file())
+            for path in m.get("provides", {}):
+                if path not in texts:
+                    errors.append(f"{E.FOLDER}/{name}: provides «{path}» is named in none of its documents ({l})")
+    return errors
+
+
+# --- the extensions (5.2) ---
+
+def extensions_help(swarm: Path, lang: str) -> str:
+    """The help lines of the extensions (their i18n key «help»): the enabled ones in an installation, every one in
+    the repository."""
+    try:
+        ms = E.available(swarm)
+        names = [n for n in E.enabled(root_of(swarm)) if n in ms] if installed(swarm) else sorted(ms)
+    except (C.Error, OSError):
+        return ""
+    out = [str(E.i18n(swarm, n, lang).get("help", "")).rstrip("\n") for n in names]
+    out = [x for x in out if x]
+    return "".join("\n" + x + "\n" for x in out)
+
+def run_extension(swarm: Path, name: str, command: str, rest: list[str]) -> int:
+    """An extension command: in an installation only if the extension is enabled; in the repository (not
+    installed) always, with the current folder as the project root (for the tests)."""
+    try:
+        if installed(swarm):
+            root = root_of(swarm)
+            if name not in E.enabled(root):
+                raise Error(msg(swarm, "cli_extension_disabled", name=name,
+                                command=command_line(swarm, "extensions", "--add", name)))
+        else:
+            root = Path.cwd()
+        lang = language(swarm)
+        ctx = {"swarm": Path(swarm), "root": root, "lang": lang, "state": S.state_dir(root, lang),
+               "i18n": E.i18n(swarm, name, lang)}
+        return int(E.entry(swarm, name, command).main(rest, ctx) or 0)
+    except C.Error as e:
+        print(f"{msg(swarm, 'cli_prefix')}{e}", file=sys.stderr)
+        return 1
+
+
+def change_extensions(swarm: Path, al: dict, add: str | None, remove: str | None) -> list[str]:
+    """Enables or disables an extension: the requirements first, then config.json, then regenerate (the stale
+    removal takes away the skills and documents of a disabled one). Its state folder stays: it is the project's."""
+    root = root_of(swarm)
+    ms = E.available(swarm)
+    new = E.enabled(root)
+    if add:
+        x = E.resolve_name(swarm, al, add)
+        if x not in new:
+            new.append(x)
+        E.check_requires(ms, new, G.VERSION)
+    if remove:
+        x = E.resolve_name(swarm, al, remove)
+        if x not in ms:
+            raise Error(f"unknown extension «{remove}»: the extensions are {', '.join(sorted(ms)) or 'none'}")
+        req = E.required_by(ms, new, x)
+        if req:
+            raise Error(f"{', '.join(req)} needs {x}: remove {req[0]} first")
+        new = [y for y in new if y != x]
+        for st in ms[x].get("state", []):
+            p = S.find_project_file(S.state_dir(root, language(swarm)), st, language(swarm), swarm)
+            if p.exists():
+                print(msg(swarm, "cli_extension_state_kept", name=x, path=p))
+    S.write_config(root, dict(S.config(root), extensions=new), language(swarm))
+    regenerate(swarm)
+    return new
 
 
 # --- the paragraph for the instruction files (CLAUDE.md, AGENTS.md, GEMINI.md) ---
@@ -1456,7 +1576,7 @@ def _inside(swarm: Path, root: Path) -> bool:
 
 # --- the command line ---
 
-def build_parser(al: dict) -> argparse.ArgumentParser:
+def build_parser(al: dict, swarm: Path = SWARM) -> argparse.ArgumentParser:
     p = A.parser(prog="swarmer", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument(*A.option_strings(al, "--swarm"), dest="swarm", type=Path, default=SWARM, help=argparse.SUPPRESS)
     add = A.subparsers(p, al)
@@ -1529,6 +1649,16 @@ def build_parser(al: dict) -> argparse.ArgumentParser:
     q.add_argument("id")
     q.add_argument("file", type=Path)
     A.arg(q, al, "--language")
+    q = add("extensions")
+    A.arg(q, al, "--add")
+    A.arg(q, al, "--remove")
+    sub = next(a for a in p._actions if isinstance(a, argparse._SubParsersAction))
+    p.core_commands = set(sub.choices)
+    for cmd in sorted(E.commands(swarm)):   # placeholders: main() hands these to the extension before parsing
+        if cmd in sub.choices:              # never a core command (extensions.validate refuses it)
+            continue
+        q = add(cmd)
+        q.add_argument("args", nargs=argparse.REMAINDER)
     return p
 
 
@@ -1542,6 +1672,20 @@ def _swarm_from_argv(argv: list[str]) -> Path:
             if a.startswith(n + "="):
                 return Path(a[len(n) + 1:])
     return SWARM
+
+
+def _command_index(argv: list[str], al: dict) -> int:
+    """The position of the command word: after the leading --swarm options."""
+    names = A.option_strings(al, "--swarm")
+    i = 0
+    while i < len(argv):
+        if argv[i] in names:
+            i += 2
+        elif any(argv[i].startswith(n + "=") for n in names):
+            i += 1
+        else:
+            break
+    return i
 
 
 def split_rest(argv: list[str], al: dict) -> tuple[list[str], list[str]]:
@@ -1577,7 +1721,11 @@ def main(argv=None) -> None:
         sys.exit(1)
     al = A.load(pre)
     argv, rest = split_rest(argv, al)
-    ns = build_parser(al).parse_args(argv)
+    i = _command_index(argv, al)
+    own = E.command_owner(pre, al, argv[i]) if i < len(argv) else None
+    if own:   # an extension command: its own parser, its own options (pre-dispatch)
+        sys.exit(run_extension(pre, own[0], own[1], argv[i + 1:]))
+    ns = build_parser(al, pre).parse_args(argv)
     if getattr(ns, "command", None) in G.STRATEGIES:
         ns.rest = rest
     swarm = ns.swarm.resolve()
@@ -1597,6 +1745,7 @@ def main(argv=None) -> None:
                 if h.is_file():
                     print(h.read_text(encoding="utf-8"), end="")
                     break
+            print(extensions_help(swarm, lang), end="")
         elif c == "language":
             langs = G.available_languages(swarm)
             if not ns.code:
@@ -1725,6 +1874,19 @@ def main(argv=None) -> None:
             for t in sorted((swarm / "tests").glob("test_*.py")):
                 rc = subprocess.run([sys.executable, "-I", "-B", str(t)]).returncode or rc
             sys.exit(1 if rc else 0)
+        elif c == "extensions":
+            require_installed(swarm)
+            root = root_of(swarm)
+            if ns.add or ns.remove:
+                new = change_extensions(swarm, al, ns.add, ns.remove)
+                print(msg(swarm, "cli_extensions_changed", names=", ".join(new) or "—"))
+            else:
+                ms = E.available(swarm)
+                on = E.enabled(root)
+                print(msg(swarm, "cli_extensions_enabled", names=", ".join(f"{n} {ms[n]['version']}" for n in on
+                                                                        if n in ms) or "—"))
+                print(msg(swarm, "cli_extensions_available", names=", ".join(f"{n} {m['version']}" for n, m in
+                                                                          sorted(ms.items())) or "—"))
         elif c == "import-cards":
             # The cards of a 3.x AGENTS.md that the database does not have belong to the project: they go into the
             # local overrides, never into the public database.

@@ -1,4 +1,4 @@
-# swarmer: the universal agent swarm for coding agents (version 5.1)
+# swarmer: the universal agent swarm for coding agents (version 5.2)
 
 A swarm of specialist professionals and sub-professionals, which a coordinator convenes for a request with
 one of eight strategies. The coordinator is the session of the coding agent open in the project (Claude Code, Codex,
@@ -114,6 +114,15 @@ the threshold. Once creation is approved, `bash swarmer/swarmer.sh approve <card
 
 `bash swarmer/swarmer.sh propose <id> --send` opens the pull request to the public swarm repository (requires `gh`),
 always in English: an entry without complete English texts is refused until `translate <id> <file.json> --language en`.
+
+## Extensions
+An extension adds commands, a skill, documents and a block of instructions for the coordinator, and keeps its own
+state under `.swarmer/`. Every extension ships inside `swarmer.sh` (folder `extensions/`); enabling one is a choice of
+the project: `bash swarmer/swarmer.sh extensions` lists them, `extensions --add <name>` enables one (key `extensions`
+of `.swarmer/config.json`, then regenerate), `extensions --remove <name>` disables it and leaves its state folder,
+which is the project's. The first one is **crossroads** (`bash swarmer/swarmer.sh crossroads …`, skill
+`swarmer-crossroads`, documents `CROSSROADS.md` and `CROSSROADS_FORMATS.md`): the decisions of the user, the swarm and
+the juries as a graph, commits by concern, and the way back to an upstream fork on a new branch.
 
 ## The files in this folder
 

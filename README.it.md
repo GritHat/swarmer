@@ -50,6 +50,16 @@ la skill. Le opzioni dello sciame vanno prima o dopo la richiesta; allo strument
 Ogni comando, opzione e valore ha anche il nome inglese (`install`, `single`, `--folder`, …), che vale in ogni
 installazione; le opzioni abbreviate non valgono più.
 
+## Estensioni
+
+Ogni estensione viaggia dentro `sciame.sh`; un progetto attiva quelle che vuole con
+`bash sciame/sciame.sh estensioni --aggiungi <nome>` (e `--togli`), che aggiunge la sua skill, i suoi documenti e il
+suo blocco a ogni skill di strategia.
+
+| estensione | skill | per |
+|---|---|---|
+| incroci (crossroads) | `/sciame-incroci` | le decisioni dell'utente, dello sciame e delle giurie come grafo, con le opzioni scartate e le ragioni; commit per area; quando il progetto è bloccato, la decisione a monte, la sua sintesi in pagine limitate e la sua inversione su un ramo nuovo (`bash sciame/sciame.sh incroci …`) |
+
 ## Con quali strumenti funziona
 
 swarmer non è legato a un solo strumento: genera i suoi agenti e le sue skill per ogni **destinazione** del progetto,
@@ -140,6 +150,7 @@ altre lingue sono facoltative, e un'installazione traduce quella che manca al pr
 | `i18n/<lingua>.json` | i testi del generatore e dei comandi, e i nomi localizzati di comandi, opzioni, valori e file |
 | `engine/` | il motore: `swarmer.py` (la riga di comando), `generate.py` (i generatori di ogni destinazione), `professionals.py`, `convene.py`, `jury.py`, `compat.py` (i nomi italiani e i formati della 4.0), `head.sh` |
 | `wrappers/` | `convene.py` e `jury.py`, copiati alla radice dell'installazione (in italiano anche `convoca.py`, `giuria.py`) |
+| `extensions/` | le estensioni, una cartella ciascuna (`extension.json`, `engine/`, `docs/<lingua>/`, `i18n/<lingua>.json`): `crossroads` |
 | `tests/` | le batterie |
 | `swarmer.sh` | il file unico: `python3 -I -B engine/swarmer.py --swarm . build --output swarmer.sh` |
 | `sciame.sh` | la copia byte per byte di `swarmer.sh`, per l'URL della 4.0 |

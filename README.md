@@ -48,6 +48,16 @@ the skill. The options of the swarm go before or after the request; only what fo
 Every command, option and value also has an Italian name (`installa`, `singolo`, `--cartella`, …), accepted in every
 installation; abbreviated options are not accepted.
 
+## Extensions
+
+Every extension ships inside `swarmer.sh`; a project enables the ones it wants with
+`bash swarmer/swarmer.sh extensions --add <name>` (and `--remove`), which adds its skill, its documents and its block
+to every strategy skill.
+
+| extension | skill | for |
+|---|---|---|
+| crossroads | `/swarmer-crossroads` | the decisions of the user, the swarm and the juries as a graph, with their discarded options and reasons; commits by concern; when the project is stuck, the upstream decision, its brief in bounded pages and its reversal on a new branch (`bash swarmer/swarmer.sh crossroads …`) |
+
 ## Works with
 
 swarmer is not tied to one tool: it generates its agents and skills for every **target** of the project, and the
@@ -135,6 +145,7 @@ languages are optional, and an installation translates a missing one at its firs
 | `i18n/<lang>.json` | generator and command texts, and the localized names of commands, options, values and files |
 | `engine/` | the engine: `swarmer.py` (CLI), `generate.py` (the generators of every target), `professionals.py`, `convene.py`, `jury.py`, `compat.py` (the Italian names and the 4.0 formats), `head.sh` |
 | `wrappers/` | `convene.py` and `jury.py`, copied to the root of an installation |
+| `extensions/` | the extensions, one folder each (`extension.json`, `engine/`, `docs/<lang>/`, `i18n/<lang>.json`): `crossroads` |
 | `tests/` | the test batteries |
 | `swarmer.sh` | the single-file build: `python3 -I -B engine/swarmer.py --swarm . build --output swarmer.sh` |
 | `sciame.sh` | a byte-for-byte copy of `swarmer.sh`, so the 4.0 download URL keeps working |
