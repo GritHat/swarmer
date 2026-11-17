@@ -3,7 +3,7 @@ name: agensi
 # - the catalog (one JSON file per role, per strategy, per document) is regenerated and published on GitHub Pages,
 #   branch gh-pages, under api/v1/latest/ and api/v1/<version>/: a new specialist reaches every Agensi user at once,
 #   without a new version of the skill;
-# - the skill package (SKILL.md, scripts/swarm.py, LICENSE) is tested against that catalog and, when agensi/ changed,
+# - the skill package (SKILL.md, scripts/swarm.py, LICENSE.txt) is tested against that catalog and, when agensi/ changed,
 #   attached to a release, ready for Agensi (update_skill, or Creator Studio → Update).
 on:
   push:

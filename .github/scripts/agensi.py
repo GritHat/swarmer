@@ -9,7 +9,7 @@ profiles), roles/<id>.json (the whole prompt of each role: who it is, the rules,
 guides/<strategy>.json (the protocol of each strategy) and docs/<NAME>.json (the full documents by section). One file
 per role: the catalog grows with the database, the skill does not change.
 
---package DIR writes the skill for Agensi: SKILL.md (from agensi/SKILL.md), scripts/swarm.py, LICENSE. Nothing else:
+--package DIR writes the skill for Agensi: SKILL.md (from agensi/SKILL.md), scripts/swarm.py, LICENSE.txt. Nothing else:
 Agensi runs a script in isolation, so the script reads the catalog from GitHub Pages and nothing of the package.
 --test runs every command of the package's script against the catalog just built (file://), in a temporary folder.
 
@@ -111,7 +111,7 @@ def package() -> dict[str, bytes]:
         skill = skill.replace(k, v)
     if "@@" in skill or len(skill.encode()) > SKILL_LIMIT or len(script.encode()) > SCRIPT_LIMIT:
         raise SystemExit(f"agensi/: a placeholder left, SKILL.md over {SKILL_LIMIT} or swarm.py over {SCRIPT_LIMIT} bytes")
-    return {"SKILL.md": skill.encode(), "scripts/swarm.py": script.encode(), "LICENSE": (ROOT / "LICENSE").read_bytes()}
+    return {"SKILL.md": skill.encode(), "scripts/swarm.py": script.encode(), "LICENSE.txt": (ROOT / "LICENSE").read_bytes()}   # Agensi takes only text files with an extension
 
 
 def write(base: Path, files: dict[str, bytes]) -> None:
