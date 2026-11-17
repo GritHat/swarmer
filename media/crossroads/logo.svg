@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1B1F4B"/>
+      <stop offset="1" stop-color="#0A0C1C"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FFB547" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#FFB547" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="core" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFE29A"/>
+      <stop offset="1" stop-color="#FF9A3D"/>
+    </linearGradient>
+    <linearGradient id="nodeA" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6FF0E0"/>
+      <stop offset="1" stop-color="#22A7C9"/>
+    </linearGradient>
+    <linearGradient id="nodeB" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF8FA3"/>
+      <stop offset="1" stop-color="#E5486B"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <linearGradient id="badge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFE29A"/>
+      <stop offset="1" stop-color="#FF9A3D"/>
+    </linearGradient>
+    <mask id="piece" maskUnits="userSpaceOnUse" x="-80" y="-80" width="160" height="160">
+      <rect x="-80" y="-80" width="160" height="160" fill="black"/>
+      <rect x="-30" y="-30" width="60" height="60" rx="7" fill="white"/>
+      <circle cx="0" cy="-32" r="13" fill="white"/>
+      <circle cx="32" cy="0" r="13" fill="white"/>
+      <circle cx="0" cy="31" r="9" fill="black"/>
+      <circle cx="-31" cy="0" r="9" fill="black"/>
+    </mask>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="150" fill="url(#halo)"/>
+  <!-- outer orbit -->
+  <circle cx="256" cy="256" r="176" fill="none" stroke="#3A4180" stroke-width="2" stroke-dasharray="3 11"/>
+  <!-- links from the coordinator to the hexagon of specialists -->
+  <g stroke="#7C86D8" stroke-opacity="0.55" stroke-width="5" stroke-linecap="round">
+    <line x1="256" y1="256" x2="256" y2="134"/>
+    <line x1="256" y1="256" x2="361.7" y2="195"/>
+    <line x1="256" y1="256" x2="361.7" y2="317"/>
+    <line x1="256" y1="256" x2="256" y2="378"/>
+    <line x1="256" y1="256" x2="150.3" y2="317"/>
+    <line x1="256" y1="256" x2="150.3" y2="195"/>
+  </g>
+  <!-- hexagon ring between specialists (the jury) -->
+  <polygon points="256,134 361.7,195 361.7,317 256,378 150.3,317 150.3,195" fill="none" stroke="#7C86D8" stroke-opacity="0.3" stroke-width="3"/>
+  <!-- satellites: sub-professionals -->
+  <g fill="#C9CEFF" fill-opacity="0.85">
+    <circle cx="256" cy="80" r="7"/><circle cx="408.4" cy="168" r="7"/><circle cx="408.4" cy="344" r="7"/>
+    <circle cx="256" cy="432" r="7"/><circle cx="103.6" cy="344" r="7"/><circle cx="103.6" cy="168" r="7"/>
+    <circle cx="333" cy="96" r="5"/><circle cx="432" cy="256" r="5"/><circle cx="333" cy="416" r="5"/>
+    <circle cx="179" cy="416" r="5"/><circle cx="80" cy="256" r="5"/><circle cx="179" cy="96" r="5"/>
+  </g>
+  <g stroke="#C9CEFF" stroke-opacity="0.35" stroke-width="2">
+    <line x1="256" y1="134" x2="256" y2="80"/><line x1="361.7" y1="195" x2="408.4" y2="168"/>
+    <line x1="361.7" y1="317" x2="408.4" y2="344"/><line x1="256" y1="378" x2="256" y2="432"/>
+    <line x1="150.3" y1="317" x2="103.6" y2="344"/><line x1="150.3" y1="195" x2="103.6" y2="168"/>
+  </g>
+  <!-- specialists -->
+  <g filter="url(#glow)">
+    <circle cx="256" cy="134" r="24" fill="url(#nodeA)"/>
+    <circle cx="361.7" cy="195" r="24" fill="url(#nodeB)"/>
+    <circle cx="361.7" cy="317" r="24" fill="url(#nodeA)"/>
+    <circle cx="256" cy="378" r="24" fill="url(#nodeB)"/>
+    <circle cx="150.3" cy="317" r="24" fill="url(#nodeA)"/>
+    <circle cx="150.3" cy="195" r="24" fill="url(#nodeB)"/>
+  </g>
+  <!-- the coordinator -->
+  <circle cx="256" cy="256" r="54" fill="none" stroke="#FFD27A" stroke-width="4" stroke-opacity="0.7"/>
+  <circle cx="256" cy="256" r="40" fill="url(#core)" filter="url(#glow)"/>
+  <path d="M238 256 l12 12 l24 -26" fill="none" stroke="#1B1F4B" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- crossroads: extension badge (puzzle piece with a fork) -->
+  <g transform="translate(398 398)">
+    <circle r="88" fill="#0A0C1C"/>
+    <circle r="79" fill="#ECEEFF"/>
+    <circle r="69" fill="url(#badge)"/>
+    <g transform="translate(-5 5) scale(1.32)">
+      <rect x="-80" y="-80" width="160" height="160" fill="#1B1F4B" mask="url(#piece)"/>
+      <g stroke="#FFC46B" stroke-width="5.5" fill="none" stroke-linecap="round">
+        <line x1="-11" y1="17" x2="-11" y2="-15"/>
+        <path d="M-11 9 C -11 -3, 12 0, 12 -12"/>
+      </g>
+      <g fill="#FFC46B">
+        <circle cx="-11" cy="19" r="5.5"/><circle cx="-11" cy="-17" r="5.5"/><circle cx="12" cy="-14" r="5.5"/>
+      </g>
+    </g>
+  </g>
+</svg>
