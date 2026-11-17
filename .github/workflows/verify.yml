@@ -19,10 +19,11 @@ jobs:
         run: python -I -B engine/swarmer.py --swarm . verify --publication
       - name: swarmer.sh and sciame.sh up to date
         run: python -I -B engine/swarmer.py --swarm . build --output swarmer.sh --check
-      - name: agensi catalog and package build and work together (published from main by agensi.yml)
+      - name: agensi catalog and package work together, docs pages and swarmer-crossroads package tested (published from main by agensi.yml)
         run: |
           git fetch --unshallow --quiet || true
-          python -I -B .github/scripts/agensi.py --api "$RUNNER_TEMP/agensi-site" --package "$RUNNER_TEMP/agensi-pkg/swarmer" --test
+          python -I -B .github/scripts/agensi.py --api "$RUNNER_TEMP/agensi-site" --package "$RUNNER_TEMP/agensi-pkg/swarmer" \
+            --crossroads-package "$RUNNER_TEMP/agensi-pkg/swarmer-crossroads" --test
       - name: help from an empty project
         run: |
           mkdir -p "$RUNNER_TEMP/empty"

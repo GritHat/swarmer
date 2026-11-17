@@ -24,7 +24,8 @@ bash sciame.sh installa --lingua it --destinazioni codex,gemini   # solo alcuni 
 /sciame-installa it
 
 # oppure da Agensi (agensi.io): SKILL.md e un piccolo script che legge ruoli e protocollo a richiesta
-# dal catalogo pubblicato su GitHub Pages (niente da installare)
+# dal catalogo pubblicato su GitHub Pages (niente da installare); swarmer-crossroads è un'inserzione a parte,
+# facoltativa, per i progetti che hanno già swarmer 5.2+ con incroci attiva
 ```
 
 `sciame.sh` è una copia identica di `swarmer.sh`: i due URL valgono. Poi riapri la sessione del tuo agente di
@@ -154,7 +155,7 @@ altre lingue sono facoltative, e un'installazione traduce quella che manca al pr
 | `tests/` | le batterie |
 | `swarmer.sh` | il file unico: `python3 -I -B engine/swarmer.py --swarm . build --output swarmer.sh` |
 | `sciame.sh` | la copia byte per byte di `swarmer.sh`, per l'URL della 4.0 |
-| `agensi/` | l'edizione per Agensi: `SKILL.md` e `scripts/swarm.py`, che legge a richiesta il catalogo che `.github/scripts/agensi.py` genera da `db/` e `docs/en/` (un file JSON per ruolo, strategia e documento) e `.github/workflows/agensi.yml` pubblica su GitHub Pages (`gh-pages`, `api/v1/`), con il pacchetto come release |
+| `agensi/` | l'edizione per Agensi: `SKILL.md` e `scripts/swarm.py`, che legge a richiesta il catalogo che `.github/scripts/agensi.py` genera da `db/` e `docs/en/` (un file JSON per ruolo, strategia e documento) e `.github/workflows/agensi.yml` pubblica su GitHub Pages (`gh-pages`, `api/v1/`, con le pagine della documentazione in `docs/`), con il pacchetto come release; `agensi/crossroads/`, il pacchetto a parte di sole istruzioni `swarmer-crossroads` (`SKILL.md`, più `references/COMMANDS.md` generato dalla guida dell'estensione), pubblicato per conto suo |
 | `skills/` | le skill d'installazione `swarmer-install` e `sciame-installa` (formato Agent Skills: ogni strumento che legge le skill) |
 | `.claude-plugin/` | i manifesti del plugin di Claude Code, uno dei modi d'installazione |
 

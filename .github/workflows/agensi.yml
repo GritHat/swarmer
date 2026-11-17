@@ -1,24 +1,32 @@
 name: agensi
-# The Agensi edition of swarmer. On every push to main that changes the database, the documents or the edition:
+# The Agensi edition of swarmer and the documentation pages. On every push to main that changes the database, the
+# documents, the extensions or the edition:
 # - the catalog (one JSON file per role, per strategy, per document) is regenerated and published on GitHub Pages,
 #   branch gh-pages, under api/v1/latest/ and api/v1/<version>/: a new specialist reaches every Agensi user at once,
 #   without a new version of the skill;
-# - the skill package (SKILL.md, scripts/swarm.py, LICENSE.txt) is tested against that catalog and, when agensi/ changed,
-#   attached to a release, ready for Agensi (update_skill, or Creator Studio → Update).
+# - the documentation pages (docs/ in English, docs/it/ in Italian: swarmer, crossroads and its formats) are
+#   regenerated from README*.md and extensions/crossroads/docs/ and published there too; media/ (the logos) and every
+#   other file of gh-pages stay as they are;
+# - the swarmer package (SKILL.md, scripts/swarm.py, LICENSE.txt) is tested against that catalog and released as
+#   agensi-v<version>, and the separate, instruction-only swarmer-crossroads package (SKILL.md,
+#   references/COMMANDS.md, LICENSE.txt) as agensi-crossroads-v<version>, each only when its tag does not exist yet,
+#   ready for Agensi (update_skill, or Creator Studio → Update).
 on:
   push:
     branches: [main]
     paths:
       - db/**
-      - docs/en/**
+      - docs/**
       - i18n/en.json
       - engine/generate.py
       - engine/professionals.py
       - swarmer.sh
       - agensi/**
+      - extensions/**
+      - README*.md
       - LICENSE
       - .claude-plugin/plugin.json
-      - .github/scripts/agensi.py
+      - .github/scripts/**
       - .github/workflows/agensi.yml
   workflow_dispatch:
 permissions:
@@ -53,26 +61,32 @@ jobs:
             git -C "$site" checkout --orphan gh-pages
             git -C "$site" rm -rf --quiet .
           fi
-      - name: build the catalog and the package, and test them together
+      - name: build the catalog, the pages and both packages, and test them
         id: build
         run: |
           python -I -B .github/scripts/agensi.py --api "$RUNNER_TEMP/site" --package "$RUNNER_TEMP/pkg/swarmer" \
-            --zip "$RUNNER_TEMP/swarmer-agensi.zip" --test
+            --zip "$RUNNER_TEMP/swarmer-agensi.zip" --crossroads-package "$RUNNER_TEMP/pkg/swarmer-crossroads" \
+            --crossroads-zip "$RUNNER_TEMP/swarmer-crossroads-agensi.zip" --test
           echo "catalog=$(python -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$RUNNER_TEMP/site/api/v1/latest/index.json")" >> "$GITHUB_OUTPUT"
           echo "package=$(sed -n 's/^version: //p' "$RUNNER_TEMP/pkg/swarmer/SKILL.md")" >> "$GITHUB_OUTPUT"
-      - name: publish the catalog on gh-pages
+          echo "crossroads=$(sed -n 's/^version: //p' "$RUNNER_TEMP/pkg/swarmer-crossroads/SKILL.md")" >> "$GITHUB_OUTPUT"
+      - name: publish the catalog and the pages on gh-pages
         working-directory: ${{ runner.temp }}/site
         run: |
           git add -A
-          if git diff --cached --quiet; then echo "catalog unchanged"; exit 0; fi
+          if git diff --cached --quiet; then echo "catalog and pages unchanged"; exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit --quiet -m "catalog ${{ steps.build.outputs.catalog }} from ${GITHUB_SHA::12}"
+          git commit --quiet -m "catalog ${{ steps.build.outputs.catalog }} and docs from ${GITHUB_SHA::12}"
           git push origin gh-pages
       - uses: actions/upload-artifact@v4
         with:
           name: swarmer-agensi-${{ steps.build.outputs.package }}
           path: ${{ runner.temp }}/swarmer-agensi.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: swarmer-crossroads-agensi-${{ steps.build.outputs.crossroads }}
+          path: ${{ runner.temp }}/swarmer-crossroads-agensi.zip
       - name: release the package for Agensi, if it is a new version
         env:
           GH_TOKEN: ${{ github.token }}
@@ -85,3 +99,15 @@ jobs:
           gh release create "$tag" "$zip" --target "$GITHUB_SHA" --latest=false \
             --title "Agensi package $VERSION" \
             --notes "Agensi edition of swarmer, built from $GITHUB_SHA: SKILL.md and scripts/swarm.py, which reads the catalog published on GitHub Pages. Publish it with update_skill (Agensi MCP) or upload the ZIP in Creator Studio → Update."
+      - name: release the swarmer-crossroads package for Agensi, if it is a new version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.build.outputs.crossroads }}
+        run: |
+          tag="agensi-crossroads-v$VERSION"
+          if gh release view "$tag" > /dev/null 2>&1; then echo "$tag already released"; exit 0; fi
+          zip="$RUNNER_TEMP/swarmer-crossroads-agensi-$VERSION.zip"
+          cp "$RUNNER_TEMP/swarmer-crossroads-agensi.zip" "$zip"
+          gh release create "$tag" "$zip" --target "$GITHUB_SHA" --latest=false \
+            --title "Agensi package swarmer-crossroads $VERSION" \
+            --notes "swarmer-crossroads for Agensi, a separate optional listing, built from $GITHUB_SHA: SKILL.md, references/COMMANDS.md and LICENSE.txt, instruction-only. It drives the crossroads extension of a project that already has swarmer 5.2+ with crossroads enabled, and stops otherwise. Publish it with update_skill (Agensi MCP) or upload the ZIP in Creator Studio → Update."
