@@ -17612,7 +17612,9 @@ def group_a(base):
         A.subprocess.run = real
     check("A11 P8c: an interrupted fast-import leaves HEAD, refs and the worktree unchanged",
           rc == 1 and str(o.get("status", "")).startswith("FAILED fast-import") and snap(r) == s0, (rc, o))
-    r, I = case(base, "e3", [("D", [], {"evidence": "ref-one"}), ("F", ["D"])])
+    r = new_repo(base, "e3")                 # the evidence is a record id: free text is refused when written
+    ref_one = dec(r, "S", time_="2026-11-17T07:00:00+01:00")
+    I = records(r, [("D", [], {"evidence": ref_one}), ("F", ["D"])])
     rc, b1, e = cxj(r, "brief", I["D"])
     rc, b2, e = cxj(r, "brief", I["D"])
     dec(r, "new", depends=[I["F"]])
@@ -17620,12 +17622,140 @@ def group_a(base):
     check("A11 E3: one added record → O(1) index writes; none on a rerun",
           b2.get("index_writes") == 0 and 0 < b3.get("index_writes", 99) <= 6, (b2.get("index_writes"), b3.get("index_writes")))
     for k in range(5):
-        dec(r, f"cite{k}", evidence="ref-one", time_="2026-11-17T09:0%d:00+01:00" % k)
+        dec(r, f"cite{k}", evidence=ref_one, time_="2026-11-17T09:0%d:00+01:00" % k)
     rc, b4, e = cxj(r, "brief", I["D"])
     p1 = (r / b4["out"] / "p1.md").read_text()
     check("A11 P4b: > 3 records under one evidence fold into one Δ line (delta.tsv has them all)",
           re.search(r"^- 5 records \(evidence [0-9a-f]+\) later than D: delta\.tsv$", p1, re.M)
           and len((r / b4["out"] / "delta.tsv").read_text().splitlines()) == 5, p1)
+
+
+# ======================================================================= write-time references
+def group_refs(base):
+    """every writer that takes references (decide --evidence/--depends/--supersedes/--authority delegated:<ref>,
+    note --about/--evidence/--withdraws, realize ID) resolves each one when the record is written: a record is
+    immutable, so an unresolvable reference is refused (exit 1, nothing written), never DANGLING forever after."""
+    r = new_repo(base, "refs")
+    c = conv(r / ".swarmer" / "conv", "# triage\nTRIAGE H-001 TEST ok\n")
+    jd = make_jury(r / ".swarmer" / "jref", {"D1": ("APPROVED", "a", [])}, "")
+    recs = lambda: sorted(p.name for p in (r / ".swarmer/crossroads/records").glob("*")) \
+        if (r / ".swarmer/crossroads/records").is_dir() else []
+    u0 = dec(r, "base")
+    s0 = recs()
+    argv = ["decide", "--question", "which interview?", "--options", "(a) x | (b) y", "--chose", "a",
+            "--rationale", "r", "--time", T0]
+    rc, out, err = cx(r, *argv, "--evidence", "user interview 2026-11-01")
+    bad = [l.split("\t") for l in err.splitlines() if l.startswith("REFUSED")]
+    check("refs: free text in --evidence (the split-text case) → exit 1, nothing written, each token named with the "
+          "way to express it (--rationale)",
+          rc == 1 and out == "" and recs() == s0 and [b[2] for b in bad] == ["«user»", "«interview»", "«2026-11-01»"]
+          and all("--rationale" in b[3] for b in bad) and "nothing written" in err, (rc, out, err))
+    rc, out, err = cx(r, *argv, "--evidence", u0 + " interview")
+    check("refs: one good and one bad token → refused as a whole, only the bad token named",
+          rc == 1 and recs() == s0 and "«interview»" in err and u0 not in err, (rc, err))
+    for what, extra, needle in (
+            ("--depends with an unknown id", ["--depends", "U-0123456789ab"], "unknown id"),
+            ("--supersedes with an unknown id", ["--supersedes", "U-0123456789ab"], "unknown id"),
+            ("--depends with an option (not a decision)", ["--depends", f"{u0}(a)"], "not a decision"),
+            ("--depends with a handle (a display key)", ["--depends", X.handle(u0)], u0),
+            ("--evidence with a project file outside the sources", ["--evidence", "docs/b.md"], "--rationale"),
+            ("--evidence with a source file and a stale sha12", ["--evidence", "conv@2026-11-17T08:03:16+01:00/"
+                                                                "f2/03-triage/TRIAGE.md@aaaaaaaaaaaa"], "sha12 is now"),
+            ("--evidence with a missing source file", ["--evidence", "conv@2026-11-17T08:03:16+01:00/nope.md"],
+             "no such file"),
+            ("--evidence «none» with another token", ["--evidence", f"none {u0}"], "none"),
+            ("--authority delegated: to an unknown id", ["--authority", "delegated:U-0123456789ab"], "unknown id")):
+        rc, out, err = cx(r, *argv, *extra)
+        check(f"refs: {what} → exit 1, nothing written", rc == 1 and recs() == s0 and needle in err, (rc, err))
+    tri = "f2/03-triage/TRIAGE.md"
+    rc, out, err = cx(r, *argv, "--evidence", f".swarmer/conv/{tri}")
+    hint = hashlib.sha256((c / tri).read_bytes()).hexdigest()[:12]
+    check("refs: a project path of a source file → refused with the exact <anchor>/<relpath>@<sha12> to cite",
+          rc == 1 and f"conv@2026-11-17T08:03:16+01:00/{tri}@{hint}" in err, err)
+    # every allowed kind of reference is accepted, and derive then reports none of them DANGLING
+    cx(r, "derive")
+    V = view(r)
+    anchor = next(k for k in V if k.startswith("conv@") and V[k]["node_class"] == "container")
+    jdec = next(k for k in V if k.startswith("jury:") and k.endswith("#D1"))
+    janchor = jdec.rsplit("#", 1)[0]
+    u1 = dec(r, "not derived yet")                        # in records/, not in the view: resolves all the same
+    ev = [u0, f"{u0}(a)", u1, anchor, f"{anchor}/{tri}@{hint}", f"{anchor}/{tri}", janchor, jdec,
+          f"{janchor}/jury.json", "who:auditor", "concern:core"]
+    rc, out, err = cx(r, *argv, "--evidence", " ".join(ev), "--depends", f"{u1} {jdec}", "--supersedes", u0,
+                      "--authority", "delegated:who:owner")
+    u2 = out.strip()
+    cx(r, "derive")
+    dang = [f for f in kinds(finds(r), "DANGLING") if f[1] == u2]
+    check("refs: valid references of every allowed kind (record, option, convening and jury anchor and decision, "
+          "source file with and without sha12, who:, concern:, delegated:<ref>) → written, none DANGLING",
+          rc == 0 and X.RID.match(u2) and not dang and view(r)[u2]["evidence"] == sorted(ev), (rc, out, err, dang))
+    check("refs: a record present in records/ but not yet derived resolves (--depends and --evidence)",
+          u1 in view(r)[u2]["depends_on"] and u1 in view(r)[u2]["evidence"], view(r).get(u2))
+    rc, out, err = cx(r, *argv, "--evidence", "none")
+    check("refs: --evidence none stays allowed (UNSUPPORTED is the info finding of derive)", rc == 0, err)
+    # the refusal names what the token is, and the right remedy
+    sr = recs()
+    for what, extra, needle, lang in (
+            ("--depends an option", ["--depends", f"{u0}(a)"], f"{u0}(a) is an option, not a decision", "en"),
+            ("--depends a convening anchor", ["--depends", anchor], "is a convening, not a decision", "en"),
+            ("--supersedes a jury anchor", ["--supersedes", janchor], "is a jury, not a decision", "en"),
+            ("--richiede un'opzione (it)", ["--richiede", f"{u0}(a)"], "è un'opzione, non una decisione", "it"),
+            ("--evidence an option label the decision lacks", ["--evidence", f"{u0}(zz)"],
+             f"{u0} has no option (zz): its options are (a) (b)", "en"),
+            ("--evidence a full git commit", ["--evidence", "0123456789abcdef0123456789abcdef01234567"], "git commit",
+             "en"),
+            ("--evidence a 12-char git commit", ["--evidence", "a1b2c3d4e5f6"], "git commit", "en")):
+        rc, out, err = cx(r, *(argv if lang == "en" else
+                               ["decide", "--domanda", "q", "--opzioni", "(a) x | (b) y", "--scelta", "a",
+                                "--motivazione", "m", "--time", T0]), *extra, lang=lang)
+        check(f"refs: {what} → exit 1, nothing written, the message says «{needle}»",
+              rc == 1 and recs() == sr and needle in err and "free text" not in err, (rc, err))
+    usp = dec(r, "spaced", options="(my label) x | (b) y", chose="my label", reject=("(b) no",))
+    (jd / "my notes.md").write_text("n\n")
+    s4 = recs()
+    rc, out, err = cx(r, *argv, "--evidence", f"{usp}(my label) {u0} {janchor}/my notes.md")
+    bad = [l.split("\t") for l in err.splitlines() if l.startswith("REFUSED")]
+    check("refs: an option label or a source file name with a space → one refusal per reference, naming it whole and "
+          "what to cite instead (the decision, the anchor); the good token in between is not named",
+          rc == 1 and recs() == s4 and len(bad) == 2
+          and bad[0][2] == f"«{usp}(my label)»" and f"cite {usp} " in bad[0][3]
+          and bad[1][2].startswith(f"«{janchor[:20]}") and f"cite {janchor} " in bad[1][3]
+          and "whitespace" in bad[0][3] and u0 not in err, (rc, err))
+    # the note: --about, --evidence, --withdraws
+    s1 = recs()
+    rc, out, err = cx(r, "note", "--about", "U-0123456789ab", "--rationale", "x")
+    check("refs: note --about an unknown id → exit 1, nothing written", rc == 1 and recs() == s1 and "unknown id" in err, err)
+    rc, out, err = cx(r, "note", "--about", u0, "--evidence", "user interview")
+    check("refs: note --evidence free text → exit 1, nothing written", rc == 1 and recs() == s1 and "«user»" in err, err)
+    rc, out, err = cx(r, "note", "--about", u0, "--withdraws", u1)
+    check("refs: note --withdraws a U (not an R) → exit 1, nothing written",
+          rc == 1 and recs() == s1 and "realization" in err, err)
+    rc, out, err = cx(r, "note", "--about", jdec, "--evidence", u0, "--rationale", "late")
+    check("refs: note with valid --about and --evidence → written", rc == 0 and X.RID.match(out.strip()), err)
+    # realize: the decision it realizes
+    ed(r, "src/shared.py", 5, "five (refs)")
+    g(r, "add", "src/shared.py")
+    s2 = recs()
+    rc, out, err = cx(r, "realize", "U-0123456789ab", "--concern", "core")
+    check("refs: realize an unknown decision → exit 1, nothing written", rc == 1 and recs() == s2 and "unknown id" in err, err)
+    rc, rid, err = cx(r, "realize", u1, "--concern", "core")
+    rc2, out, err2 = cx(r, "note", "--about", u1, "--withdraws", rid.strip())
+    check("refs: realize a known decision, then note --withdraws that R → both written",
+          rc == 0 and rc2 == 0 and rid.startswith("R-"), (err, err2))
+    # Italian option names, Italian messages
+    s3 = recs()
+    it = ["decide", "--domanda", "quale?", "--opzioni", "(a) x | (b) y", "--scelta", "a", "--motivazione", "m",
+          "--time", T0]
+    rc, out, err = cx(r, *it, "--evidenza", "intervista utente", lang="it")
+    check("refs (it): --evidenza testo libero → exit 1, nulla scritto, l'opzione detta --evidenza e il rimedio "
+          "--motivazione", rc == 1 and recs() == s3 and "--evidenza" in err and "--motivazione" in err
+          and "nulla scritto" in err, err)
+    rc, out, err = cx(r, *it, "--richiede", "U-0123456789ab", lang="it")
+    check("refs (it): --richiede un id sconosciuto → exit 1", rc == 1 and recs() == s3 and "--richiede" in err, err)
+    rc, out, err = cx(r, *it, "--evidenza", f"{u0} {anchor}", "--richiede", u1, "--sostituisce", u1, lang="it")
+    check("refs (it): --evidenza, --richiede, --sostituisce validi → scritto", rc == 0 and X.RID.match(out.strip()), err)
+    rc, out, err = cx(r, "note", "--riguarda", "U-0123456789ab", "--motivazione", "x", lang="it")
+    check("refs (it): nota --riguarda un id sconosciuto → exit 1", rc == 1 and "--riguarda" in err, err)
 
 
 # ======================================================================= fixture builders: convening, jury
@@ -18368,7 +18498,7 @@ def j2(base):
     I = {}
     I["A"] = dec(r, "A", impact="docs", time_=t(1))
     I["B"] = dec(r, "B", impact="api", time_=t(2))
-    I["D"] = dec(r, "D", impact="core api", time_=t(3), evidence="docs/guide.md@aaaaaaaaaaaa",
+    I["D"] = dec(r, "D", impact="core api", time_=t(3), evidence=I["A"],
                  options="(v1) the cache format v1 | (v0) keep v0 | (ext) an external store", chose="v1",
                  reject=("(v0) slower reads", "(ext) one more service"), question="which cache format?")
     I["C"] = dec(r, "C", depends=[I["A"]], impact="docs", time_=t(4))
@@ -18392,7 +18522,7 @@ def j2(base):
     work("H", "core", "src/core/format.py", 3, "    return x  # H")
     work("G", "api", "src/api/routes.py", 10, "# r9 (G)")
     work("K", "api", "src/api/routes.py", 8, "# r7 (K)")
-    late = dec(r, "late", evidence="docs/guide.md@aaaaaaaaaaaa", time_=t(40), impact="docs")
+    late = dec(r, "late", evidence=I["A"], time_=t(40), impact="docs")
     head0 = g(r, "rev-parse", "HEAD").strip()
     failing = subprocess.run([sys.executable, "-I", "-B", "check.py"], cwd=r).returncode
     rc, o, e = cx(r, "derive")
@@ -18667,7 +18797,8 @@ def main():
 
 
 GROUPS = [("extensions", group_extensions), ("hunksha", group_hunksha), ("a", group_a), ("audit", group_audit),
-          ("b", group_b), ("k", group_k), ("joint", group_joint), ("regressions", group_regressions),
+          ("b", group_b), ("k", group_k), ("joint", group_joint), ("refs", group_refs),
+          ("regressions", group_regressions),
           ("scale", group_scale)]
 
 
@@ -22194,10 +22325,10 @@ store `.swarmer/crossroads/` stays, because it is the project's.
 |---|---|---|
 | `derive [--source DIR]… [--git auto\|yes\|no] [--strict] [-v]` | `deriva` | writes `view/` and `log/`; prints the snapshot and the findings that are not info |
 | `check [--reverse ID,…]` | `controlla` | prints every finding, writes nothing |
-| `decide --question Q --options "(a) t \| (b) t" --chose a --rationale T [--reject "(b) reason"]… [--impact "c…"] [--evidence "id-or-ref…"] [--depends "id…"] [--supersedes "id…"] [--authority owner\|delegated:<ref>]` | `decidi` | writes a U record, prints its id; `--evidence` takes space-separated ids or `<anchor>/<path>[@sha12]` refs, not free text (a plain word is warned about: it would be DANGLING) |
-| `note --about ID [--rationale T] [--reject "(b) r"]… [--withdraws R-…]…` | `nota` | writes an N record |
+| `decide --question Q --options "(a) t \| (b) t" --chose a --rationale T [--reject "(b) reason"]… [--impact "c…"] [--evidence "id-or-ref…"] [--depends "id…"] [--supersedes "id…"] [--authority owner\|delegated:<ref>]` | `decidi` | writes a U record, prints its id. Every reference is resolved when written, against `records/` and the sources (a record written a moment ago counts, before any derive): `--evidence` takes space-separated ids (records, options, anchors, decisions), `who:<role>`, `concern:<name>` or `<anchor>/<relpath>[@sha12]` of a source file; `--depends`, `--supersedes` take decision ids; `delegated:<ref>` takes one evidence ref. A token that does not resolve is refused (exit 1, nothing written, the token and the remedy printed): free text goes in `--rationale`, a source file is cited as `<anchor>/<relpath>@<sha12>` (printed for you), a project file outside the sources and a git commit are named in `--rationale`; a reference holding a space (an option label, a file name) cannot be stored, since §2 splits references on whitespace: cite its decision or anchor |
+| `note --about ID [--rationale T] [--reject "(b) r"]… [--withdraws R-…]…` | `nota` | writes an N record; `--about` must be a known id, `--withdraws` a known R record, `--evidence` as in `decide`: refused otherwise, nothing written |
 | `stage FILE…` | `prepara` | no git: the before-images, before editing |
-| `realize ID --concern C [--mode auto\|git\|nogit]` | `realizza` | writes an R record from the staged diff (git) or the stage (no git) |
+| `realize ID --concern C [--mode auto\|git\|nogit]` | `realizza` | writes an R record from the staged diff (git) or the stage (no git); ID must be a known decision, refused otherwise, nothing written |
 | `trailers ID CONCERN` | `trailer` | prints the two trailer lines of the commit; never commits |
 | `show ID\|HANDLE [--level 0\|1\|2]` | `mostra` | the L0 row, the L1 card or the L2 page of a node |
 | `changes --since SNAPSHOT_<sha12>` | `modifiche` | what changed since a snapshot |
@@ -22525,6 +22656,9 @@ commits, merges or pushes: you propose, the user executes or approves an explici
   `crossroads decide --question "…" --options "(a) … | (b) …" --chose a --rationale "…" --reject "(b) why not"
   --impact "concern…" --evidence "ref…" --depends "id…" --authority owner`. It prints the id (`U-…`).
 - When it replaces an earlier choice, add `--supersedes "<id>…"`.
+- `--evidence`, `--depends` and `--supersedes` take ids and refs only, checked when written: a token that does not
+  resolve is refused, nothing written. Put free text (an interview, a conversation) in `--rationale`, cite a source
+  file as `<anchor>/<relpath>@<sha12>` (the refusal prints it), and copy ids from `decide`'s output or `view/INDEX.tsv`.
 - Never edit a record. A missing field or a correction is `crossroads note --about ID …` (it fills only what was not
   recorded), or a new `decide` that supersedes.
 
@@ -22601,10 +22735,10 @@ del deposito restano quelli canonici in ogni lingua: sono un formato di dati, co
 |---|---|---|
 | `deriva [--sorgente DIR]… [--git auto\|yes\|no] [--rigoroso] [-v]` | `derive` | scrive `view/` e `log/`; stampa l'istantanea e i rilievi che non sono informativi |
 | `controlla [--inverti ID,…]` | `check` | stampa ogni rilievo, non scrive nulla |
-| `decidi --domanda D --opzioni "(a) t \| (b) t" --scelta a --motivazione T [--scarta "(b) ragione"]… [--impatto "a…"] [--evidenza "id-o-rif…"] [--richiede "id…"] [--sostituisce "id…"] [--autorita owner\|delegated:<rif>]` | `decide` | scrive un record U, ne stampa l'id; `--evidenza` vuole id o riferimenti `<ancora>/<percorso>[@sha12]` separati da spazi, non testo libero (una parola semplice dà un avviso: sarebbe DANGLING) |
-| `nota --riguarda ID [--motivazione T] [--scarta "(b) r"]… [--ritira R-…]…` | `note` | scrive un record N |
+| `decidi --domanda D --opzioni "(a) t \| (b) t" --scelta a --motivazione T [--scarta "(b) ragione"]… [--impatto "a…"] [--evidenza "id-o-rif…"] [--richiede "id…"] [--sostituisce "id…"] [--autorita owner\|delegated:<rif>]` | `decide` | scrive un record U, ne stampa l'id. Ogni riferimento è risolto alla scrittura, su `records/` e sulle sorgenti (vale anche un record appena scritto, prima di ogni deriva): `--evidenza` vuole id separati da spazi (record, opzioni, ancore, decisioni), `who:<ruolo>`, `concern:<nome>` o `<ancora>/<percorso-relativo>[@sha12]` di un file di una sorgente; `--richiede`, `--sostituisce` vogliono id di decisioni; `delegated:<rif>` vuole un riferimento di evidenza. Un elemento che non si risolve è rifiutato (exit 1, nulla scritto, l'elemento e il rimedio stampati): il testo libero va in `--motivazione`, un file di una sorgente si cita come `<ancora>/<percorso-relativo>@<sha12>` (stampato per te), un file del progetto fuori dalle sorgenti e un commit git si nominano in `--motivazione`; un riferimento che contiene uno spazio (un'etichetta di opzione, un nome di file) non si può registrare, perché §2 separa i riferimenti sugli spazi: cita la sua decisione o la sua ancora |
+| `nota --riguarda ID [--motivazione T] [--scarta "(b) r"]… [--ritira R-…]…` | `note` | scrive un record N; `--riguarda` deve essere un id noto, `--ritira` un record R noto, `--evidenza` come in `decidi`: altrimenti rifiutato, nulla scritto |
 | `prepara FILE…` | `stage` | senza git: le immagini «prima», prima di modificare |
-| `realizza ID --area C [--modo auto\|git\|nogit]` | `realize` | scrive un record R dal diff in stage (git) o dallo stage (senza git) |
+| `realizza ID --area C [--modo auto\|git\|nogit]` | `realize` | scrive un record R dal diff in stage (git) o dallo stage (senza git); ID deve essere una decisione nota, altrimenti rifiutato, nulla scritto |
 | `trailer ID AREA` | `trailers` | stampa le due righe di trailer del commit; non fa mai commit |
 | `mostra ID\|HANDLE [--livello 0\|1\|2]` | `show` | la riga L0, la scheda L1 o la pagina L2 di un nodo |
 | `modifiche --da-cursore SNAPSHOT_<sha12>` | `changes` | ciò che è cambiato dopo un'istantanea |
@@ -22954,6 +23088,10 @@ mai commit, merge né push: tu proponi, l'utente esegue o approva un comando esp
   `incroci decidi --domanda "…" --opzioni "(a) … | (b) …" --scelta a --motivazione "…" --scarta "(b) perché no"
   --impatto "area…" --evidenza "rif…" --richiede "id…" --autorita owner`. Stampa l'id (`U-…`).
 - Quando sostituisce una scelta precedente, aggiungi `--sostituisce "<id>…"`.
+- `--evidenza`, `--richiede` e `--sostituisce` vogliono solo id e riferimenti, controllati alla scrittura: un elemento
+  che non si risolve è rifiutato, nulla scritto. Metti il testo libero (un'intervista, una conversazione) in
+  `--motivazione`, cita un file di una sorgente come `<ancora>/<percorso-relativo>@<sha12>` (il rifiuto lo stampa), e
+  copia gli id dall'output di `decidi` o da `view/INDEX.tsv`.
 - Non modificare mai un record. Un campo mancante o una correzione è `incroci nota --riguarda ID …` (riempie solo ciò
   che non era registrato), oppure un nuovo `decidi` che sostituisce.
 
@@ -25420,31 +25558,166 @@ def cmd_decide(st, a):
          "EVIDENCE": v(a.evidence or "none", "--evidence"), "DEPENDS-ON": v(a.depends or "none", "--depends")}
     if a.supersedes:
         f["SUPERSEDES"] = " ".join(sorted(v(a.supersedes, "--supersedes").split()))
-    warn_evidence(st, a.evidence)
     p = validate("U", {k: (x if isinstance(x, list) else [x]) for k, x in f.items()})
     if p:
         raise SystemExit("error: " + "; ".join(p))
+    au = f["AUTHORITY"]
+    bad = refused_refs(st, [("--evidence", a.evidence, "evidence"), ("--depends", a.depends, "decision"),
+                            ("--supersedes", a.supersedes, "decision")]
+                       + ([("--authority", [au[10:]], "evidence")] if au.startswith("delegated:") else []))
+    if bad:
+        return refuse(st, bad)
     print(write_record(st, "U", f))
     return 0
 
 
-def warn_evidence(st, ev):
-    """--evidence is space-separated ids or <anchor>/<relpath>[@sha12] refs: a word that is neither looks like free text,
-    which derive would report as DANGLING (one finding per word)"""
-    words_ = [w for w in (ev or "").split() if w != "none" and not re.search(r"[/:-]", w)]
-    if words_:
-        print(st.msg("evidence_words", "warning: --evidence takes space-separated ids or <anchor>/<path> refs, not free "
-                     "text; these words will be DANGLING: {words}", words=" ".join(cut(w, 40) for w in words_[:5])),
-              file=sys.stderr)
+REF_HINT = {
+    "free": ("ref_free", "free text is not a reference: write it in --rationale (or later in a note's --rationale)"),
+    "file": ("ref_file", "a file of the project outside the convenings and juries is not an evidence ref (CROSSROADS_FORMATS §2): "
+                         "name its path in --rationale"),
+    "under": ("ref_under", "a file of a source is cited as {ref}"),
+    "nofile": ("ref_nofile", "no such file under {anchor}"),
+    "sha": ("ref_sha", "the file's sha12 is now {now}: cite {ref}"),
+    "handle": ("ref_handle", "a handle is a display key, never stored: write the id {ref}"),
+    "unknown": ("ref_unknown", "unknown id: neither in records/ nor in the sources (run derive; an id is copied from "
+                               "decide's output or from view/INDEX.tsv)"),
+    "notdec": ("ref_notdec", "{ref} is {kind}, not a decision"),
+    "label": ("ref_label", "{dec} has no option ({label}): its options are {opts}"),
+    "commit": ("ref_commit", "a git commit is not an evidence ref (CROSSROADS_FORMATS §2): name it in --rationale"),
+    "space": ("ref_space", "a reference with a space cannot be stored (CROSSROADS_FORMATS §2 splits references on "
+                           "whitespace): cite {alt} and name the rest in --rationale"),
+    "notr": ("ref_notr", "{ref} is not a realization record (R-…)"),
+    "none": ("ref_none", "«none» stands alone"),
+}
+
+
+KIND_NOUN = {"option": ("kind_option", "an option"), "convening": ("kind_convening", "a convening"),
+             "jury": ("kind_jury", "a jury"), "realization": ("kind_realization", "a realization record"),
+             "note": ("kind_note", "a note")}
+
+
+def kind_noun(st, n):
+    return st.msg(*KIND_NOUN.get(n["kind"], ("kind_record", "a record")))
+
+
+def ref_graph(st):
+    """the graph the references of a new record resolve in: records/ and the sources as derive reads them (git is not
+    needed for which nodes exist), so a record written a moment ago resolves before any derive"""
+    extra, _git = stored_args(st)
+    return derive(st, extra, False)[0]
+
+
+def ref_problem(st, g, t, need):
+    """None when the token t resolves as `need` (evidence | decision | node | realization), else the hint (FORMATS §2:
+    evidence = any id, a value node who:/concern:, or <anchor>/<relpath>[@sha12] of an existing file of a source)."""
+    N, say = g.nodes, lambda k, **kw: st.msg(REF_HINT[k][0], REF_HINT[k][1], **kw)
+    if t in N:
+        n = N[t]
+        if need == "decision" and not DEC(n):
+            return say("notdec", ref=t, kind=kind_noun(st, n))
+        if need == "realization" and n["kind"] != "realization":
+            return say("notr", ref=t)
+        return None
+    if need == "evidence":
+        if re.match(r"^(who|concern):\S", t):
+            return None
+        m = evidence_ref(g, t)
+        if m:
+            p = g.anchor_dir[m.group(1)] / m.group(2)
+            if not p.is_file():
+                return say("nofile", anchor=m.group(1))
+            now_ = sha(p.read_bytes())[:12]
+            return say("sha", now=now_, ref=f"{m.group(1)}/{m.group(2)}@{now_}") if m.group(3) and m.group(3) != now_ \
+                else None
+    full = resolve_id(N, t)
+    if full and full != t:
+        return say("handle", ref=full)
+    if need == "realization" and not t.startswith("R-"):
+        return say("notr", ref=t)
+    m = re.match(r"^(.+)\(([^()]*)\)$", t)
+    if m and DEC(N.get(m.group(1))):
+        return say("label", dec=m.group(1), label=m.group(2), opts=" ".join(f"({o})" for o in N[m.group(1)]["options"]))
+    if need == "evidence" and re.fullmatch(r"(?=.*[a-f])(?=.*\d)[0-9a-f]{7,40}", t):
+        return say("commit")
+    if RID.match(t) or re.search(r"@\d{4}-\d\d-\d\dT", t.split("/")[0]) or t.startswith("jury:"):
+        return say("unknown")
+    if need == "evidence":
+        try:
+            p = (st.root / re.sub(r"@[0-9a-f]{12}$", "", t)).resolve()
+            is_file = p.is_file()
+        except (OSError, ValueError):
+            is_file = False
+        if is_file:
+            for a, d in sorted(g.anchor_dir.items(), key=lambda x: -len(str(x[1]))):
+                try:
+                    rel = p.relative_to(Path(d).resolve()).as_posix()
+                except ValueError:
+                    continue
+                return say("under", ref=f"{a}/{rel}@{sha(p.read_bytes())[:12]}")
+            return say("file")
+        return say("free")
+    return say("unknown")
+
+
+def spaced_alt(g, t):
+    """what to cite instead when t, a reference holding a space, would resolve: the decision of an option, the anchor of
+    a source file; None when t is no such reference"""
+    n = g.nodes.get(t)
+    if n is not None and n["kind"] == "option":
+        return n["edges"][0][1]
+    m = evidence_ref(g, t)
+    return m.group(1) if m and (g.anchor_dir[m.group(1)] / m.group(2)).is_file() else None
+
+
+def refused_refs(st, items):
+    """write-time check of every reference a new record carries (a record is immutable: an unresolvable reference
+    would be DANGLING forever). items: [(option, value or None, need)]; returns the refusal lines, [] when all resolve."""
+    g, out = None, []
+    for opt, val, need in items:
+        toks = list(val) if isinstance(val, list) else (val or "").split()
+        name = (st.t.get("options", {}).get(opt) or [opt])[0]
+        i = 0
+        while i < len(toks):
+            if len(toks) > 1 and not isinstance(val, list) and need != "realization":   # a split «U-…(my label)», «anchor/a file.md»
+                g = g or ref_graph(st)
+                hit = next(((j, alt) for j in range(min(len(toks), i + 8), i + 1, -1)
+                            for alt in [spaced_alt(g, " ".join(toks[i:j]))] if alt), None)
+                if hit:
+                    out.append(f"REFUSED\t{name}\t«{cut(' '.join(toks[i:hit[0]]), 60)}»\t"
+                               + st.msg(*REF_HINT["space"], alt=hit[1]))
+                    i = hit[0]
+                    continue
+            t = toks[i]
+            i += 1
+            if t == "none":
+                if len(toks) > 1:
+                    out.append(f"REFUSED\t{name}\t«none»\t" + st.msg(*REF_HINT["none"]))
+                continue
+            g = g or ref_graph(st)
+            why = ref_problem(st, g, t, need)
+            if why:
+                out.append(f"REFUSED\t{name}\t«{cut(t, 60)}»\t{why}")
+    return out
+
+
+def refuse(st, lines):
+    for l in lines:
+        print(l, file=sys.stderr)
+    print(st.msg("ref_refused", "error: {n} reference(s) do not resolve: nothing written (a record is immutable)",
+                 n=len(lines)), file=sys.stderr)
+    return 1
 
 
 def cmd_note(st, a):
-    warn_evidence(st, a.evidence)
     f = {"KIND": "note", "TIME": now(a), "BY": clean_value(a.by, "--by"), "ABOUT": clean_value(a.about, "--about")}
     if a.withdraws: f["WITHDRAWS"] = [clean_value(x, "--withdraws") for x in a.withdraws]
     for k, x in (("RATIONALE", a.rationale), ("QUESTION", a.question), ("IMPACT", a.impact), ("EVIDENCE", a.evidence)):
         if x: f[k] = clean_value(x, k)
     if a.reject: f["REJECTED"] = [clean_value(x, "--reject") for x in a.reject]
+    bad = refused_refs(st, [("--about", [f["ABOUT"]], "node"), ("--evidence", a.evidence, "evidence")]
+                       + [("--withdraws", [w], "realization") for w in f.get("WITHDRAWS", [])])
+    if bad:
+        return refuse(st, bad)
     print(write_record(st, "N", f))
     return 0
 
@@ -25499,6 +25772,9 @@ def cmd_realize(st, a):
          "CONCERN": clean_value(a.concern, "--concern"), "MODE": mode,
          "HUNK": [f"{qpath(p)} {hs} {hdr}" for p, hdr, hs, ls in hunks],
          "LINE": [x for p, hdr, hs, ls in hunks for x in atoms(p, ls)]}
+    bad = refused_refs(st, [("ID", [f["DECISION"]], "decision")])
+    if bad:
+        return refuse(st, bad)
     print(write_record(st, "R", f))
     if mode == "nogit":
         for b in st.stage.rglob("*.before"):
@@ -25723,7 +25999,8 @@ COMMANDS = {"derive": cmd_derive, "check": cmd_check, "decide": cmd_decide, "not
             "check-commits": cmd_check_commits}
 
 
-EVIDENCE_HELP = "space-separated ids or <anchor>/<path>[@sha12] refs, not free text"
+EVIDENCE_HELP = ("space-separated ids, who:<role>, concern:<name> or <anchor>/<relpath>[@sha12] refs; checked when "
+                 "written: free text is refused (it goes in --rationale)")
 
 
 def build_parser(al):
@@ -25952,7 +26229,26 @@ def staged(repo, *pathspec):
  "stale_plan": "stale plan: its inputs changed since plan.json; run plan again",
  "dry_run": "dry run: add --execute only after the user's explicit yes (it creates a branch, never merges)",
  "record_exists": "error: this record already exists (same bytes, same id)",
- "evidence_words": "warning: --evidence takes space-separated ids or <anchor>/<path> refs, not free text; these words will be DANGLING: {words}",
+ "ref_free": "free text is not a reference: write it in --rationale (or later in a note's --rationale)",
+ "ref_file": "a file of the project outside the convenings and juries is not an evidence ref (CROSSROADS_FORMATS §2): name its path in --rationale",
+ "ref_under": "a file of a source is cited as {ref}",
+ "ref_nofile": "no such file under {anchor}",
+ "ref_sha": "the file's sha12 is now {now}: cite {ref}",
+ "ref_handle": "a handle is a display key, never stored: write the id {ref}",
+ "ref_unknown": "unknown id: neither in records/ nor in the sources (run derive; an id is copied from decide's output or from view/INDEX.tsv)",
+ "ref_notdec": "{ref} is {kind}, not a decision",
+ "ref_notr": "{ref} is not a realization record (R-…)",
+ "ref_none": "«none» stands alone",
+ "ref_label": "{dec} has no option ({label}): its options are {opts}",
+ "ref_commit": "a git commit is not an evidence ref (CROSSROADS_FORMATS §2): name it in --rationale",
+ "ref_space": "a reference with a space cannot be stored (CROSSROADS_FORMATS §2 splits references on whitespace): cite {alt} and name the rest in --rationale",
+ "kind_option": "an option",
+ "kind_convening": "a convening",
+ "kind_jury": "a jury",
+ "kind_realization": "a realization record",
+ "kind_note": "a note",
+ "kind_record": "a record",
+ "ref_refused": "error: {n} reference(s) do not resolve: nothing written (a record is immutable)",
  "commands": {
   "crossroads": [],
   "derive": [],
@@ -26027,7 +26323,26 @@ def staged(repo, *pathspec):
  "stale_plan": "piano scaduto: i suoi dati sono cambiati dopo plan.json; rifai piano",
  "dry_run": "prova a vuoto: aggiungi --esegui solo dopo il sì esplicito dell'utente (crea un ramo, non unisce mai)",
  "record_exists": "errore: questo record esiste già (stessi byte, stesso id)",
- "evidence_words": "attenzione: --evidenza vuole id o riferimenti <ancora>/<percorso> separati da spazi, non testo libero; queste parole saranno DANGLING: {words}",
+ "ref_free": "il testo libero non è un riferimento: scrivilo in --motivazione (o più tardi nella --motivazione di una nota)",
+ "ref_file": "un file del progetto fuori dalle convocazioni e dalle giurie non è un riferimento di evidenza (FORMATI_INCROCI §2): indica il suo percorso in --motivazione",
+ "ref_under": "un file di una sorgente si cita come {ref}",
+ "ref_nofile": "nessun file con questo nome sotto {anchor}",
+ "ref_sha": "lo sha12 del file ora è {now}: cita {ref}",
+ "ref_handle": "un handle è una chiave di visualizzazione, mai registrata: scrivi l'id {ref}",
+ "ref_unknown": "id sconosciuto: né in records/ né nelle sorgenti (esegui deriva; un id si copia dall'output di decidi o da view/INDEX.tsv)",
+ "ref_notdec": "{ref} è {kind}, non una decisione",
+ "ref_notr": "{ref} non è un record di realizzazione (R-…)",
+ "ref_none": "«none» sta da solo",
+ "ref_label": "{dec} non ha l'opzione ({label}): le sue opzioni sono {opts}",
+ "ref_commit": "un commit git non è un riferimento di evidenza (FORMATI_INCROCI §2): nominalo in --motivazione",
+ "ref_space": "un riferimento con uno spazio non si può registrare (FORMATI_INCROCI §2 separa i riferimenti sugli spazi): cita {alt} e nomina il resto in --motivazione",
+ "kind_option": "un'opzione",
+ "kind_convening": "una convocazione",
+ "kind_jury": "una giuria",
+ "kind_realization": "un record di realizzazione",
+ "kind_note": "una nota",
+ "kind_record": "un record",
+ "ref_refused": "errore: {n} riferimenti non si risolvono: nulla scritto (un record è immutabile)",
  "commands": {
   "crossroads": [
    "incroci"

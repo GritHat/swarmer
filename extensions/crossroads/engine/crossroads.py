@@ -1522,31 +1522,166 @@ def cmd_decide(st, a):
          "EVIDENCE": v(a.evidence or "none", "--evidence"), "DEPENDS-ON": v(a.depends or "none", "--depends")}
     if a.supersedes:
         f["SUPERSEDES"] = " ".join(sorted(v(a.supersedes, "--supersedes").split()))
-    warn_evidence(st, a.evidence)
     p = validate("U", {k: (x if isinstance(x, list) else [x]) for k, x in f.items()})
     if p:
         raise SystemExit("error: " + "; ".join(p))
+    au = f["AUTHORITY"]
+    bad = refused_refs(st, [("--evidence", a.evidence, "evidence"), ("--depends", a.depends, "decision"),
+                            ("--supersedes", a.supersedes, "decision")]
+                       + ([("--authority", [au[10:]], "evidence")] if au.startswith("delegated:") else []))
+    if bad:
+        return refuse(st, bad)
     print(write_record(st, "U", f))
     return 0
 
 
-def warn_evidence(st, ev):
-    """--evidence is space-separated ids or <anchor>/<relpath>[@sha12] refs: a word that is neither looks like free text,
-    which derive would report as DANGLING (one finding per word)"""
-    words_ = [w for w in (ev or "").split() if w != "none" and not re.search(r"[/:-]", w)]
-    if words_:
-        print(st.msg("evidence_words", "warning: --evidence takes space-separated ids or <anchor>/<path> refs, not free "
-                     "text; these words will be DANGLING: {words}", words=" ".join(cut(w, 40) for w in words_[:5])),
-              file=sys.stderr)
+REF_HINT = {
+    "free": ("ref_free", "free text is not a reference: write it in --rationale (or later in a note's --rationale)"),
+    "file": ("ref_file", "a file of the project outside the convenings and juries is not an evidence ref (CROSSROADS_FORMATS §2): "
+                         "name its path in --rationale"),
+    "under": ("ref_under", "a file of a source is cited as {ref}"),
+    "nofile": ("ref_nofile", "no such file under {anchor}"),
+    "sha": ("ref_sha", "the file's sha12 is now {now}: cite {ref}"),
+    "handle": ("ref_handle", "a handle is a display key, never stored: write the id {ref}"),
+    "unknown": ("ref_unknown", "unknown id: neither in records/ nor in the sources (run derive; an id is copied from "
+                               "decide's output or from view/INDEX.tsv)"),
+    "notdec": ("ref_notdec", "{ref} is {kind}, not a decision"),
+    "label": ("ref_label", "{dec} has no option ({label}): its options are {opts}"),
+    "commit": ("ref_commit", "a git commit is not an evidence ref (CROSSROADS_FORMATS §2): name it in --rationale"),
+    "space": ("ref_space", "a reference with a space cannot be stored (CROSSROADS_FORMATS §2 splits references on "
+                           "whitespace): cite {alt} and name the rest in --rationale"),
+    "notr": ("ref_notr", "{ref} is not a realization record (R-…)"),
+    "none": ("ref_none", "«none» stands alone"),
+}
+
+
+KIND_NOUN = {"option": ("kind_option", "an option"), "convening": ("kind_convening", "a convening"),
+             "jury": ("kind_jury", "a jury"), "realization": ("kind_realization", "a realization record"),
+             "note": ("kind_note", "a note")}
+
+
+def kind_noun(st, n):
+    return st.msg(*KIND_NOUN.get(n["kind"], ("kind_record", "a record")))
+
+
+def ref_graph(st):
+    """the graph the references of a new record resolve in: records/ and the sources as derive reads them (git is not
+    needed for which nodes exist), so a record written a moment ago resolves before any derive"""
+    extra, _git = stored_args(st)
+    return derive(st, extra, False)[0]
+
+
+def ref_problem(st, g, t, need):
+    """None when the token t resolves as `need` (evidence | decision | node | realization), else the hint (FORMATS §2:
+    evidence = any id, a value node who:/concern:, or <anchor>/<relpath>[@sha12] of an existing file of a source)."""
+    N, say = g.nodes, lambda k, **kw: st.msg(REF_HINT[k][0], REF_HINT[k][1], **kw)
+    if t in N:
+        n = N[t]
+        if need == "decision" and not DEC(n):
+            return say("notdec", ref=t, kind=kind_noun(st, n))
+        if need == "realization" and n["kind"] != "realization":
+            return say("notr", ref=t)
+        return None
+    if need == "evidence":
+        if re.match(r"^(who|concern):\S", t):
+            return None
+        m = evidence_ref(g, t)
+        if m:
+            p = g.anchor_dir[m.group(1)] / m.group(2)
+            if not p.is_file():
+                return say("nofile", anchor=m.group(1))
+            now_ = sha(p.read_bytes())[:12]
+            return say("sha", now=now_, ref=f"{m.group(1)}/{m.group(2)}@{now_}") if m.group(3) and m.group(3) != now_ \
+                else None
+    full = resolve_id(N, t)
+    if full and full != t:
+        return say("handle", ref=full)
+    if need == "realization" and not t.startswith("R-"):
+        return say("notr", ref=t)
+    m = re.match(r"^(.+)\(([^()]*)\)$", t)
+    if m and DEC(N.get(m.group(1))):
+        return say("label", dec=m.group(1), label=m.group(2), opts=" ".join(f"({o})" for o in N[m.group(1)]["options"]))
+    if need == "evidence" and re.fullmatch(r"(?=.*[a-f])(?=.*\d)[0-9a-f]{7,40}", t):
+        return say("commit")
+    if RID.match(t) or re.search(r"@\d{4}-\d\d-\d\dT", t.split("/")[0]) or t.startswith("jury:"):
+        return say("unknown")
+    if need == "evidence":
+        try:
+            p = (st.root / re.sub(r"@[0-9a-f]{12}$", "", t)).resolve()
+            is_file = p.is_file()
+        except (OSError, ValueError):
+            is_file = False
+        if is_file:
+            for a, d in sorted(g.anchor_dir.items(), key=lambda x: -len(str(x[1]))):
+                try:
+                    rel = p.relative_to(Path(d).resolve()).as_posix()
+                except ValueError:
+                    continue
+                return say("under", ref=f"{a}/{rel}@{sha(p.read_bytes())[:12]}")
+            return say("file")
+        return say("free")
+    return say("unknown")
+
+
+def spaced_alt(g, t):
+    """what to cite instead when t, a reference holding a space, would resolve: the decision of an option, the anchor of
+    a source file; None when t is no such reference"""
+    n = g.nodes.get(t)
+    if n is not None and n["kind"] == "option":
+        return n["edges"][0][1]
+    m = evidence_ref(g, t)
+    return m.group(1) if m and (g.anchor_dir[m.group(1)] / m.group(2)).is_file() else None
+
+
+def refused_refs(st, items):
+    """write-time check of every reference a new record carries (a record is immutable: an unresolvable reference
+    would be DANGLING forever). items: [(option, value or None, need)]; returns the refusal lines, [] when all resolve."""
+    g, out = None, []
+    for opt, val, need in items:
+        toks = list(val) if isinstance(val, list) else (val or "").split()
+        name = (st.t.get("options", {}).get(opt) or [opt])[0]
+        i = 0
+        while i < len(toks):
+            if len(toks) > 1 and not isinstance(val, list) and need != "realization":   # a split «U-…(my label)», «anchor/a file.md»
+                g = g or ref_graph(st)
+                hit = next(((j, alt) for j in range(min(len(toks), i + 8), i + 1, -1)
+                            for alt in [spaced_alt(g, " ".join(toks[i:j]))] if alt), None)
+                if hit:
+                    out.append(f"REFUSED\t{name}\t«{cut(' '.join(toks[i:hit[0]]), 60)}»\t"
+                               + st.msg(*REF_HINT["space"], alt=hit[1]))
+                    i = hit[0]
+                    continue
+            t = toks[i]
+            i += 1
+            if t == "none":
+                if len(toks) > 1:
+                    out.append(f"REFUSED\t{name}\t«none»\t" + st.msg(*REF_HINT["none"]))
+                continue
+            g = g or ref_graph(st)
+            why = ref_problem(st, g, t, need)
+            if why:
+                out.append(f"REFUSED\t{name}\t«{cut(t, 60)}»\t{why}")
+    return out
+
+
+def refuse(st, lines):
+    for l in lines:
+        print(l, file=sys.stderr)
+    print(st.msg("ref_refused", "error: {n} reference(s) do not resolve: nothing written (a record is immutable)",
+                 n=len(lines)), file=sys.stderr)
+    return 1
 
 
 def cmd_note(st, a):
-    warn_evidence(st, a.evidence)
     f = {"KIND": "note", "TIME": now(a), "BY": clean_value(a.by, "--by"), "ABOUT": clean_value(a.about, "--about")}
     if a.withdraws: f["WITHDRAWS"] = [clean_value(x, "--withdraws") for x in a.withdraws]
     for k, x in (("RATIONALE", a.rationale), ("QUESTION", a.question), ("IMPACT", a.impact), ("EVIDENCE", a.evidence)):
         if x: f[k] = clean_value(x, k)
     if a.reject: f["REJECTED"] = [clean_value(x, "--reject") for x in a.reject]
+    bad = refused_refs(st, [("--about", [f["ABOUT"]], "node"), ("--evidence", a.evidence, "evidence")]
+                       + [("--withdraws", [w], "realization") for w in f.get("WITHDRAWS", [])])
+    if bad:
+        return refuse(st, bad)
     print(write_record(st, "N", f))
     return 0
 
@@ -1601,6 +1736,9 @@ def cmd_realize(st, a):
          "CONCERN": clean_value(a.concern, "--concern"), "MODE": mode,
          "HUNK": [f"{qpath(p)} {hs} {hdr}" for p, hdr, hs, ls in hunks],
          "LINE": [x for p, hdr, hs, ls in hunks for x in atoms(p, ls)]}
+    bad = refused_refs(st, [("ID", [f["DECISION"]], "decision")])
+    if bad:
+        return refuse(st, bad)
     print(write_record(st, "R", f))
     if mode == "nogit":
         for b in st.stage.rglob("*.before"):
@@ -1825,7 +1963,8 @@ COMMANDS = {"derive": cmd_derive, "check": cmd_check, "decide": cmd_decide, "not
             "check-commits": cmd_check_commits}
 
 
-EVIDENCE_HELP = "space-separated ids or <anchor>/<path>[@sha12] refs, not free text"
+EVIDENCE_HELP = ("space-separated ids, who:<role>, concern:<name> or <anchor>/<relpath>[@sha12] refs; checked when "
+                 "written: free text is refused (it goes in --rationale)")
 
 
 def build_parser(al):

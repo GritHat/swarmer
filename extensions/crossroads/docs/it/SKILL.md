@@ -10,6 +10,10 @@ mai commit, merge né push: tu proponi, l'utente esegue o approva un comando esp
   `incroci decidi --domanda "…" --opzioni "(a) … | (b) …" --scelta a --motivazione "…" --scarta "(b) perché no"
   --impatto "area…" --evidenza "rif…" --richiede "id…" --autorita owner`. Stampa l'id (`U-…`).
 - Quando sostituisce una scelta precedente, aggiungi `--sostituisce "<id>…"`.
+- `--evidenza`, `--richiede` e `--sostituisce` vogliono solo id e riferimenti, controllati alla scrittura: un elemento
+  che non si risolve è rifiutato, nulla scritto. Metti il testo libero (un'intervista, una conversazione) in
+  `--motivazione`, cita un file di una sorgente come `<ancora>/<percorso-relativo>@<sha12>` (il rifiuto lo stampa), e
+  copia gli id dall'output di `decidi` o da `view/INDEX.tsv`.
 - Non modificare mai un record. Un campo mancante o una correzione è `incroci nota --riguarda ID …` (riempie solo ciò
   che non era registrato), oppure un nuovo `decidi` che sostituisce.
 

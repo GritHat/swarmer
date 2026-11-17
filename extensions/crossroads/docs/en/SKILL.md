@@ -10,6 +10,9 @@ commits, merges or pushes: you propose, the user executes or approves an explici
   `crossroads decide --question "…" --options "(a) … | (b) …" --chose a --rationale "…" --reject "(b) why not"
   --impact "concern…" --evidence "ref…" --depends "id…" --authority owner`. It prints the id (`U-…`).
 - When it replaces an earlier choice, add `--supersedes "<id>…"`.
+- `--evidence`, `--depends` and `--supersedes` take ids and refs only, checked when written: a token that does not
+  resolve is refused, nothing written. Put free text (an interview, a conversation) in `--rationale`, cite a source
+  file as `<anchor>/<relpath>@<sha12>` (the refusal prints it), and copy ids from `decide`'s output or `view/INDEX.tsv`.
 - Never edit a record. A missing field or a correction is `crossroads note --about ID …` (it fills only what was not
   recorded), or a new `decide` that supersedes.
 

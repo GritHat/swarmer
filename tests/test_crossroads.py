@@ -880,7 +880,9 @@ def group_a(base):
         A.subprocess.run = real
     check("A11 P8c: an interrupted fast-import leaves HEAD, refs and the worktree unchanged",
           rc == 1 and str(o.get("status", "")).startswith("FAILED fast-import") and snap(r) == s0, (rc, o))
-    r, I = case(base, "e3", [("D", [], {"evidence": "ref-one"}), ("F", ["D"])])
+    r = new_repo(base, "e3")                 # the evidence is a record id: free text is refused when written
+    ref_one = dec(r, "S", time_="2026-11-17T07:00:00+01:00")
+    I = records(r, [("D", [], {"evidence": ref_one}), ("F", ["D"])])
     rc, b1, e = cxj(r, "brief", I["D"])
     rc, b2, e = cxj(r, "brief", I["D"])
     dec(r, "new", depends=[I["F"]])
@@ -888,12 +890,140 @@ def group_a(base):
     check("A11 E3: one added record → O(1) index writes; none on a rerun",
           b2.get("index_writes") == 0 and 0 < b3.get("index_writes", 99) <= 6, (b2.get("index_writes"), b3.get("index_writes")))
     for k in range(5):
-        dec(r, f"cite{k}", evidence="ref-one", time_="2026-11-17T09:0%d:00+01:00" % k)
+        dec(r, f"cite{k}", evidence=ref_one, time_="2026-11-17T09:0%d:00+01:00" % k)
     rc, b4, e = cxj(r, "brief", I["D"])
     p1 = (r / b4["out"] / "p1.md").read_text()
     check("A11 P4b: > 3 records under one evidence fold into one Δ line (delta.tsv has them all)",
           re.search(r"^- 5 records \(evidence [0-9a-f]+\) later than D: delta\.tsv$", p1, re.M)
           and len((r / b4["out"] / "delta.tsv").read_text().splitlines()) == 5, p1)
+
+
+# ======================================================================= write-time references
+def group_refs(base):
+    """every writer that takes references (decide --evidence/--depends/--supersedes/--authority delegated:<ref>,
+    note --about/--evidence/--withdraws, realize ID) resolves each one when the record is written: a record is
+    immutable, so an unresolvable reference is refused (exit 1, nothing written), never DANGLING forever after."""
+    r = new_repo(base, "refs")
+    c = conv(r / ".swarmer" / "conv", "# triage\nTRIAGE H-001 TEST ok\n")
+    jd = make_jury(r / ".swarmer" / "jref", {"D1": ("APPROVED", "a", [])}, "")
+    recs = lambda: sorted(p.name for p in (r / ".swarmer/crossroads/records").glob("*")) \
+        if (r / ".swarmer/crossroads/records").is_dir() else []
+    u0 = dec(r, "base")
+    s0 = recs()
+    argv = ["decide", "--question", "which interview?", "--options", "(a) x | (b) y", "--chose", "a",
+            "--rationale", "r", "--time", T0]
+    rc, out, err = cx(r, *argv, "--evidence", "user interview 2026-11-01")
+    bad = [l.split("\t") for l in err.splitlines() if l.startswith("REFUSED")]
+    check("refs: free text in --evidence (the split-text case) → exit 1, nothing written, each token named with the "
+          "way to express it (--rationale)",
+          rc == 1 and out == "" and recs() == s0 and [b[2] for b in bad] == ["«user»", "«interview»", "«2026-11-01»"]
+          and all("--rationale" in b[3] for b in bad) and "nothing written" in err, (rc, out, err))
+    rc, out, err = cx(r, *argv, "--evidence", u0 + " interview")
+    check("refs: one good and one bad token → refused as a whole, only the bad token named",
+          rc == 1 and recs() == s0 and "«interview»" in err and u0 not in err, (rc, err))
+    for what, extra, needle in (
+            ("--depends with an unknown id", ["--depends", "U-0123456789ab"], "unknown id"),
+            ("--supersedes with an unknown id", ["--supersedes", "U-0123456789ab"], "unknown id"),
+            ("--depends with an option (not a decision)", ["--depends", f"{u0}(a)"], "not a decision"),
+            ("--depends with a handle (a display key)", ["--depends", X.handle(u0)], u0),
+            ("--evidence with a project file outside the sources", ["--evidence", "docs/b.md"], "--rationale"),
+            ("--evidence with a source file and a stale sha12", ["--evidence", "conv@2026-11-17T08:03:16+01:00/"
+                                                                "f2/03-triage/TRIAGE.md@aaaaaaaaaaaa"], "sha12 is now"),
+            ("--evidence with a missing source file", ["--evidence", "conv@2026-11-17T08:03:16+01:00/nope.md"],
+             "no such file"),
+            ("--evidence «none» with another token", ["--evidence", f"none {u0}"], "none"),
+            ("--authority delegated: to an unknown id", ["--authority", "delegated:U-0123456789ab"], "unknown id")):
+        rc, out, err = cx(r, *argv, *extra)
+        check(f"refs: {what} → exit 1, nothing written", rc == 1 and recs() == s0 and needle in err, (rc, err))
+    tri = "f2/03-triage/TRIAGE.md"
+    rc, out, err = cx(r, *argv, "--evidence", f".swarmer/conv/{tri}")
+    hint = hashlib.sha256((c / tri).read_bytes()).hexdigest()[:12]
+    check("refs: a project path of a source file → refused with the exact <anchor>/<relpath>@<sha12> to cite",
+          rc == 1 and f"conv@2026-11-17T08:03:16+01:00/{tri}@{hint}" in err, err)
+    # every allowed kind of reference is accepted, and derive then reports none of them DANGLING
+    cx(r, "derive")
+    V = view(r)
+    anchor = next(k for k in V if k.startswith("conv@") and V[k]["node_class"] == "container")
+    jdec = next(k for k in V if k.startswith("jury:") and k.endswith("#D1"))
+    janchor = jdec.rsplit("#", 1)[0]
+    u1 = dec(r, "not derived yet")                        # in records/, not in the view: resolves all the same
+    ev = [u0, f"{u0}(a)", u1, anchor, f"{anchor}/{tri}@{hint}", f"{anchor}/{tri}", janchor, jdec,
+          f"{janchor}/jury.json", "who:auditor", "concern:core"]
+    rc, out, err = cx(r, *argv, "--evidence", " ".join(ev), "--depends", f"{u1} {jdec}", "--supersedes", u0,
+                      "--authority", "delegated:who:owner")
+    u2 = out.strip()
+    cx(r, "derive")
+    dang = [f for f in kinds(finds(r), "DANGLING") if f[1] == u2]
+    check("refs: valid references of every allowed kind (record, option, convening and jury anchor and decision, "
+          "source file with and without sha12, who:, concern:, delegated:<ref>) → written, none DANGLING",
+          rc == 0 and X.RID.match(u2) and not dang and view(r)[u2]["evidence"] == sorted(ev), (rc, out, err, dang))
+    check("refs: a record present in records/ but not yet derived resolves (--depends and --evidence)",
+          u1 in view(r)[u2]["depends_on"] and u1 in view(r)[u2]["evidence"], view(r).get(u2))
+    rc, out, err = cx(r, *argv, "--evidence", "none")
+    check("refs: --evidence none stays allowed (UNSUPPORTED is the info finding of derive)", rc == 0, err)
+    # the refusal names what the token is, and the right remedy
+    sr = recs()
+    for what, extra, needle, lang in (
+            ("--depends an option", ["--depends", f"{u0}(a)"], f"{u0}(a) is an option, not a decision", "en"),
+            ("--depends a convening anchor", ["--depends", anchor], "is a convening, not a decision", "en"),
+            ("--supersedes a jury anchor", ["--supersedes", janchor], "is a jury, not a decision", "en"),
+            ("--richiede un'opzione (it)", ["--richiede", f"{u0}(a)"], "è un'opzione, non una decisione", "it"),
+            ("--evidence an option label the decision lacks", ["--evidence", f"{u0}(zz)"],
+             f"{u0} has no option (zz): its options are (a) (b)", "en"),
+            ("--evidence a full git commit", ["--evidence", "0123456789abcdef0123456789abcdef01234567"], "git commit",
+             "en"),
+            ("--evidence a 12-char git commit", ["--evidence", "a1b2c3d4e5f6"], "git commit", "en")):
+        rc, out, err = cx(r, *(argv if lang == "en" else
+                               ["decide", "--domanda", "q", "--opzioni", "(a) x | (b) y", "--scelta", "a",
+                                "--motivazione", "m", "--time", T0]), *extra, lang=lang)
+        check(f"refs: {what} → exit 1, nothing written, the message says «{needle}»",
+              rc == 1 and recs() == sr and needle in err and "free text" not in err, (rc, err))
+    usp = dec(r, "spaced", options="(my label) x | (b) y", chose="my label", reject=("(b) no",))
+    (jd / "my notes.md").write_text("n\n")
+    s4 = recs()
+    rc, out, err = cx(r, *argv, "--evidence", f"{usp}(my label) {u0} {janchor}/my notes.md")
+    bad = [l.split("\t") for l in err.splitlines() if l.startswith("REFUSED")]
+    check("refs: an option label or a source file name with a space → one refusal per reference, naming it whole and "
+          "what to cite instead (the decision, the anchor); the good token in between is not named",
+          rc == 1 and recs() == s4 and len(bad) == 2
+          and bad[0][2] == f"«{usp}(my label)»" and f"cite {usp} " in bad[0][3]
+          and bad[1][2].startswith(f"«{janchor[:20]}") and f"cite {janchor} " in bad[1][3]
+          and "whitespace" in bad[0][3] and u0 not in err, (rc, err))
+    # the note: --about, --evidence, --withdraws
+    s1 = recs()
+    rc, out, err = cx(r, "note", "--about", "U-0123456789ab", "--rationale", "x")
+    check("refs: note --about an unknown id → exit 1, nothing written", rc == 1 and recs() == s1 and "unknown id" in err, err)
+    rc, out, err = cx(r, "note", "--about", u0, "--evidence", "user interview")
+    check("refs: note --evidence free text → exit 1, nothing written", rc == 1 and recs() == s1 and "«user»" in err, err)
+    rc, out, err = cx(r, "note", "--about", u0, "--withdraws", u1)
+    check("refs: note --withdraws a U (not an R) → exit 1, nothing written",
+          rc == 1 and recs() == s1 and "realization" in err, err)
+    rc, out, err = cx(r, "note", "--about", jdec, "--evidence", u0, "--rationale", "late")
+    check("refs: note with valid --about and --evidence → written", rc == 0 and X.RID.match(out.strip()), err)
+    # realize: the decision it realizes
+    ed(r, "src/shared.py", 5, "five (refs)")
+    g(r, "add", "src/shared.py")
+    s2 = recs()
+    rc, out, err = cx(r, "realize", "U-0123456789ab", "--concern", "core")
+    check("refs: realize an unknown decision → exit 1, nothing written", rc == 1 and recs() == s2 and "unknown id" in err, err)
+    rc, rid, err = cx(r, "realize", u1, "--concern", "core")
+    rc2, out, err2 = cx(r, "note", "--about", u1, "--withdraws", rid.strip())
+    check("refs: realize a known decision, then note --withdraws that R → both written",
+          rc == 0 and rc2 == 0 and rid.startswith("R-"), (err, err2))
+    # Italian option names, Italian messages
+    s3 = recs()
+    it = ["decide", "--domanda", "quale?", "--opzioni", "(a) x | (b) y", "--scelta", "a", "--motivazione", "m",
+          "--time", T0]
+    rc, out, err = cx(r, *it, "--evidenza", "intervista utente", lang="it")
+    check("refs (it): --evidenza testo libero → exit 1, nulla scritto, l'opzione detta --evidenza e il rimedio "
+          "--motivazione", rc == 1 and recs() == s3 and "--evidenza" in err and "--motivazione" in err
+          and "nulla scritto" in err, err)
+    rc, out, err = cx(r, *it, "--richiede", "U-0123456789ab", lang="it")
+    check("refs (it): --richiede un id sconosciuto → exit 1", rc == 1 and recs() == s3 and "--richiede" in err, err)
+    rc, out, err = cx(r, *it, "--evidenza", f"{u0} {anchor}", "--richiede", u1, "--sostituisce", u1, lang="it")
+    check("refs (it): --evidenza, --richiede, --sostituisce validi → scritto", rc == 0 and X.RID.match(out.strip()), err)
+    rc, out, err = cx(r, "note", "--riguarda", "U-0123456789ab", "--motivazione", "x", lang="it")
+    check("refs (it): nota --riguarda un id sconosciuto → exit 1", rc == 1 and "--riguarda" in err, err)
 
 
 # ======================================================================= fixture builders: convening, jury
@@ -1636,7 +1766,7 @@ def j2(base):
     I = {}
     I["A"] = dec(r, "A", impact="docs", time_=t(1))
     I["B"] = dec(r, "B", impact="api", time_=t(2))
-    I["D"] = dec(r, "D", impact="core api", time_=t(3), evidence="docs/guide.md@aaaaaaaaaaaa",
+    I["D"] = dec(r, "D", impact="core api", time_=t(3), evidence=I["A"],
                  options="(v1) the cache format v1 | (v0) keep v0 | (ext) an external store", chose="v1",
                  reject=("(v0) slower reads", "(ext) one more service"), question="which cache format?")
     I["C"] = dec(r, "C", depends=[I["A"]], impact="docs", time_=t(4))
@@ -1660,7 +1790,7 @@ def j2(base):
     work("H", "core", "src/core/format.py", 3, "    return x  # H")
     work("G", "api", "src/api/routes.py", 10, "# r9 (G)")
     work("K", "api", "src/api/routes.py", 8, "# r7 (K)")
-    late = dec(r, "late", evidence="docs/guide.md@aaaaaaaaaaaa", time_=t(40), impact="docs")
+    late = dec(r, "late", evidence=I["A"], time_=t(40), impact="docs")
     head0 = g(r, "rev-parse", "HEAD").strip()
     failing = subprocess.run([sys.executable, "-I", "-B", "check.py"], cwd=r).returncode
     rc, o, e = cx(r, "derive")
@@ -1935,7 +2065,8 @@ def main():
 
 
 GROUPS = [("extensions", group_extensions), ("hunksha", group_hunksha), ("a", group_a), ("audit", group_audit),
-          ("b", group_b), ("k", group_k), ("joint", group_joint), ("regressions", group_regressions),
+          ("b", group_b), ("k", group_k), ("joint", group_joint), ("refs", group_refs),
+          ("regressions", group_regressions),
           ("scale", group_scale)]
 
 
