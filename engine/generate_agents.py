@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""swarmer 5.0: the command of the 3.x, `python3 -I swarmer/generate_agents.py`, with its options.
+"""swarmer: the command of the 3.x, `python3 -I swarmer/generate_agents.py`, with its options.
 
     python3 -I swarmer/generate_agents.py                    # regenerates everything in the project
     python3 -I swarmer/generate_agents.py --check            # exits with 1 if something is not aligned to the sources

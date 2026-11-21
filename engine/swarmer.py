@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""swarmer 5.2: the command line. Usually run as `bash swarmer/swarmer.sh <command>`; `help` says everything.
+"""swarmer: the command line. Usually run as `bash swarmer/swarmer.sh <command>`; `help` says everything.
 
 Standard library only. It launches no agent: it starts the coding agent of the project (Claude Code, Codex,
 Antigravity or Gemini CLI) with the skill of the strategy, or prepares,
@@ -301,9 +301,9 @@ def known_roles_ok() -> None:
 
 def alias_stub(alias: str, target: str) -> bytes:
     if alias.endswith(".sh"):
-        return (f"#!/usr/bin/env bash\n# swarmer 5.0: an alias of {target}.\n"
+        return (f"#!/usr/bin/env bash\n# swarmer: an alias of {target}.\n"
                 f'exec bash "$(dirname "$0")/{target}" "$@"\n').encode()
-    return (f'#!/usr/bin/env python3\n"""swarmer 5.0: an alias of {target}."""\nimport runpy\nimport sys\n'
+    return (f'#!/usr/bin/env python3\n"""swarmer: an alias of {target}."""\nimport runpy\nimport sys\n'
             f"from pathlib import Path\n\nm = Path(__file__).resolve().parent / \"{target}\"\nsys.argv[0] = str(m)\n"
             f"runpy.run_path(str(m), run_name=\"__main__\")\n").encode()
 

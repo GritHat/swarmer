@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#: SWARMER, A UNIVERSAL AGENT SWARM FOR CODING AGENTS, version 5.2
+#: SWARMER, A UNIVERSAL AGENT SWARM FOR CODING AGENTS, version 5.3
 #: (Claude Code, Codex, Antigravity, Gemini CLI, and every tool that reads AGENTS.md and Agent Skills)
 #:
 #: One file: the swarm's documents, its database of professionals and its engine, plus the commands to install
@@ -285,7 +285,7 @@ exit
 : <<'SWARMER_END_OF_FILES'
 #==== swarmer.sh: file engine/aliases.py ====
 #!/usr/bin/env python3
-"""swarmer 5.0: the localized names of the command line (B).
+"""swarmer: the localized names of the command line (B).
 
 The canonical names of commands, options and values are English. Every language declares its aliases in
 `i18n/<l>.json`: `"commands": {"install": ["<alias>"], …}`, `"options": {"--folder": ["--<alias>"], …}`,
@@ -473,7 +473,7 @@ def collisions(per_lang: dict, namespaces: dict[str, dict[str, list[str]]]) -> l
     return errors
 #==== swarmer.sh: file engine/compat.py ====
 #!/usr/bin/env python3
-"""swarmer 5.0: the dialects of the data and the migration from the 4.0 «sciame».
+"""swarmer: the dialects of the data and the migration from the 4.0 «sciame».
 
 The only module of the engine that holds Italian words. Everything the code has to recognise from an Italian 4.0
 installation lives here, so that the other modules work only on canonical (English) forms:
@@ -1050,7 +1050,10 @@ CONVENE_KEYS = {
                                               "deciding_test": ("prova_decisiva",)}),
     # the map of the lanes (not in the 4.0 list of the spec, but written by prepare: role → folder, lane, canary)
     "map": Schema("map", {"*": (None, None, {"folder": ("cartella",), "lane": ("corsia", VALUES["lane"]),
-                                             "canary": ("canarino",)})}),
+                                             "canary": ("canarino",)})}, keymaps={("*",): [("agent-", "agente-")]}),
+    # a K# of the convening-wide registry CONTRADICTIONS.jsonl (5.3, ENG-15): one line per K#, written by contradiction
+    "contradiction": Schema("contradiction", {"id": ("id",), "time": ("ora",), "question": ("domanda",),
+                                              "files": ("file",)}),
 }
 
 # --- names of the files of a convening (C.4) and of a jury (C.5): canonical → Italian ---
@@ -1068,6 +1071,7 @@ CONVENE_FILES = {
     "HYPOTHESIS_CARD.md": "SCHEDA_IPOTESI.md",
     "00-sentinel": "00-sentinella", "SENTINEL.md": "SENTINELLA.md", "HIDDEN_ASSUMPTIONS.md": "ASSUNZIONI_NASCOSTE.md",
     "REVISION.md": "REVISIONE.md", "work": "lavoro", "status.md": "stato.md",
+    "CONTRADICTIONS.jsonl": "CONTRADDIZIONI.jsonl",
 }
 # Names with a variable part: (canonical regex, canonical template, Italian regex, Italian template).
 CONVENE_PATTERNS = [
@@ -1198,7 +1202,7 @@ def is_v1(d: dict) -> bool:
 IMPORT_LABELS = ("In breve", "In short", "Nucleo", "Core", "Parole chiave", "Keywords", "Origine", "Origin")
 #==== swarmer.sh: file engine/convene.py ====
 #!/usr/bin/env python3
-"""swarmer 5.2: prepares the skeleton of a convening (single, fan-out, classic or full) and checks its gates. Jury
+"""swarmer: prepares the skeleton of a convening (single, fan-out, classic or full) and checks its gates. Jury
 and plenary are counted with jury.py.
 
 It is the general form of the convening as a graph. It keeps:
@@ -1221,17 +1225,28 @@ Commands (the paths become absolute):
   prepare   --name N --strategy single|fan-out|classic|full --profile P --question TEXT [--roles a,b] [--dest D]
             [--seed S] [--n N --form slices|race|mixed --rule first|ranking|best]   (fan-out)
   snapshot  C                     as soon as the lanes have delivered, before reading them
-  gate      C PHASE --notes TEXT [--not-delivered ROLE,…] [--verify] [--rules 1|2]
+  gate      C PHASE --notes TEXT [--not-delivered ROLE,…] [--verify] [--rules 1|2|3]
             PHASE = f0, A1 (the amendment AMENDMENT_1.md or AMENDMENT_A1.md), f1, f2, f3/H-001, f4/H-001, f5
+            (f4/H-001 is the branch's latest round, f5 the latest closure or the next one: see the rounds below)
   seal      C FILE…               time and sha256 in SEALS.jsonl
-  select    C H-001 [H-002 H-003] [--radical H-00x] [--owner ID]
+  contradiction C FILE… --question TEXT   allocates the next K# of the convening in CONTRADICTIONS.jsonl
+  select    C H-001 [H-002 H-003] [--radical H-00x] [--owner ID]   (once: a second select is refused)
   fund      C H-00x [--owner ID]  briefs the radical branch (gate rules 2: select does not brief it)
   close-branch C H-00x --reason TEXT [--deciding-test TEXT]   (on a closure of 5.0 without a test: adds the test)
+  repin     C H-00x [--owner ID]  opens the next round of the f4 of a branch, on a revised pin, in f4_<n>/H-00x/
   status    C
 
 The rules of the gates have a version (the manifest key gate_rules; a missing key means 1). A new convening is born
-with the rules 2; a gate is always recomputed under the rules it was approved with, so upgrading the engine never
-invalidates an approved gate. `gate --rules 2` applies the rules 2 to one new gate of an older convening.
+with the rules 3; a gate is always recomputed under the rules it was approved with, so upgrading the engine never
+invalidates an approved gate. `gate --rules 2` (or 3) applies those rules to one new gate of an older convening.
+
+The rounds (5.3). A branch re-pinned with `repin` has a round 2 of f4 in f4_2/<H#>/ (then f4_3/ …), with its own
+briefs, dossier and gate GATE_f4_2_<H#>.json; its G4 runs under the rules 3 and binds only the round's own files, and
+the branch's state is its latest round. After a G5 that holds and records «not closed», `fund`, `close-branch` and
+`repin` act again and brief the next closure in f5_2/ (then f5_3/ …); once that folder exists `gate f5` checks it and
+approves it into GATE_f5_2.json, created exclusively: GATE_f5.json and every file it binds stay as they are. The
+latest G5 is the one of the highest ordinal in its file name. Rounds are read from the folders and gate files, so the
+manifest keeps the keys of 5.2.
 """
 from __future__ import annotations
 
@@ -1254,16 +1269,19 @@ import compat as C  # noqa: E402
 import paths as S  # noqa: E402
 
 BASE = HERE.parent if HERE.name in ("engine", C.OLD_TREE["engine"]) else HERE   # the swarm folder, with catalog.json
-VERSION = "5.0"
 STRATEGIES = ("single", "fan-out", "classic", "full")
 FORMS = ("slices", "race", "mixed")
 RULES = ("first", "ranking", "best")
 CONTRACT_FIELDS = tuple(C.CONVENE_LINES["contract_fields"])   # canonical (English) headings
 TO_FILL = tuple(C.CONVENE_LINES["to_fill_in"].values())
 ID = re.compile(r"\bH-?0*(\d{1,3})\b")
+# A K# of the registry: K-001, as the allocator writes it, or K-01 and K-1 (ENG-15); not K-001-3, a K# numbered by its
+# branch, which is a token of its own (KTOKEN) and never names K-001.
+KID = re.compile(r"\bK-0*(\d{1,3})\b(?!-\d)")
+KTOKEN = re.compile(r"\bK-\d+(?:-\d+)*\b")
 LIMIT_F1 = 40   # minutes for a brief of f1
 LIMIT_BRANCH = 60
-GATE_RULES = 2   # the rules of the gates a new convening is born with
+GATE_RULES = 3   # the rules of the gates a new convening is born with
 FILES_PER_FOLDER = 200   # a folder with more regular files than this is bound as one tree entry
 PROVEN = ("proven", "verified")   # the Correctness values that count as «proven»
 # Folders that do not belong to the convening's own files: the declared workspace of a role, the state folder of a
@@ -1275,8 +1293,17 @@ SKIP_DIRS = (".git", "__pycache__")
 STATUS_NAMES = ("status.md", C.CONVENE_FILES["status.md"])
 SENTINEL_DIRS = ("00-sentinel", C.CONVENE_FILES["00-sentinel"])
 SENTINEL_NAMES = ("SENTINEL.md", C.CONVENE_FILES["SENTINEL.md"])
+PHASE_SENTINELS = ("f2", "f3", "f4")   # the phases with a sentinel of their own under the rules 3 (ENG-17)
 HIDDEN_NAMES = ("HIDDEN_ASSUMPTIONS.md", C.CONVENE_FILES["HIDDEN_ASSUMPTIONS.md"])
 AMENDMENT_RE = re.compile("|".join(f"(?:{p[0]})|(?:{p[2]})" for p in C.CONVENE_PATTERNS if p[1].startswith("AMENDMENT")))
+# The output of each briefed folder NN-<role> of a round of f4, by its two digits (select and repin write them so):
+# what the predictions of that folder are ordered against under the rules 3 (ENG-19).
+F4_OUTPUTS = {"00": "REVISION.md", "01": "COUNTERCHECKS.md", "02": "DEFECTS.md", "08": "HIDDEN_ASSUMPTIONS.md",
+              "09": "VERDICT.md"}
+F4_MEASUREMENTS = "MEASUREMENTS.md"   # the output of the other folders (03-07)
+# A round after the first (5.3): f4_<n>/<H#> of a branch, f5_<n> of the closure; n in ASCII digits, never U+0663.
+ROUND_RE = re.compile(r"(f[45])_([1-9][0-9]*)(/H-[0-9]{3})?", re.ASCII)
+G5_LATER = re.compile(r"GATE_f5_([0-9]+)\.json", re.ASCII)
 
 
 class Error(C.Error):
@@ -1323,6 +1350,19 @@ def mission(key: str, **kw) -> str:
         return str(v).format_map(_Keep(kw))
     except (ValueError, IndexError):
         return str(v)
+
+
+def swarmer_version() -> str:
+    """The version of swarmer (ENG-14): the first word of the swarm's VERSION, which install and regenerate write from
+    engine/generate.py, the one place the version is written; in a source tree, which has no VERSION, that module's.
+    The manifest key «version» is this stamp, the swarmer that prepared the convening: no engine reads it, and it is
+    not a format version (the dialect is told by the file names and keys, the gates by gate_rules)."""
+    p = BASE / "VERSION"
+    words = p.read_text(encoding="utf-8", errors="replace").split() if p.is_file() else []
+    if words and re.fullmatch(r"\d+\.\d+", words[0]):
+        return words[0]
+    import generate as G
+    return G.VERSION
 
 
 def now() -> str:
@@ -1398,7 +1438,7 @@ class Convening:
 
     def save(self) -> None:
         out = C.to_dialect(self.m, C.MANIFEST_SCHEMA, self.lang)
-        self.file("MANIFEST.json").write_text(json.dumps(out, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        write_whole(self.file("MANIFEST.json"), json_bytes(out, 1) + b"\n")
 
     def name(self, canonical: str) -> str:
         return C.localize_path(canonical, self.lang, "convene")
@@ -1410,8 +1450,49 @@ class Convening:
         return C.to_canonical(json.loads(p.read_text(encoding="utf-8")), C.CONVENE_KEYS[kind], p.name)
 
     def write_json(self, p: Path, data: dict, kind: str, indent=1) -> None:
-        p.write_text(json.dumps(C.to_dialect(data, C.CONVENE_KEYS[kind], self.lang), ensure_ascii=False,
-                                indent=indent), encoding="utf-8")
+        """A JSON file of the convening (a gate, the snapshot, the map, an early closure), written whole or not at
+        all (ENG-13)."""
+        write_whole(p, json_bytes(C.to_dialect(data, C.CONVENE_KEYS[kind], self.lang), indent))
+
+    def create_json(self, p: Path, data: dict, kind: str, indent=1) -> None:
+        """A file that must not exist yet (the gate of a new closure): created exclusively, never over another one.
+        The bytes are made first, and a write that fails removes the file it created, so none is left half written."""
+        raw = json_bytes(C.to_dialect(data, C.CONVENE_KEYS[kind], self.lang), indent)
+        with open(p, "xb") as f:
+            try:
+                f.write(raw)
+                f.flush()
+            except BaseException:
+                f.close()
+                os.unlink(p)
+                raise
+
+
+SURROGATE = re.compile("[\ud800-\udfff]")
+
+
+def json_bytes(data, indent=1) -> bytes:
+    """The UTF-8 bytes of a JSON file of the convening (ENG-13). A file name that is not UTF-8 reaches the engine with
+    its bytes as lone surrogates (surrogateescape); each is written as its JSON escape (\\udcff), the form
+    ensure_ascii writes, so the file stays UTF-8 and json.loads gives back the same name. Everything else is written
+    as before, byte for byte."""
+    text = json.dumps(data, ensure_ascii=False, indent=indent)
+    return SURROGATE.sub(lambda mt: f"\\u{ord(mt.group()):04x}", text).encode("utf-8")
+
+
+def write_whole(p: Path, raw: bytes) -> None:
+    """Writes `p` whole or not at all: a temporary file beside it, then os.replace. A write that fails leaves the
+    old file as it was and no temporary file (ENG-13: a failed approval left a gate file of 0 bytes, which no reader
+    can read)."""
+    tmp = p.with_name(f".{p.name}.{secrets.token_hex(4)}.tmp")
+    try:
+        with open(tmp, "xb") as f:
+            f.write(raw)
+        os.replace(tmp, p)
+    except BaseException:
+        if os.path.lexists(tmp):
+            os.unlink(tmp)
+        raise
 
 
 def brief(conv: Convening, folder: Path, role: str, phase: str, output: str, text: str, inputs: list[Path],
@@ -1495,6 +1576,14 @@ def contract(m: dict, lang: str) -> str:
     return "\n".join(lines)
 
 
+def keyword_hits(role: dict, text: str) -> list[str]:
+    """The keywords of a role found whole in a text, in any case: what `roles --question` shows, and what makes a
+    role fit for the draw of a sentinel (ENG-16)."""
+    t = text.lower()
+    return list(dict.fromkeys(p.lower() for p in role.get("keywords", [])
+                              if re.search(rf"(?<!\w){re.escape(p.lower())}(?!\w)", t)))
+
+
 def roles(ns) -> None:
     """The roles, and the profiles. With a question, only the roles one of whose keywords appears in the text, whole."""
     cat = catalog()
@@ -1503,8 +1592,7 @@ def roles(ns) -> None:
     text = (ns.question or "").lower()
     found = 0
     for r in cat["roles"]:
-        words = list(dict.fromkeys(p.lower() for p in r["keywords"]
-                                   if re.search(rf"(?<!\w){re.escape(p.lower())}(?!\w)", text))) if text else []
+        words = keyword_hits(r, text) if text else []
         if text and not words:
             continue
         found += 1
@@ -1550,7 +1638,7 @@ def prepare(ns) -> None:
         raise Error(f"{c} already exists")
     c.mkdir(parents=True)
     conv = Convening(c, lang)
-    m = {"version": VERSION, "name": name, "strategy": strategy, "profile": profile, "question": ns.question,
+    m = {"version": swarmer_version(), "name": name, "strategy": strategy, "profile": profile, "question": ns.question,
          "seed": seed, "created": now(), "f1": {}, "selected": [], "radical": None, "gate_rules": GATE_RULES}
     conv.m = m
     conv.file("CONTRACT.md").write_text(contract(m, lang), encoding="utf-8")
@@ -1561,12 +1649,19 @@ def prepare(ns) -> None:
     if strategy == "fan-out":
         m["fan_out"] = {"n": ns.n, "form": form, "rule": rule}
         roles_v = extra or prof["A"][:1]
+        token = C.CONVENE_LINES["canary_token"].get(lang, C.CONVENE_LINES["canary_token"]["en"])
         for k in range(1, ns.n + 1):
             role = roles_v[(k - 1) % len(roles_v)]
             folder = c / "f1" / conv.name(f"agent-{k}")
+            # ENG-12: in a race (and in a mixed fan-out, whose racing slices the engine cannot tell) every arm has a
+            # canary of its own, in the map, which G1 checks as it checks the lanes of a classic. Slices are
+            # different parts, with nothing to keep blind: no canary, as before.
+            canary = f"{token}{secrets.token_hex(8)}" if form in ("race", "mixed") else None
             brief(conv, folder, role, "f1", deliverable, mission("race" if form == "race" else "fan_out_slice")
-                  + ("" if form == "race" else "\n\n" + T("slice", k=k, n=ns.n)), inputs)
+                  + ("" if form == "race" else "\n\n" + T("slice", k=k, n=ns.n)), inputs, canary=canary)
             m["f1"][f"agent-{k}"] = {"folder": str(folder), "lane": form, "role": role}
+            if canary:
+                lane_map[f"agent-{k}"] = {"folder": str(folder), "lane": form, "canary": canary}
     elif strategy == "single":
         role = extra[0] if extra else prof["A"][0]
         brief(conv, c / "f1" / role, role, "f1", deliverable, mission("single"), inputs)
@@ -1591,7 +1686,8 @@ def prepare(ns) -> None:
                 lane_map[role] = {"folder": str(folder), "lane": lane, "canary": canaries[key]}
                 m["f1"][role] = {"folder": str(folder), "lane": lane}
         if strategy == "full":
-            brief(conv, c / "f1c" / C.ROLES["arbiter"], C.ROLES["arbiter"], "f1c", "CONSOLIDATION.md", mission("consolidation"),
+            brief(conv, c / "f1c" / C.ROLES["arbiter"], C.ROLES["arbiter"], "f1c", "CONSOLIDATION.md",
+                  mission("consolidation") + " " + k_note(conv),
                   inputs + [Path(v["folder"]) / conv.name(deliverable) for v in lane_map.values()], minutes=60)
         f1_out = [Path(v["folder"]) / conv.name(deliverable) for v in m["f1"].values()]
         if strategy == "full":
@@ -1608,6 +1704,12 @@ def prepare(ns) -> None:
               inputs + [f2 / n("03-triage") / n("TRIAGE.md"), f2 / n("01-translation") / n("CARDS.md")], minutes=40)
         brief(conv, f2 / n("05-selection"), C.ROLES["arbiter"], "f2", "SELECTION.md", mission("selection"),
               inputs + [f2 / n("03-triage") / n("TRIAGE.md"), f2 / n("04-tournament") / n("TOURNAMENT.md")], minutes=20)
+        # ENG-17: the sentinel of f2, in every classic and full (the branches are not known before the selection; the
+        # cards and the triage are what every branch inherits), drawn by fitness and recorded (ENG-16); it delivers
+        # before G2, which binds its folder with the rest of f2.
+        _phase_sentinel(conv, cat, "f2", inputs + f1_out + [
+            f2 / n("01-translation") / n("CARDS.md"), f2 / n("02-signatures"), f2 / n("03-triage") / n("TRIAGE.md"),
+            f2 / n("04-tournament") / n("TOURNAMENT.md")])
     (c / "f5").mkdir()
     if lane_map:
         hidden = dest / conv.name(f".{c.name}.lanes")
@@ -1667,6 +1769,34 @@ def seal(ns) -> None:
             print(T("sealed", path=p))
 
 
+def contradiction(ns) -> None:
+    """Allocates the next K# of the convening (ENG-15): K-001, K-002 … in CONTRADICTIONS.jsonl at its root, one
+    numbering for the whole convening, with the binary question and the files that hold its two sides. The engine
+    reads it back: status lists the K#, and under the rules 3 G4 warns on a K# cited and never allocated, and G5 wants
+    every allocated K# named in the closure. One writer at a time, as for SEALS.jsonl: the coordinator."""
+    conv = Convening.load(Path(ns.C).resolve())
+    files = []
+    for name in ns.file:
+        q = Path(name).resolve()
+        if not q.is_file():
+            raise Error(f"{q} does not exist")
+        files.append(str(q))
+    question = " ".join((ns.question or "").split())
+    if not question:
+        raise Error("--question TEXT: the binary question of the contradiction")
+    known = contradictions(conv)
+    n = max([int(x[2:]) for x in known] + [0]) + 1
+    if n > 999:
+        raise Error(f"{conv.name('CONTRADICTIONS.jsonl')} already holds K-999: no K# is left")
+    k = f"K-{n:03d}"
+    row = C.to_dialect({"id": k, "time": now(), "question": question, "files": files},
+                       C.CONVENE_KEYS["contradiction"], conv.lang)
+    p = conv.file("CONTRADICTIONS.jsonl")
+    with p.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(row) + "\n")
+    print(T("contradiction_allocated", id=k, path=p, question=question))
+
+
 def seals(conv: Convening) -> dict[str, dict]:
     p = conv.file("SEALS.jsonl")
     found = {}
@@ -1676,15 +1806,120 @@ def seals(conv: Convening) -> dict[str, dict]:
     return found
 
 
+def seal_rows(conv: Convening) -> dict[str, list[dict]]:
+    """Every seal of each file, in the order of SEALS.jsonl: the rules 3 read them all (the first seal and the seal
+    of each block appended later), where `seals` keeps only the first."""
+    p = conv.file("SEALS.jsonl")
+    found: dict[str, list[dict]] = {}
+    for line in p.read_text(encoding="utf-8").splitlines() if p.exists() else []:
+        s = C.to_canonical(json.loads(line), C.CONVENE_KEYS["seal"], p.name)
+        found.setdefault(s["file"], []).append(s)
+    return found
+
+
 def ids_in(p: Path) -> list[str]:
     if not p.exists():
         return []
     return list(dict.fromkeys(f"H-{int(n):03d}" for n in ID.findall(p.read_text(encoding="utf-8"))))
 
 
+def k_ids_in(text: str) -> list[str]:
+    """The K# a text cites (K-1, K-01 and K-001 are one), in the form the allocator writes."""
+    return list(dict.fromkeys(f"K-{int(x):03d}" for x in KID.findall(text)))
+
+
+def contradictions(conv: Convening) -> dict[str, dict]:
+    """The K# of the convening-wide registry CONTRADICTIONS.jsonl (ENG-15), by id, in the order allocated. A line
+    that is not a K# record, or a K# written twice, stops every reader with exit 1: none guesses which K# is meant."""
+    p = conv.file("CONTRADICTIONS.jsonl")
+    out: dict[str, dict] = {}
+    if not p.is_file():
+        return out
+    for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            r = C.to_canonical(json.loads(line), C.CONVENE_KEYS["contradiction"], p.name)
+        except (ValueError, C.Error) as e:
+            raise Error(f"{p.name} l.{i} cannot be read ({e})")
+        k = r.get("id") if isinstance(r, dict) else None
+        if not isinstance(k, str) or not re.fullmatch(r"K-[0-9]{3}", k):
+            raise Error(f"{p.name} l.{i}: not a K# record (its id is K-001, K-002 …)")
+        if k in out:
+            raise Error(f"{p.name} l.{i}: {k} is written twice: the K# of the convening cannot be told apart")
+        out[k] = r
+    return out
+
+
+def _unallocated(conv: Convening, files: list[Path]) -> list[str]:
+    """The warnings for the K# that `files` cite and the registry does not hold (under the rules 3): a K# numbered by
+    hand, per branch, is how two contradictions got one number (ENG-15)."""
+    known = contradictions(conv)
+    out = []
+    for p in files:
+        try:
+            text = p.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        missing = [t for t in dict.fromkeys(KTOKEN.findall(text)) if (k_ids_in(t) or [None])[0] not in known]
+        if missing:
+            out.append(f"{', '.join(missing)} cited in {p.relative_to(conv.folder)} and not allocated in "
+                       f"{conv.name('CONTRADICTIONS.jsonl')}: contradiction C FILE… --question TEXT allocates a K#")
+    return out
+
+
+_PH = "|".join(re.escape(x) for x in TO_FILL)
+FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
+CODE_SPAN = re.compile(r"(`+)(?!`).*?(?<!`)\1(?!`)")
+# The placeholder alone on a line (after the marks of a list or a quote), or as the whole value of a field: «Results:
+# <to fill in>», «**Results:** <to fill in>», «Slice 1 of 14: <to fill in>»; or a whole table cell. A closing
+# punctuation mark adds nothing to the slot: «Goal: <to fill in>.» is still unfilled.
+_END = r"[.,;:!?…]*\s*"
+PLACEHOLDER = re.compile(rf"^\s*(?:(?:[-*+]|\d+[.)])\s+|>\s*)*(?:[^:|`]*:\**\s+)?(?:{_PH}){_END}$")
+PLACEHOLDER_CELL = re.compile(rf"^\s*\|(?:.*\|)?\s*(?:{_PH}){_END}(?:\||$)")
+LIST_ITEM = re.compile(r"^( *)(?:[-*+]|\d+[.)])( +|$)")
+
+
+def unfilled(text: str) -> bool:
+    """Whether a text keeps the placeholder of a field left to fill in (ENG-25): alone on a line, as the whole value
+    of a field or as a whole table cell, outside the code blocks and the code spans. A text that only quotes it (in
+    a code span, a code block or a sentence) is filled. Under every rule of the gates: it is a relaxation."""
+    if not any(x in text for x in TO_FILL):   # the common case, as fast as the substring test of 5.2
+        return False
+    fence = None
+    base = 0             # the content column of the list item the lines belong to (0: none)
+    opens = True         # whether an indented line here starts an indented code block (CommonMark: not inside a paragraph)
+    for line in text.splitlines():
+        mt = FENCE.match(line)
+        if fence:
+            if mt and mt.group(1)[0] == fence[0] and len(mt.group(1)) >= len(fence) and not mt.group(2).strip():
+                fence = None
+            continue
+        if mt and not (mt.group(1)[0] == "`" and "`" in mt.group(2)):
+            fence = mt.group(1)
+            continue
+        expanded = line.expandtabs(4)
+        if not expanded.strip():
+            opens = True
+            continue
+        indent = len(expanded) - len(expanded.lstrip(" "))
+        if opens and indent - base >= 4:   # an indented code block: a quote, as a fenced one
+            continue
+        item = LIST_ITEM.match(expanded)
+        if item:
+            base = len(item.group(0)) if item.group(2) else len(item.group(1)) + 2
+        elif indent < base:
+            base = 0
+        opens = expanded.lstrip().startswith("#")   # a heading is no paragraph: code may follow it at once
+        line = CODE_SPAN.sub("", line)
+        if PLACEHOLDER.match(line) or PLACEHOLDER_CELL.match(line):
+            return True
+    return False
+
+
 def full(p: Path) -> bool:
     text = p.read_text(encoding="utf-8", errors="replace") if p.is_file() else ""
-    return p.is_file() and p.stat().st_size > 0 and not any(x in text for x in TO_FILL)
+    return p.is_file() and p.stat().st_size > 0 and not unfilled(text)
 
 
 def level(conv: Convening) -> int:
@@ -1744,8 +1979,10 @@ def gated_amendments(conv: Convening) -> list[Path]:
 
 
 def _role_folder(d: Path) -> bool:
-    """A folder f3/<H#>/NN-<role> or f4/<H#>/NN-<role> (a briefed role): always the convening's own."""
-    return bool(re.match(r"\d+-", d.name) and ID.fullmatch(d.parent.name) and d.parent.parent.name in ("f3", "f4"))
+    """A folder f3/<H#>/NN-<role>, f4/<H#>/NN-<role> or f4_<n>/<H#>/NN-<role> (a briefed role): always the
+    convening's own."""
+    return bool(re.match(r"\d+-", d.name) and ID.fullmatch(d.parent.name)
+                and (d.parent.parent.name in ("f3", "f4") or split_label(f"{d.parent.parent.name}/H-000")[1] > 1))
 
 
 def _is_manifest(p: Path) -> bool:
@@ -1799,7 +2036,7 @@ def fingerprints_v1(conv: Convening, phase: str) -> dict[str, str]:
     folder = c
     for folder in phase_folders(conv, phase):
         files += sorted(p for p in folder.rglob("*.md") if p.is_file())
-    if phase.startswith("f3/") or phase.startswith("f4/"):
+    if split_label(phase)[0][:3] in ("f3/", "f4/"):
         files += sorted(p for p in folder.rglob("*.json") if p.is_file() and not p.name.startswith("GATE_"))
     return {str(p): sha(p) for p in files}
 
@@ -1885,7 +2122,9 @@ def _tree(d: Path, exclude: set[str], seen: frozenset = frozenset()) -> str:
             e = _entry(p, exclude, seen)
             if e is not None:
                 lines.append(f"{p.relative_to(d).as_posix()}\0{e}\n")
-    return "tree:" + hashlib.sha256("".join(sorted(lines)).encode("utf-8")).hexdigest()
+    # A name that is not UTF-8 (ENG-13) is hashed by its own bytes, which surrogateescape gives back; a UTF-8 name as
+    # before, so every tree entry approved before keeps its fingerprint.
+    return "tree:" + hashlib.sha256("".join(sorted(lines)).encode("utf-8", "surrogateescape")).hexdigest()
 
 
 def _bind(top: Path, out: dict, exclude: set[str]) -> None:
@@ -1917,8 +2156,10 @@ def _bind(top: Path, out: dict, exclude: set[str]) -> None:
                 out[str(p)] = e
 
 
-def dossier_of(conv: Convening, h: str) -> Path:
-    return conv.folder / "f3" / h / f"{h}.md"
+def dossier_of(conv: Convening, h: str, k: int = 1) -> Path:
+    """The dossier of `h`: f3/<H#>/<H#>.md, which the first round completes; a later round has its own, in its folder
+    (repin never touches the first)."""
+    return conv.folder / "f3" / h / f"{h}.md" if k == 1 else f4_dir(conv, h, k) / f"{h}.md"
 
 
 def fingerprints_v2(conv: Convening, phase: str) -> dict[str, str]:
@@ -1949,7 +2190,14 @@ def fingerprints(conv: Convening, phase: str, rules: int = 1) -> dict[str, str]:
             p = amendments(conv, []).get(phase)
             _FP[key] = {str(p): sha(p)} if p else {}
         else:
-            _FP[key] = (fingerprints_v2 if rules >= 2 else fingerprints_v1)(conv, phase)
+            fp = (fingerprints_v2 if rules >= 2 else fingerprints_v1)(conv, phase)
+            if rules >= 3 and phase == "f5":
+                # ENG-17: the first G5 of the rules 3 also binds the folders of the sentinels of f3 and f4, which no
+                # gate of a branch binds (they are convening-wide); a later closure binds its own folder alone.
+                for ph in ("f3", "f4"):
+                    for d in SENTINEL_DIRS:
+                        _bind(conv.folder / ph / d, fp, set())
+            _FP[key] = fp
     return dict(_FP[key])
 
 
@@ -1990,6 +2238,145 @@ def g3_holds(conv: Convening, h: str, lvl: int) -> bool:
         return True
     g = read_gate(conv, f"f3/{h}")
     return lvl >= 2 and g is not None and gate_rules(g) < 2 and valid(conv, f"f3/{h}", drop={dossier_of(conv, h)})
+
+
+# --- the rounds (5.3): the f4 of a re-pinned branch, the closures after a G5 «not closed» ---
+
+def round_label(phase: str, k: int) -> str:
+    """The label of round k of a phase: the phase itself for the first round, f4_<k>/<H#> and f5_<k> after it. The
+    label is the folder of the round and, with «_» for «/», the name of its gate file (GATE_f4_2_H-001.json)."""
+    if k == 1:
+        return phase
+    return f"f4_{k}/{phase[3:]}" if phase.startswith("f4/") else f"f5_{k}"
+
+
+def split_label(label: str) -> tuple[str, int]:
+    """The phase and the round of a label: f4_2/H-001 → (f4/H-001, 2), f5_3 → (f5, 3), anything else → (label, 1)."""
+    mt = ROUND_RE.fullmatch(label)
+    if not mt or int(mt.group(2)) < 2 or (mt.group(1) == "f4") != bool(mt.group(3)):
+        return label, 1
+    return mt.group(1) + (mt.group(3) or ""), int(mt.group(2))
+
+
+def f4_rounds(conv: Convening, h: str) -> list[int]:
+    """The rounds of the f4 of `h`: 1 (f4/<H#>/) and each f4_<n>/<H#>/ that repin opened. They are read from the
+    folders, so that the manifest keeps the keys of 5.2 and an engine of 5.2 still loads the convening."""
+    out = [1]
+    for d in conv.folder.iterdir() if conv.folder.is_dir() else []:
+        k = split_label(f"{d.name}/{h}")[1]
+        if k > 1 and (d / h).is_dir():
+            out.append(k)
+    return sorted(out)
+
+
+def f4_round(conv: Convening, h: str) -> int:
+    """The latest round of the f4 of `h`: the one that the branch's state, its G4 and G5 read."""
+    return f4_rounds(conv, h)[-1]
+
+
+def f4_dir(conv: Convening, h: str, k: int | None = None) -> Path:
+    return conv.folder / round_label(f"f4/{h}", f4_round(conv, h) if k is None else k)
+
+
+def g4_label(conv: Convening, h: str) -> str:
+    """The G4 of `h` that counts: the one of its latest round."""
+    return round_label(f"f4/{h}", f4_round(conv, h))
+
+
+def _round_dirs(conv: Convening) -> list[Path]:
+    """The folders of the rounds of f4 after the first, f4_<n>/."""
+    return sorted(d for d in conv.folder.iterdir() if d.is_dir() and split_label(f"{d.name}/H-000")[1] > 1
+                  and d.name.startswith("f4_")) if conv.folder.is_dir() else []
+
+
+def f5_dir(conv: Convening, k: int) -> Path:
+    """The folder of the k-th closure: f5/ for the first, f5_<k>/ for each later one, beside f5/ and never inside it,
+    since the first G5 binds every file under f5/."""
+    return conv.folder / round_label("f5", k)
+
+
+def g5_ordinals(conv: Convening) -> list[int]:
+    """The G5s by ordinal: GATE_f5.json is 1, each later one GATE_f5_<n>.json with n ≥ 2 in ASCII digits read as an
+    integer; never ordered by an mtime, which a copy moves, by the gate's time, which is to the second, or by the
+    sorted names, which put 10 before 2. A name that gives an ordinal below 2, or one already given, stops every
+    reader: none guesses which of two gates is the latest."""
+    found = {1: "GATE_f5.json"} if gate_file(conv, "f5").exists() else {}
+    for p in sorted(conv.folder.iterdir()) if conv.folder.is_dir() else []:
+        mt = G5_LATER.fullmatch(p.name)
+        if not mt:
+            continue
+        k = int(mt.group(1))
+        if k < 2 or mt.group(1) != str(k) or k in found:
+            raise Error(f"{p.name}: a later gate f5 is GATE_f5_<n>.json, with n from 2 and no leading zero; the "
+                        f"latest gate f5 cannot be told")
+        found[k] = p.name
+    return sorted(found)
+
+
+def latest_g5(conv: Convening) -> tuple[int, dict] | None:
+    """The latest G5, the one of the highest ordinal, and its record. A gate file that cannot be read (empty, with a
+    BOM, not UTF-8, not JSON) stops every reader with exit 1: nothing is funded, closed or re-pinned on a guess."""
+    ks = g5_ordinals(conv)
+    if not ks:
+        return None
+    label = round_label("f5", ks[-1])
+    try:
+        g = read_gate(conv, label)
+    except ValueError as e:
+        raise Error(f"{gate_file(conv, label).name} cannot be read ({e}): it is the latest gate f5")
+    if not isinstance(g, dict):
+        raise Error(f"{gate_file(conv, label).name} is not a gate: it is the latest gate f5")
+    return ks[-1], g
+
+
+def g5_open(conv: Convening, k: int, g: dict) -> bool:
+    """Whether the G5 `k` lets the convening go on: it holds, and it records a non-closure: «closed» false under the
+    rules ≥ 2; under the rules 1, which record no «closed», a closure that says «not closed»."""
+    if not valid(conv, round_label("f5", k)):
+        return False
+    if gate_rules(g) >= 2:
+        return g.get("closed") is False
+    return outcome_of(conv, k) == "not closed"
+
+
+def f5_open(conv: Convening, act: str) -> int:
+    """The closure that the briefs of select, fund, close-branch and repin go to: the first before any G5; after a
+    G5 that holds and records a non-closure, the next one, in its own folder. After any other G5 (closed, or no longer
+    holding) nothing is `act`: the lock of 5.2, which shut after any G5."""
+    last = latest_g5(conv)
+    if last is None:
+        return 1
+    k, g = last
+    if g5_open(conv, k, g):
+        return k + 1
+    label = round_label("f5", k)
+    why = "no longer holds" if not valid(conv, label) else "closes it"
+    raise Error(f"the convening has its gate {label} ({gate_file(conv, label).name}), which {why}: no branch is {act} "
+                f"after it")
+
+
+def f5_gate_round(conv: Convening, verify: bool = False) -> tuple[int, bool]:
+    """The closure that a gate f5 checks, and whether its gate file is new: the first before any G5. After a G5 that
+    holds and records a non-closure, the next one once its folder f5_<k+1>/ exists (fund, close-branch and repin
+    brief it), into a new gate file; until then --verify checks that G5 again, as 5.2 did, and a gate that would
+    write is refused. After any other G5, the latest again, in place as in 5.2, unless it records a non-closure:
+    that record is never written over."""
+    last = latest_g5(conv)
+    if last is None:
+        return 1, True
+    k, g = last
+    label = round_label("f5", k)
+    if g5_open(conv, k, g):
+        if f5_dir(conv, k + 1).exists():
+            return k + 1, True
+        if verify:
+            return k, False
+        raise Error(f"{gate_file(conv, label).name} records a non-closure, never written over: the next closure goes "
+                    f"in {round_label('f5', k + 1)}/, which fund C, close-branch C and repin C brief")
+    if g.get("closed") is False:
+        raise Error(f"{gate_file(conv, label).name} records a non-closure and no longer holds (files of {label}/ "
+                    f"changed): its record is never written over; restore {label}/")
+    return k, False
 
 
 def _section(text: str, field: str):
@@ -2052,9 +2439,10 @@ def _correctness_in(p: Path) -> str | None:
     return C.LINE_VALUES["correctness"].get(v, v)
 
 
-def arbiter_verdict(conv: Convening, h: str) -> Path:
-    """The verdict of the arbiter of `h`: f4/<H#>/NN-arbitro/VERDICT.md, the folder select briefs (09-arbitro)."""
-    d = conv.folder / "f4" / h
+def arbiter_verdict(conv: Convening, h: str, d: Path | None = None) -> Path:
+    """The verdict of the arbiter of `h`: NN-arbitro/VERDICT.md in the folder of its latest round (or of the round
+    folder `d`), the folder that select and repin brief (09-arbitro)."""
+    d = f4_dir(conv, h) if d is None else d
     folders = [x for x in sorted(d.iterdir()) if x.is_dir() and re.match(r"\d+-", x.name)
                and _role_of(x.name) == C.ROLES["arbiter"]] if d.is_dir() else []
     for x in folders:
@@ -2063,24 +2451,26 @@ def arbiter_verdict(conv: Convening, h: str) -> Path:
     return d / f"09-{C.ROLES['arbiter']}" / conv.name("VERDICT.md")
 
 
-def _correctness(conv: Convening, h: str) -> str | None:
-    """The canonical value of the line «Correctness: …» of the arbiter's verdict of `h`, or None: no other VERDICT.md
-    of the branch counts."""
-    return _correctness_in(arbiter_verdict(conv, h))
+def _correctness(conv: Convening, h: str, d: Path | None = None) -> str | None:
+    """The canonical value of the line «Correctness: …» of the arbiter's verdict of `h` (of its latest round, or of
+    the round folder `d`), or None: no other VERDICT.md of the branch counts."""
+    return _correctness_in(arbiter_verdict(conv, h, d))
 
 
-def _stray_correctness(conv: Convening, h: str) -> list[Path]:
-    """The VERDICT.md files of the branch, other than the arbiter's, that carry a Correctness line."""
-    own = arbiter_verdict(conv, h)
-    return [p for p in _own(conv.folder / "f4" / h, conv.name("VERDICT.md")) if p != own and _correctness_in(p)]
+def _stray_correctness(conv: Convening, h: str, d: Path | None = None) -> list[Path]:
+    """The VERDICT.md files of the round, other than the arbiter's, that carry a Correctness line."""
+    own = arbiter_verdict(conv, h, d)
+    return [p for p in _own(f4_dir(conv, h) if d is None else d, conv.name("VERDICT.md"))
+            if p != own and _correctness_in(p)]
 
 
 def proven(conv: Convening, h: str, warnings: list[str] | None = None, lvl: int = 1) -> bool:
     """`h` is proven: a valid G4 and an arbiter's verdict with Correctness proven or verified. Under the rules 1 a G4
     of the rules 1 whose verdict has no Correctness line keeps the old rule (a valid G4), with a warning; under the
-    rules 2 (`lvl`, the rules of the G5) it is not proven (ENG-6)."""
-    g = read_gate(conv, f"f4/{h}")
-    if g is None or not valid(conv, f"f4/{h}"):
+    rules 2 (`lvl`, the rules of the G5) it is not proven (ENG-6). The G4 is the one of the branch's latest round."""
+    label = g4_label(conv, h)
+    g = read_gate(conv, label)
+    if g is None or not valid(conv, label):
         return False
     v = _correctness(conv, h)
     if v is None:
@@ -2111,15 +2501,37 @@ def sentinel_required(conv: Convening) -> bool:
     return len([h for h in branches(conv) if valid(conv, f"f3/{h}") or not _early(conv, h)]) >= 2
 
 
-def sentinel_found(conv: Convening) -> bool:
-    """The sentinel's deliverable, f5/00-sentinel/SENTINEL.md: f5 is bound by G5 alone, so writing it invalidates no
-    earlier gate."""
-    return any(full(conv.folder / "f5" / d / n) for d in SENTINEL_DIRS for n in SENTINEL_NAMES)
+def sentinel_found(conv: Convening, k: int = 1, phase: str | None = None) -> bool:
+    """The sentinel's deliverable beside the k-th closure, f5/00-sentinel/SENTINEL.md (f5_<k>/00-sentinel/ for a later
+    one): f5 is bound by G5 alone, so writing it invalidates no earlier gate. With `phase` f2, f3 or f4, the
+    deliverable of the sentinel of that phase (ENG-17), <phase>/00-sentinel/SENTINEL.md."""
+    where = conv.folder / phase if phase in PHASE_SENTINELS else f5_dir(conv, k)
+    return any(full(where / d / n) for d in SENTINEL_DIRS for n in SENTINEL_NAMES)
 
 
-def outcome_of(conv: Convening) -> str | None:
-    """The canonical outcome of f5/CLOSURE.md («closed» or «not closed»), or None."""
-    closure = conv.folder / "f5" / conv.name("CLOSURE.md")
+def sentinel_task(conv: Convening, phase: str) -> Path | None:
+    """The brief of the sentinel of f2, f3 or f4, if the engine wrote one (prepare, select, fund under the rules 3)."""
+    for d in SENTINEL_DIRS:
+        p = conv.folder / phase / d / conv.name("TASK.md")
+        if p.is_file():
+            return p
+    return None
+
+
+def brief_agent(task: Path) -> str | None:
+    """The role of a brief, from its agent line `<prefix>-<role>`."""
+    agents = tuple(f"{p}-" for p in dict.fromkeys((prefix(), *C.AGENT_PREFIXES)))
+    try:
+        text = task.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    return next((_role_id(x) for x in re.findall(r"`([^`/\s]+)`", text) if x.startswith(agents)), None)
+
+
+def outcome_of(conv: Convening, k: int = 1) -> str | None:
+    """The canonical outcome of the k-th closure, f5/CLOSURE.md (f5_<k>/CLOSURE.md), «closed» or «not closed», or
+    None."""
+    closure = f5_dir(conv, k) / conv.name("CLOSURE.md")
     if not closure.is_file():
         return None
     mt = re.search(C.CONVENE_LINES["outcome_re"], closure.read_text(encoding="utf-8", errors="replace"), re.M)
@@ -2131,11 +2543,14 @@ def _not_delivered(conv: Convening, role: str, nd: set[str]) -> bool:
 
 
 def conditions(conv: Convening, phase: str, not_delivered: set[str], lvl: int = 1) -> tuple[list[str], dict]:
-    """The errors of a gate, and what the gate records besides (the warnings; for f5 whether it closes)."""
+    """The errors of a gate, and what the gate records besides (the warnings; for f5 whether it closes). `phase` is a
+    gate label: f4_2/H-001 is round 2 of the f4 of H-001, f5_2 the second closure."""
     c, m, n = conv.folder, conv.m, conv.name
     errors = []
     info = {"warnings": []}
     warnings = info["warnings"]
+    label = phase
+    phase, k = split_label(label)
     amend = re.fullmatch(r"A\d+", phase)
     before = {"f1": "f0", "f2": "f1", "f5": "f2"}.get(phase)
     if amend:
@@ -2151,6 +2566,22 @@ def conditions(conv: Convening, phase: str, not_delivered: set[str], lvl: int = 
             errors.append(f"the gate {before} is not approved or no longer valid")
     elif before and not valid(conv, before):
         errors.append(f"the gate {before} is not approved or no longer valid")
+    # ENG-26: under the rules 3 every gate checks G0 again, not only the gate just before it, so a contract or a file
+    # of f0/ changed after G1 stops every later gate; and an amendment gate checks the other gated amendments again,
+    # as every other gate does from the rules 2 (an amendment without its gate is not waited for: two amendments
+    # gated in turn would wait for each other).
+    if lvl >= 3 and phase != "f0" and before != "f0" and not valid(conv, "f0"):
+        errors.append("the gate f0 is not approved or no longer valid (under the rules 3 every gate checks it again)")
+    if lvl >= 3 and amend:
+        found = amendments(conv)
+        for a in amendment_phases(conv):
+            if a == phase or not gate_file(conv, a).exists():
+                continue
+            if a not in found:
+                errors.append(f"the gate {a} binds an amendment that is no longer there ({n('AMENDMENT_' + a[1:] + '.md')})")
+            elif not valid(conv, a):
+                errors.append(f"the amendment {found[a].name} changed after its gate {a}: under the rules 3 every "
+                              f"gate checks the gated amendments again")
     if lvl >= 2 and phase != "f0" and not amend:
         found = amendments(conv)
         for a in amendment_phases(conv):
@@ -2183,7 +2614,7 @@ def conditions(conv: Convening, phase: str, not_delivered: set[str], lvl: int = 
         text = conv.file("CONTRACT.md").read_text(encoding="utf-8")
         for field in CONTRACT_FIELDS:
             s = _section(text, field)
-            if not s or not s.group(1).strip() or any(x in s.group(1) for x in TO_FILL):
+            if not s or not s.group(1).strip() or unfilled(s.group(1)):
                 errors.append(f"{n('CONTRACT.md')}: «{field}» to fill in")
     elif phase == "f1":
         lane_map = {}
@@ -2244,6 +2675,14 @@ def conditions(conv: Convening, phase: str, not_delivered: set[str], lvl: int = 
             stext = selection.read_text(encoding="utf-8")
             if not any(x in stext for x in C.CONVENE_LINES["countersign"].values()):
                 errors.append(f"the selection does not have the line «{C.CONVENE_LINES['countersign'][conv.lang]}»")
+        # ENG-17: the sentinel of f2 that prepare briefed delivers before G2, which binds every file of f2: one
+        # delivered after G2 would invalidate it. Under the rules 3, its deliverable or its «not delivered».
+        task = sentinel_task(conv, "f2") if lvl >= 3 else None
+        if task:
+            role = brief_agent(task) or "?"
+            if not _not_delivered(conv, role, not_delivered) and not sentinel_found(conv, phase="f2"):
+                errors.append(f"f2/{task.parent.name}: no {n('SENTINEL.md')} of the sentinel {role}: G2 binds it, so "
+                              f"it delivers before G2 (or --not-delivered {role})")
     elif phase.startswith("f3/") or phase.startswith("f4/"):
         h = phase[3:]
         if h not in all_branches(conv):
@@ -2252,7 +2691,17 @@ def conditions(conv: Convening, phase: str, not_delivered: set[str], lvl: int = 
             errors.append(f"radical not funded: fund C {h}")
         if _early(conv, h):
             errors.append(f"the branch {h} is closed early: no G3 nor G4")
-        folder = c / phase
+        if k > 1 and lvl < 3:
+            errors.append(f"{label} is a round opened by repin: its G4 runs under the rules 3 "
+                          f"(gate C {phase} --rules 3)")
+        folder = c / label
+        # ENG-17: the sentinel of the phase, convening-wide, is not waited for by a branch's gate: a warning, and G5
+        # requires it.
+        ph = phase[:2]
+        task = sentinel_task(conv, ph) if lvl >= 3 and k == 1 else None
+        if task and not sentinel_found(conv, phase=ph):
+            warnings.append(f"no sentinel of {ph} yet ({ph}/{task.parent.name}/{n('SENTINEL.md')}): G5 will require "
+                            f"it")
         if phase.startswith("f3/"):
             for name in ("SOLUTION.md", "VERIFICATION.md", "MEASUREMENT_PLAN.md", "ATTACK.md", "PREDICTIONS.md"):
                 if not any(full(p) for p in _own(folder, n(name))):
@@ -2263,18 +2712,22 @@ def conditions(conv: Convening, phase: str, not_delivered: set[str], lvl: int = 
         else:
             for name in ("COUNTERCHECKS.md", "VERDICT.md"):
                 if not any(full(p) for p in _own(folder, n(name))):
-                    errors.append(f"{phase}: {n(name)} is missing")
-            sig = seals(conv)
-            checks = _own(folder, n("COUNTERCHECKS.md"))
-            for p in _own(folder, n("PREDICTIONS.md")):
-                s = sig.get(str(p))
-                if not s:
-                    errors.append(f"{p.relative_to(c)} born in f4 is not sealed")
-                elif sha(p) != s["sha256"] and not _tail_only(p, s):
-                    errors.append(f"{p.relative_to(c)} changed after the seal, not only at the end")
-                elif any(q.stat().st_mtime < _iso(s["time"]) for q in checks):
-                    errors.append(f"{p.relative_to(c)} is sealed after the counterchecks")
-            dossier = dossier_of(conv, h)
+                    errors.append(f"{label}: {n(name)} is missing")
+            if lvl >= 3:
+                errors += _order_rules3(conv, folder)
+                warnings += _unallocated(conv, [p for p in _own_files(folder) if p.suffix == ".md"])
+            else:
+                sig = seals(conv)
+                checks = _own(folder, n("COUNTERCHECKS.md"))
+                for p in _own(folder, n("PREDICTIONS.md")):
+                    s = sig.get(str(p))
+                    if not s:
+                        errors.append(f"{p.relative_to(c)} born in f4 is not sealed")
+                    elif sha(p) != s["sha256"] and not _tail_only(p, s):
+                        errors.append(f"{p.relative_to(c)} changed after the seal, not only at the end")
+                    elif any(q.stat().st_mtime < _iso(s["time"]) for q in checks):
+                        errors.append(f"{p.relative_to(c)} is sealed after the counterchecks")
+            dossier = dossier_of(conv, h, k)
             if dossier.exists():
                 try:
                     template = hypothesis_card().replace("H-000", h)
@@ -2288,19 +2741,19 @@ def conditions(conv: Convening, phase: str, not_delivered: set[str], lvl: int = 
             if lvl >= 2:
                 errors += _g4_rules2(conv, h, folder, not_delivered, warnings)
     elif phase == "f5":
-        closure = c / "f5" / n("CLOSURE.md")
+        closure = f5_dir(conv, k) / n("CLOSURE.md")
         outcome = None
         if not full(closure):
-            errors.append(f"f5/{n('CLOSURE.md')} of the arbiter is missing")
+            errors.append(f"{label}/{n('CLOSURE.md')} of the arbiter is missing")
         else:
-            outcome = outcome_of(conv)
+            outcome = outcome_of(conv, k)
             if outcome is None:
                 errors.append(f"{n('CLOSURE.md')} without the line {C.CONVENE_LINES['outcome'][conv.lang]}")
         info["closed"] = outcome == "closed"
         if m["strategy"] not in ("single", "fan-out"):
             bs = branches(conv)
             proven_ = [h for h in bs if proven(conv, h, warnings, lvl)]
-            open_ = [h for h in bs if not valid(conv, f"f4/{h}") and not _early(conv, h)]
+            open_ = [h for h in bs if not valid(conv, g4_label(conv, h)) and not _early(conv, h)]
             r = m.get("radical")
             if lvl >= 2 and r and r not in bs and not _early(conv, r):
                 open_.append(r)   # a radical recorded and never funded nor closed (ENG-8)
@@ -2318,23 +2771,42 @@ def conditions(conv: Convening, phase: str, not_delivered: set[str], lvl: int = 
                                   f"{C.CONVENE_LINES['outcome'][conv.lang]}")
                     if lvl >= 2:
                         for h in bs:
-                            g = read_gate(conv, f"f4/{h}")
-                            if g and gate_rules(g) < 2 and valid(conv, f"f4/{h}") and _correctness(conv, h) is None:
+                            g = read_gate(conv, g4_label(conv, h))
+                            g4 = g4_label(conv, h)
+                            if g and gate_rules(g) < 2 and valid(conv, g4) and _correctness(conv, h) is None:
                                 errors.append(f"{h}: the verdict of its G4 of the rules 1 has no line "
                                               f"{C.CONVENE_LINES['correctness'][conv.lang]}: add it to "
                                               f"{arbiter_verdict(conv, h).relative_to(c)} and gate f4/{h} --rules 2")
             if lvl >= 2:
                 text = closure.read_text(encoding="utf-8") if closure.is_file() else ""
-                if sentinel_required(conv) and not sentinel_found(conv) and not re.search(
-                        C.CONVENE_LINES["declared_missing_re"], text, re.M | re.I):
-                    errors.append(f"the sentinel is missing: f5/{n('00-sentinel')}/{n('SENTINEL.md')}, or the line "
-                                  f"{C.CONVENE_LINES['declared_missing'][conv.lang]} in {n('CLOSURE.md')}")
+                declared = re.search(C.CONVENE_LINES["declared_missing_re"], text, re.M | re.I)
+                if sentinel_required(conv) and not sentinel_found(conv, k) and not declared:
+                    errors.append(f"the sentinel is missing: {label}/{n('00-sentinel')}/{n('SENTINEL.md')}, or the "
+                                  f"line {C.CONVENE_LINES['declared_missing'][conv.lang]} in {n('CLOSURE.md')}")
+                # ENG-17: under the rules 3 the first closure also wants the sentinels of f3 and f4 that select or
+                # fund briefed (a later closure has its own sentinel, beside it).
+                for ph in ("f3", "f4") if lvl >= 3 and k == 1 else ():
+                    task = sentinel_task(conv, ph)
+                    if task and sentinel_required(conv) and not sentinel_found(conv, phase=ph) and not declared:
+                        errors.append(f"the sentinel of {ph} is missing: {ph}/{task.parent.name}/{n('SENTINEL.md')}, "
+                                      f"or the line {C.CONVENE_LINES['declared_missing'][conv.lang]} in "
+                                      f"{n('CLOSURE.md')}")
                 for h in all_branches(conv):
                     e = _early_data(conv, h)
                     if e.get("status") == "declared unresolved" and not (e.get("deciding_test") or "").strip():
                         errors.append(f"{h}: declared unresolved without the test that would decide it "
                                       f"({n('EARLY_CLOSURE.json')}): close-branch C {h} --reason … --deciding-test "
                                       f"TEXT adds it")
+        if lvl >= 3:
+            # ENG-15: every K# allocated in the convening's registry is accounted for by the closure, resolved or open.
+            ctext = closure.read_text(encoding="utf-8", errors="replace") if closure.is_file() else ""
+            named = set(k_ids_in(ctext))
+            unnamed = [x for x in contradictions(conv) if x not in named]
+            if unnamed:
+                errors.append(f"K# allocated in {n('CONTRADICTIONS.jsonl')} and not named in {label}/"
+                              f"{n('CLOSURE.md')}: {', '.join(unnamed)} (each resolved or open)")
+            if closure.is_file():
+                warnings += _unallocated(conv, [closure])
     return errors, info
 
 
@@ -2343,11 +2815,11 @@ def _g4_rules2(conv: Convening, h: str, folder: Path, nd: set[str], warnings: li
     V2 by a role outside the f3 team on a proven result (ENG-7b); a warning without the sentinel (ENG-5)."""
     n = conv.name
     errors = []
-    v = _correctness(conv, h)
+    v = _correctness(conv, h, folder)
     if v is None:
-        errors.append(f"{arbiter_verdict(conv, h).relative_to(conv.folder)} without the line "
+        errors.append(f"{arbiter_verdict(conv, h, folder).relative_to(conv.folder)} without the line "
                       f"{C.CONVENE_LINES['correctness'][conv.lang]}")
-    for p in _stray_correctness(conv, h):
+    for p in _stray_correctness(conv, h, folder):
         errors.append(f"{p.relative_to(conv.folder)}: only the arbiter's verdict carries the line "
                       f"{C.CONVENE_LINES['correctness'][conv.lang]}")
     is_proven = v in PROVEN
@@ -2368,11 +2840,113 @@ def _g4_rules2(conv: Convening, h: str, folder: Path, nd: set[str], warnings: li
         if not audits:
             errors.append(f"V2 missing on a proven result: {n('HIDDEN_ASSUMPTIONS.md')} under f4/{h}, by a role "
                           f"outside the f3 team ({', '.join(sorted(f3_team))})")
-    if sentinel_required(conv) and not sentinel_found(conv):
-        warnings.append(f"no sentinel yet (f5/{n('00-sentinel')}/{n('SENTINEL.md')}): G5 will require it" if
-                        level(conv) >= 2 else f"no sentinel yet (f5/{n('00-sentinel')}/{n('SENTINEL.md')}): a G5 "
-                        f"under the rules 2 (--rules 2) would require it")
+    k = _f5_now(conv)
+    if sentinel_required(conv) and not sentinel_found(conv, k):
+        where = f"{round_label('f5', k)}/{n('00-sentinel')}/{n('SENTINEL.md')}"
+        warnings.append(f"no sentinel yet ({where}): G5 will require it" if level(conv) >= 2 else
+                        f"no sentinel yet ({where}): a G5 under the rules 2 (--rules 2) would require it")
     return errors
+
+
+def _f5_now(conv: Convening) -> int:
+    """The closure that a gate f5 would check now, for a warning: the first when the gates f5 cannot be read."""
+    try:
+        return f5_gate_round(conv, verify=True)[0]
+    except (Error, OSError, ValueError):
+        return 1
+
+
+def _first_seal(rows: dict, p: Path) -> float | None:
+    """The time of the earliest seal of `p`: the first moment it is known to have existed."""
+    times = [_iso(s["time"]) for s in rows.get(str(p), [])]
+    return min(times) if times else None
+
+
+def _whole_seal(rows: dict, p: Path) -> tuple[float | None, str | None]:
+    """The time of the earliest seal that covers every byte of the PREDICTIONS.md `p`, or what is wrong: every seal of
+    it is a prefix of it (it was only appended to), and the last block appended has a seal of its own (ENG-19)."""
+    mine = rows.get(str(p), [])
+    if not mine:
+        return None, "born in f4 is not sealed"
+    data = p.read_bytes()
+    whole = []
+    for s in mine:
+        size = s.get("bytes")
+        if size is None:   # a seal without its size covers the file only whole
+            size = len(data) if s["sha256"] == hashlib.sha256(data).hexdigest() else -1
+        if not 0 <= size <= len(data) or hashlib.sha256(data[:size]).hexdigest() != s["sha256"]:
+            return None, "changed after the seal, not only at the end"
+        if size == len(data):
+            whole.append(_iso(s["time"]))
+    if not whole:
+        return None, ("has a block added after its last seal with no seal of its own: under the rules 3 every block "
+                      "of a PREDICTIONS.md is sealed before the test it decides")
+    return min(whole), None
+
+
+def _order_rules3(conv: Convening, folder: Path) -> list[str]:
+    """The order of a round of f4 under the rules 3 (ENG-19, ENG-21), read from the seal times of SEALS.jsonl and
+    never from an mtime, which a copy or a touch moves:
+    - a PREDICTIONS.md of the counterchecks' folder (01-), or outside any role folder, is a prediction before the
+      counterchecks: sealed, whole, before every COUNTERCHECKS.md of the round is first sealed;
+    - one of any other role folder is a post-countercheck prediction, of a role that works after the counterchecks
+      (the owner's revision, the debugger, the measurements, V2, the arbiter): sealed, whole, before that role's own
+      output is first sealed, whatever the seal of the counterchecks;
+    - each REVISION.md is first sealed after every COUNTERCHECKS.md and DEFECTS.md of the round is.
+    An output that something is ordered against must be sealed itself; the times are compared strictly, so two
+    seals in the same second show no order."""
+    c, n = conv.folder, conv.name
+    rows = seal_rows(conv)
+    errors: list[str] = []
+    missing: set[Path] = set()
+
+    def first(o: Path, who: str) -> float | None:
+        t = _first_seal(rows, o)
+        if t is None and o not in missing:
+            missing.add(o)
+            errors.append(f"{o.relative_to(c)} is not sealed: under the rules 3 {who} is ordered against it by the "
+                          f"seals (seal C {o.relative_to(c)})")
+        return t
+
+    checks = _own(folder, n("COUNTERCHECKS.md"))
+    defects = _own(folder, n("DEFECTS.md"))
+    for p in _own(folder, n("PREDICTIONS.md")):
+        t, wrong = _whole_seal(rows, p)
+        if wrong:
+            errors.append(f"{p.relative_to(c)} {wrong}")
+            continue
+        parts = p.relative_to(folder).parts
+        role = folder / parts[0] if len(parts) > 1 and re.match(r"\d\d-", parts[0]) else None
+        if role is None or f4_output(role.name) == "COUNTERCHECKS.md":
+            targets, kind = checks, "a prediction before the counterchecks"
+        else:
+            own = role / n(f4_output(role.name))
+            targets, kind = [own] if own.is_file() else [], "a post-countercheck prediction, against its own output"
+        for o in targets:
+            to = first(o, str(p.relative_to(c)))
+            if to is not None and t >= to:
+                when = "in the same second as" if t == to else "after"
+                errors.append(f"{p.relative_to(c)} is sealed {when} {o.relative_to(c)}, which it must precede ({kind}; "
+                              f"the seal times of {n('SEALS.jsonl')})")
+    for r in _own(folder, n("REVISION.md")):
+        tr = _first_seal(rows, r)
+        if tr is None:
+            if r not in missing:
+                missing.add(r)
+                errors.append(f"{r.relative_to(c)} is not sealed: under the rules 3 the revision is ordered after the "
+                              f"counterchecks and the defects by the seals (seal C {r.relative_to(c)})")
+            continue
+        for o in checks + defects:
+            to = first(o, str(r.relative_to(c)))
+            if to is not None and tr <= to:
+                errors.append(f"{r.relative_to(c)} is not sealed after {o.relative_to(c)}: the revision answers the "
+                              f"counterchecks and the defects (the seal times of {n('SEALS.jsonl')})")
+    return errors
+
+
+def f4_output(folder_name: str) -> str:
+    """The output of a briefed folder NN-<role> of f4, by its two digits (the canonical name)."""
+    return F4_OUTPUTS.get(folder_name[:2], F4_MEASUREMENTS)
 
 
 def _iso(s: str) -> float:
@@ -2395,31 +2969,41 @@ def gate(ns) -> None:
     if not re.fullmatch(r"f[0125]|f[34]/H-\d{3}|A\d+", phase):
         raise Error(f"unknown phase: {phase}")
     lvl = max(level(conv), ns.rules or 1)
+    # f4/<H#> is the branch's latest round; f5 the closure that is open (5.3): the label names its folder and gate.
+    label, new = phase, False
+    if phase.startswith("f4/"):
+        label = g4_label(conv, phase[3:])
+    elif phase == "f5":
+        k, new = f5_gate_round(conv, verify=ns.verify)
+        label = round_label("f5", k)
     nd = {r.strip() for r in (ns.not_delivered or "").split(",") if r.strip()}
-    errors, info = conditions(conv, phase, nd, lvl)
+    errors, info = conditions(conv, label, nd, lvl)
     if errors:
-        print(T("gate_refused", phase=phase))
+        print(T("gate_refused", phase=label))
         for e in errors:
             print(f"  - {e}")
         sys.exit(1)
     for w in info["warnings"]:
         print(T("gate_warning", text=w))
     if ns.verify:
-        print(T("gate_holds", phase=phase))
+        print(T("gate_holds", phase=label))
         return
-    g = {"phase": phase, "time": now(), "notes": ns.notes, "not_delivered": sorted(nd),
-         "fingerprints": fingerprints(conv, phase, lvl)}
+    g = {"phase": label, "time": now(), "notes": ns.notes, "not_delivered": sorted(nd),
+         "fingerprints": fingerprints(conv, label, lvl)}
     if lvl >= 2:   # a gate of the rules 1 keeps the keys of 5.0, so that an engine of 5.x still reads it
         g["rules"] = lvl
         if phase == "f5":
             g["closed"] = info.get("closed", False)
         if info["warnings"]:
             g["warnings"] = info["warnings"]
-    conv.write_json(gate_file(conv, phase), g, "gate")
-    if phase == "f5" and not info.get("closed", False):
-        print(T("gate_approved_not_closed", phase=phase, n=len(g["fingerprints"])))
+    if new:   # a G5 of a new closure never goes over a gate file, the record of a non-closure least of all
+        conv.create_json(gate_file(conv, label), g, "gate")
     else:
-        print(T("gate_approved", phase=phase, n=len(g["fingerprints"])))
+        conv.write_json(gate_file(conv, label), g, "gate")
+    if phase == "f5" and not info.get("closed", False):
+        print(T("gate_approved_not_closed", phase=label, n=len(g["fingerprints"])))
+    else:
+        print(T("gate_approved", phase=label, n=len(g["fingerprints"])))
 
 
 def hypothesis_card() -> str:
@@ -2446,14 +3030,20 @@ def owner_of(conv: Convening, h: str, prof: dict) -> str:
     return found[0] if found else prof["f3"][0]
 
 
-def _branch_briefs(conv: Convening, h: str, owner_id: str | None, prof: dict, write: bool = True) -> dict[Path, str]:
-    """The dossier and the briefs of the branch `h` (f3 and f4): written, or only returned (TASK path → text)."""
+def _branch_briefs(conv: Convening, h: str, owner_id: str | None, prof: dict, write: bool = True, k: int = 1,
+                   rules: int | None = None) -> dict[Path, str]:
+    """The dossier and the briefs of the branch `h`: f3 and the first round of f4 (select, fund), or round k of f4
+    alone (repin), in f4_<k>/<H#>/ with a dossier of its own; written, or only returned (TASK path → text). `rules`
+    are the rules the briefs are written for (those of the convening; 3 for a round after the first)."""
     c, n = conv.folder, conv.name
+    rules = level(conv) if rules is None else rules
     base_in = base_inputs(conv)
-    f3, f4 = c / "f3" / h, c / "f4" / h
+    f3, f4 = c / "f3" / h, c / round_label(f"f4/{h}", k)
+    prev = [] if k == 1 else [c / round_label(f"f4/{h}", k - 1)]
+    dossier = dossier_of(conv, h, k)
     if write:
-        f3.mkdir(parents=True, exist_ok=True)
-        (f3 / f"{h}.md").write_text(hypothesis_card().replace("H-000", h), encoding="utf-8")
+        (f3 if k == 1 else f4).mkdir(parents=True, exist_ok=k == 1)
+        dossier.write_text(hypothesis_card().replace("H-000", h), encoding="utf-8")
     owner = owner_id or prof["f3"][0]
     check = next((r for r in prof["f3"][1:] if r not in (C.ROLES["adversary"], C.ROLES["metrologist"], owner)), C.ROLES["logician"])
     adv, dbg, arb = C.ROLES["adversary"], C.ROLES["debugger"], C.ROLES["arbiter"]
@@ -2462,80 +3052,230 @@ def _branch_briefs(conv: Convening, h: str, owner_id: str | None, prof: dict, wr
     checks = f4 / f"01-{adv}" / n("COUNTERCHECKS.md")
     defects = f4 / "02-debugger" / n("DEFECTS.md")
     auditor = inv if inv not in (owner, check, C.ROLES["metrologist"], adv) else dbg
+    f3_ = [f3] + prev   # what every brief of f4 reads of the branch: f3, and the previous round
+    # ENG-20: G3 wants the line «decides: yes|no» in every PREDICTIONS.md of f3, so every f3 brief asks for it, the
+    # companions' as the owner's (whose mission already says so).
+    decides = " " + mission("f3_predictions")
     plan = [
         (f3 / f"01-{owner}", owner, "f3", "SOLUTION.md", mission("owner_solution", h=h), base_in, LIMIT_BRANCH),
-        (f3 / f"02-{check}", check, "f3", "VERIFICATION.md", mission("proof", h=h), base_in + [sol], LIMIT_BRANCH),
+        (f3 / f"02-{check}", check, "f3", "VERIFICATION.md", mission("proof", h=h) + decides, base_in + [sol],
+         LIMIT_BRANCH),
         (f3 / f"03-{C.ROLES['metrologist']}", C.ROLES["metrologist"], "f3", "MEASUREMENT_PLAN.md",
-         mission("measurement_plan", h=h), base_in + [sol], 30),
-        (f3 / f"04-{adv}", adv, "f3", "ATTACK.md", mission("attack", h=h), base_in + [sol], 30),
-        (f4 / f"00-{owner}", owner, "f4", "REVISION.md", mission("owner_revision", h=h),
-         base_in + [f3, f4 / f"01-{adv}", f4 / "02-debugger"], LIMIT_BRANCH),
-        (f4 / f"01-{adv}", adv, "f4", "COUNTERCHECKS.md", mission("counterchecks", h=h), base_in + [f3], LIMIT_BRANCH),
-        (f4 / "02-debugger", dbg, "f4", "DEFECTS.md", mission("defects", h=h), base_in + [f3, f4 / f"01-{adv}"],
+         mission("measurement_plan", h=h) + decides, base_in + [sol], 30),
+        (f3 / f"04-{adv}", adv, "f3", "ATTACK.md", mission("attack", h=h) + decides, base_in + [sol], 30),
+    ] if k == 1 else []
+    plan += [
+        (f4 / f"00-{owner}", owner, "f4", F4_OUTPUTS["00"], mission("owner_revision", h=h),
+         base_in + f3_ + [f4 / f"01-{adv}", f4 / "02-debugger"], LIMIT_BRANCH),
+        (f4 / f"01-{adv}", adv, "f4", F4_OUTPUTS["01"], mission("counterchecks", h=h), base_in + f3_, LIMIT_BRANCH),
+        (f4 / "02-debugger", dbg, "f4", F4_OUTPUTS["02"], mission("defects", h=h), base_in + f3_ + [f4 / f"01-{adv}"],
          LIMIT_F1),
     ]
     for i, role in enumerate([r for r in prof["f4"] if r not in (adv, dbg)], start=3):
-        plan.append((f4 / f"{i:02d}-{role}", role, "f4", "MEASUREMENTS.md", mission("proof_contribution", h=h),
-                     base_in + [f3, f4 / f"01-{adv}"], LIMIT_F1))
+        plan.append((f4 / f"{i:02d}-{role}", role, "f4", F4_MEASUREMENTS, mission("proof_contribution", h=h),
+                     base_in + f3_ + [f4 / f"01-{adv}"], LIMIT_F1))
     plan += [
-        (f4 / f"08-{auditor}", auditor, "f4", "HIDDEN_ASSUMPTIONS.md", mission("hidden_assumption_audit", h=h),
-         base_in + [f3, checks, defects], 30),
-        (f4 / f"09-{arb}", arb, "f4", "VERDICT.md", mission("verdict", h=h, dossier=f3 / f"{h}.md"),
-         base_in + [f3, f4], 30),
+        (f4 / f"08-{auditor}", auditor, "f4", F4_OUTPUTS["08"], mission("hidden_assumption_audit", h=h),
+         base_in + f3_ + [checks, defects], 30),
+        (f4 / f"09-{arb}", arb, "f4", F4_OUTPUTS["09"], mission("verdict", h=h, dossier=dossier),
+         base_in + f3_ + [f4], 30),
     ]
     out = {}
     for folder, role, phase, output, text, inputs, minutes in plan:
+        if phase == "f4":
+            text += _f4_notes(conv, h, k, f4, prev, output, rules)
         if write:
             brief(conv, folder, role, phase, output, text, inputs, minutes=minutes, h=h)
         out[folder / n("TASK.md")] = brief_text(conv, folder, role, phase, output, text, inputs, minutes=minutes, h=h)
     return out
 
 
-def _sentinel_brief(conv: Convening, cat: dict) -> Path | None:
-    """The brief of the sentinel (ENG-5), in a classic or a full with at least two funded branches: a role drawn
-    with the seed among those in no lane of f1 and in no branch team."""
+def _f4_notes(conv: Convening, h: str, k: int, folder: Path, prev: list[Path], output: str, rules: int) -> str:
+    """What a brief of f4 says besides its mission: the round, for a round after the first; where the predictions of
+    its role go and what they are ordered against (COORD-1). Under the rules 3, the category of its folder: before
+    the counterchecks for the counterchecks' own, against its own output for every role that works after them (and
+    the revision after the counterchecks and the defects, COORD-2). Under the older rules, which order every
+    PREDICTIONS.md of f4 before the counterchecks, a role that works after them is asked for none."""
+    notes = []
+    if k > 1:
+        notes.append(mission("f4_round", k=k, h=h, previous=prev[0], folder=folder))
+    if rules >= 3:
+        notes.append(mission("predictions_before" if output == F4_OUTPUTS["01"] else "predictions_after",
+                             output=conv.name(output)))
+        if output == F4_OUTPUTS["00"]:
+            notes.append(mission("revision_order"))
+        if output == F4_OUTPUTS["09"]:   # the arbiter assigns the final K#: from the registry (ENG-15)
+            notes.append(k_note(conv))
+    elif output != F4_OUTPUTS["01"]:
+        notes.append(mission("predictions_after_old", rules=rules, output=conv.name(output)))
+    return "".join(" " + x for x in notes)
+
+
+def k_note(conv: Convening) -> str:
+    """What a brief of the rules 3 says of the K# (ENG-15): the coordinator allocates them in the registry."""
+    return mission("k_registry", registry=f"`{conv.file('CONTRADICTIONS.jsonl')}`")
+
+
+def _convened(conv: Convening, cat: dict, skip: Path | None = None) -> set[str]:
+    """What a sentinel of the rules 3 is none of: every role that a brief of the convening names in its agent line
+    (the lanes, f2, the teams of every round, the closures, the other sentinels; not the brief in `skip`, which is
+    being rewritten), the folders NN-<role> of every branch, the fixed roles of the branches and every role of the
+    profile, so that no later brief convenes it either."""
+    c, m = conv.folder, conv.m
+    used = set(m["f1"]) | {v["role"] for v in m["f1"].values() if v.get("role")}
+    used |= {C.ROLES[x] for x in ("arbiter", "adversary", "debugger", "metrologist", "inverter")}
+    prof = cat.get("profiles", {}).get(m["profile"], {})
+    for key in ("A", "B", "translates", "f3", "f4"):
+        used |= set(prof.get(key, []))
+    for task in _own(c, conv.name("TASK.md")):
+        if skip is None or task.parent != skip:
+            used |= {brief_agent(task)} - {None}
+    for h in all_branches(conv):
+        for f in [c / "f3" / h] + [f4_dir(conv, h, j) for j in f4_rounds(conv, h)]:
+            if f.is_dir():
+                used |= {_role_of(x.name) for x in f.iterdir() if x.is_dir() and re.match(r"\d+-", x.name)}
+    return used
+
+
+def _draw_sentinel(conv: Convening, cat: dict, skip: Path | None = None) -> tuple[str, str]:
+    """A sentinel of the rules 3 (ENG-16), and the record of its draw for its brief: drawn with the convening's seed
+    among the free roles (those `_convened` does not hold) fit for the question, a keyword of their own in it, as
+    `roles --question` finds them, the professionals first; among all the free roles when none is fit; the logician
+    when none is free."""
+    m = conv.m
+    used = _convened(conv, cat, skip)
+    free = [r for r in cat["roles"] if r["id"] not in used]
+    hits = {r["id"]: keyword_hits(r, m.get("question") or "") for r in free}
+    fit = [r for r in free if hits[r["id"]]]
+
+    def pool_of(rs):
+        return sorted(r["id"] for r in ([r for r in rs if r.get("type", "professional") == "professional"] or rs))
+
+    seed = m.get("seed")
+    if fit:
+        pool = pool_of(fit)
+        role = random.Random(seed).choice(pool)
+        return role, mission("sentinel_draw", seed=seed, n=len(pool), pool=", ".join(pool), words=", ".join(hits[role]))
+    if free:
+        pool = pool_of(free)
+        return random.Random(seed).choice(pool), mission("sentinel_draw_unfit", seed=seed, n=len(pool))
+    return C.ROLES["logician"], mission("sentinel_draw_none", role=C.ROLES["logician"])
+
+
+def _phase_sentinel(conv: Convening, cat: dict, phase: str, inputs: list[Path]) -> Path | None:
+    """The brief of the sentinel of f2, f3 or f4 (ENG-17), in <phase>/00-sentinel/, written once: a brief already
+    there is never rewritten, so its draw stays as recorded and the gate that binds its folder holds."""
+    if sentinel_task(conv, phase):
+        return None
+    role, record = _draw_sentinel(conv, cat)
+    text = " ".join([mission(f"sentinel_{phase}"), record, k_note(conv)])
+    return brief(conv, conv.folder / phase / conv.name("00-sentinel"), role, phase, "SENTINEL.md", text, inputs,
+                 minutes=20)
+
+
+def _phase_sentinels(conv: Convening, cat: dict, f5k: int) -> None:
+    """The sentinels of f3 and f4 (ENG-17), briefed by select or fund under the rules 3 in a classic or a full with at
+    least two funded branches, before any G5: the first G5 binds their folders, so none is written after it (a later
+    closure has its own sentinel). A round opened by repin has none of its own: the next closure's sentinel reads it."""
+    c, m, n = conv.folder, conv.m, conv.name
+    if level(conv) < 3 or f5k > 1 or m["strategy"] not in ("classic", "full") or len(branches(conv)) < 2:
+        return
+    base = [conv.file("CONTRACT.md")] + gated_amendments(conv) + [c / "f2" / n("05-selection") / n("SELECTION.md")]
+    _phase_sentinel(conv, cat, "f3", base + [c / "f3"])
+    _phase_sentinel(conv, cat, "f4", base + [c / "f3", c / "f4"])
+
+
+def _sentinel_roles(conv: Convening) -> set[str]:
+    """The roles of the sentinels briefed by the engine: those of f3 and f4, and those of every closure."""
+    out = {brief_agent(t) for t in (sentinel_task(conv, ph) for ph in ("f3", "f4")) if t}
+    for d in conv.folder.iterdir() if conv.folder.is_dir() else []:
+        if d.is_dir() and split_label(d.name)[0] == "f5":
+            out |= {brief_agent(d / x / conv.name("TASK.md")) for x in SENTINEL_DIRS
+                    if (d / x / conv.name("TASK.md")).is_file()}
+    return out - {None}
+
+
+def _no_sentinel_owner(conv: Convening, owner_id: str | None) -> None:
+    """Under the rules 3 a sentinel stays a role that was not convened: fund and repin refuse it as an owner."""
+    if owner_id and level(conv) >= 3 and owner_id in _sentinel_roles(conv):
+        raise Error(f"{owner_id} is a sentinel of this convening: a sentinel is a role that was not convened, so it "
+                    f"owns no branch (choose another --owner)")
+
+
+def _sentinel_brief(conv: Convening, cat: dict, k: int = 1) -> Path | None:
+    """The brief of the sentinel (ENG-5) beside the k-th closure, in a classic or a full with at least two funded
+    branches: a role drawn with the seed among those in no lane of f1, in no branch team of any round and not the
+    sentinel of an earlier closure. Under the rules 3 the draw of `_draw_sentinel`, recorded in the brief."""
     c, m, n = conv.folder, conv.m, conv.name
     bs = branches(conv)
     if m["strategy"] not in ("classic", "full") or len(bs) < 2:
         return None
+    inputs = ([conv.file("CONTRACT.md")] + gated_amendments(conv)
+              + [c / "f2" / n("05-selection") / n("SELECTION.md"), c / "f3", c / "f4"] + _round_dirs(conv))
+    if level(conv) >= 3:
+        folder = f5_dir(conv, k) / n("00-sentinel")
+        role, record = _draw_sentinel(conv, cat, skip=folder)
+        return brief(conv, folder, role, "f5", "SENTINEL.md", " ".join([mission("sentinel"), record, k_note(conv)]),
+                     inputs, minutes=20)
     used = set(m["f1"]) | {C.ROLES["arbiter"]}
     for h in bs:
-        for f in (c / "f3" / h, c / "f4" / h):
+        for f in [c / "f3" / h] + [f4_dir(conv, h, j) for j in f4_rounds(conv, h)]:
             if f.is_dir():
                 used |= {_role_of(x.name) for x in f.iterdir() if x.is_dir() and re.match(r"\d+-", x.name)}
+    agents = tuple(f"{p}-" for p in dict.fromkeys((prefix(), *C.AGENT_PREFIXES)))
+    for j in range(1, k):
+        task = f5_dir(conv, j) / n("00-sentinel") / n("TASK.md")
+        if task.is_file():
+            text = task.read_text(encoding="utf-8", errors="replace")
+            used |= {_role_id(x) for x in re.findall(r"`([^`/\s]+)`", text) if x.startswith(agents)}
     free = [r for r in cat["roles"] if r["id"] not in used]
     pool = sorted(r["id"] for r in free if r.get("type", "professional") == "professional") or sorted(
         r["id"] for r in free) or [C.ROLES["logician"]]
     role = random.Random(m["seed"]).choice(pool)
-    inputs = ([conv.file("CONTRACT.md")] + gated_amendments(conv)
-              + [c / "f2" / n("05-selection") / n("SELECTION.md"), c / "f3", c / "f4"])
-    return brief(conv, c / "f5" / n("00-sentinel"), role, "f5", "SENTINEL.md", mission("sentinel"), inputs, minutes=20)
+    return brief(conv, f5_dir(conv, k) / n("00-sentinel"), role, "f5", "SENTINEL.md", mission("sentinel"), inputs,
+                 minutes=20)
 
 
-def _closure_brief(conv: Convening) -> Path:
-    """The brief of the closure (ENG-9): every input the arbiter needs, and the output where G5 looks for it."""
+def _closure_brief(conv: Convening, k: int = 1) -> Path:
+    """The brief of the k-th closure (ENG-9): every input the arbiter needs, and the output where G5 looks for it;
+    a later closure goes beside the first, in f5_<k>/, and reads the earlier ones."""
     c, m, n = conv.folder, conv.m, conv.name
     try:
         prof = catalog()["profiles"].get(m["profile"], {"f3": [C.ROLES["logician"]]})
     except (Error, OSError, ValueError):
         prof = {"f3": [C.ROLES["logician"]]}
     inputs = [conv.file("CONTRACT.md")] + gated_amendments(conv) + [
-        c / "f2" / n("05-selection") / n("SELECTION.md")]
+        c / "f2" / n("05-selection") / n("SELECTION.md")] + [f5_dir(conv, j) / n("CLOSURE.md") for j in range(1, k)]
     for h in all_branches(conv):
         if _early(conv, h):
             inputs.append(c / "f3" / h / n("EARLY_CLOSURE.json"))
         elif h in branches(conv):
-            # The revision and the sentinel only where they were briefed (a convening of 5.0 has neither).
-            revision = c / "f4" / h / f"00-{owner_of(conv, h, prof)}"
-            inputs += [dossier_of(conv, h)] + ([revision / n("REVISION.md")] if (revision / n("TASK.md")).is_file()
-                                               else []) + [arbiter_verdict(conv, h)]
-    sentinel = c / "f5" / n("00-sentinel")
+            # The revision and the sentinel only where they were briefed (a convening of 5.0 has neither); the
+            # dossier, the revision and the verdict of the branch's latest round.
+            revision = f4_dir(conv, h) / f"00-{owner_of(conv, h, prof)}"
+            inputs += [dossier_of(conv, h, f4_round(conv, h))] + (
+                [revision / n("REVISION.md")] if (revision / n("TASK.md")).is_file() else []
+            ) + [arbiter_verdict(conv, h)]
+    # The sentinels of f2, f3 and f4 where the engine briefed them (ENG-17), then the closure's own.
+    inputs += [t.parent / n("SENTINEL.md") for t in (sentinel_task(conv, ph) for ph in PHASE_SENTINELS) if t]
+    sentinel = f5_dir(conv, k) / n("00-sentinel")
     if m["strategy"] in ("classic", "full") and len(branches(conv)) >= 2 and (sentinel / n("TASK.md")).is_file():
         inputs.append(sentinel / n("SENTINEL.md"))
-    inputs += [c / "GATE_*.json", c / "f3", c / "f4"]
-    closure = c / "f5" / n("CLOSURE.md")
-    return brief(conv, c / "f5" / f"01-{C.ROLES['arbiter']}", C.ROLES["arbiter"], "f5", "CLOSURE.md",
-                 mission("closure", closure_file=closure), inputs, minutes=30, output_path=closure)
+    inputs += [c / "GATE_*.json", c / "f3", c / "f4"] + _round_dirs(conv)
+    closure = f5_dir(conv, k) / n("CLOSURE.md")
+    # ENG-23: what G5 checks for a non-closure, and the branches it checks it on: every funded branch not closed
+    # early, and a radical neither funded nor closed (each, unless its G4 holds by the closure).
+    listed = [h for h in branches(conv) if not _early(conv, h)]
+    r = m.get("radical")
+    if r and r not in branches(conv) and not _early(conv, r):
+        listed.append(mission("closure_radical", h=r))
+    text = mission("closure", closure_file=closure,
+                   open=mission("closure_open", branches=", ".join(listed) or mission("closure_none")))
+    if level(conv) >= 3:
+        text += " " + k_note(conv) + " " + mission("k_closure", registry=f"`{conv.file('CONTRADICTIONS.jsonl')}`",
+                                                   closure_file=f"`{closure}`")
+    return brief(conv, f5_dir(conv, k) / f"01-{C.ROLES['arbiter']}", C.ROLES["arbiter"], "f5", "CLOSURE.md",
+                 text, inputs, minutes=30, output_path=closure)
 
 
 def select(ns) -> None:
@@ -2547,6 +3287,12 @@ def select(ns) -> None:
         raise Error("the gate f2 is not approved or no longer valid")
     chosen = [norm_id(h) for h in ns.hypotheses]
     radical = norm_id(ns.radical) if ns.radical else None
+    # Once (ENG-22): a second select would write the empty card over a completed dossier and the briefs over the
+    # branches' work, and would replace the recorded selection.
+    there = [h for h in chosen + ([radical] if radical else []) if (c / "f3" / h).exists()]
+    if m["selected"] or m.get("radical") or there:
+        raise Error(f"the convening already has its selection ({', '.join(all_branches(conv) or there)}): select runs "
+                    f"once; fund C H-00x briefs the radical, repin C H-00x opens a new round of a branch")
     if len(chosen) > 3:
         raise Error("at most three H# plus a radical one")
     allowed = set(ids_in(c / "f2" / n("03-triage") / n("TRIAGE.md"))) & set(
@@ -2560,6 +3306,7 @@ def select(ns) -> None:
     if owner_id and owner_id not in {r["id"] for r in cat["roles"]}:
         raise Error(f"unknown role: {ns.owner}")
     hypothesis_card()
+    f5k = f5_open(conv, "selected")
     lvl = level(conv)
     # Under the rules 2 the radical is only recorded: `fund` briefs it (ENG-8).
     for h in chosen + ([radical] if radical and lvl < 2 else []):
@@ -2571,8 +3318,9 @@ def select(ns) -> None:
         else:
             m.pop("radical_funded", None)
     conv.save()
-    _sentinel_brief(conv, cat)
-    _closure_brief(conv)
+    _phase_sentinels(conv, cat, f5k)
+    _sentinel_brief(conv, cat, f5k)
+    _closure_brief(conv, f5k)
     print(T("branches_open", ids=", ".join(branches(conv))))
     if radical and not funded(conv):
         print(T("radical_recorded", h=radical))
@@ -2589,8 +3337,7 @@ def fund(ns) -> None:
         raise Error("the gate f2 is not approved or no longer valid")
     if h != m.get("radical"):
         raise Error(f"{h} is not the radical branch of the selection")
-    if read_gate(conv, "f5") is not None:
-        raise Error("the convening has its gate f5: no branch is funded after it")
+    f5k = f5_open(conv, "funded")   # after a G5 «not closed» that holds, the next closure (5.3)
     if funded(conv):
         raise Error(f"{h} is already funded")
     if _early(conv, h):
@@ -2600,11 +3347,13 @@ def fund(ns) -> None:
     owner_id = _role_id(ns.owner) if ns.owner else None
     if owner_id and owner_id not in {r["id"] for r in cat["roles"]}:
         raise Error(f"unknown role: {ns.owner}")
+    _no_sentinel_owner(conv, owner_id)
     _branch_briefs(conv, h, owner_id, prof)
     m["radical_funded"] = True
     conv.save()
-    _sentinel_brief(conv, cat)
-    _closure_brief(conv)
+    _phase_sentinels(conv, cat, f5k)
+    _sentinel_brief(conv, cat, f5k)
+    _closure_brief(conv, f5k)
     print(T("branch_funded", h=h))
     notice = translation_notice(cat, BRIEFED)
     if notice:
@@ -2636,8 +3385,7 @@ def close_branch(ns) -> None:
     h = norm_id(ns.hypothesis)
     if h not in all_branches(conv):
         raise Error(f"{h} is not selected")
-    if read_gate(conv, "f5") is not None:
-        raise Error("the convening has its gate f5: no branch is closed after it")
+    f5k = f5_open(conv, "closed")   # after a G5 «not closed» that holds, the next closure (5.3)
     p = conv.folder / "f3" / h / conv.name("EARLY_CLOSURE.json")
     test = (ns.deciding_test or "").strip()
     if p.exists():
@@ -2648,7 +3396,7 @@ def close_branch(ns) -> None:
             conv.write_json(p, data, "early_closure")
             print(T("deciding_test_added", h=h))
             if m["strategy"] in ("classic", "full"):
-                _closure_brief(conv)
+                _closure_brief(conv, f5k)
             return
         raise Error(f"{h} is already closed")
     if valid(conv, f"f3/{h}"):
@@ -2671,7 +3419,43 @@ def close_branch(ns) -> None:
             _remove_unused_briefs(conv, h)
         print(T("branch_closed", h=h))
     if m["strategy"] in ("classic", "full"):
-        _closure_brief(conv)
+        _closure_brief(conv, f5k)
+
+
+def repin(ns) -> None:
+    """Opens the next round of the f4 of a branch, on a revised pin (ENG-18): f4_<n>/<H#>/ with every brief of f4
+    and the dossier of the round, from the card. The earlier rounds, the f3 dossier, the seals and the gates are not
+    touched; the G4 of the round runs under the rules 3 and binds and counts only the round's own files."""
+    conv = Convening.load(Path(ns.C).resolve())
+    m = conv.m
+    h = norm_id(ns.hypothesis)
+    if m["strategy"] in ("single", "fan-out"):
+        raise Error("in the single and in the fan-out there are no branches to re-pin")
+    if not valid(conv, "f2"):
+        raise Error("the gate f2 is not approved or no longer valid")
+    if h not in branches(conv):
+        raise Error(f"{h} is not a funded branch" + (f": fund C {h} first" if h == m.get("radical") else ""))
+    if _early(conv, h):
+        raise Error(f"{h} is closed early: it has no new round")
+    f5k = f5_open(conv, "re-pinned")
+    cat = catalog()
+    prof = cat["profiles"][m["profile"]]
+    owner_id = _role_id(ns.owner) if ns.owner else None
+    if owner_id and owner_id not in {r["id"] for r in cat["roles"]}:
+        raise Error(f"unknown role: {ns.owner}")
+    _no_sentinel_owner(conv, owner_id)
+    hypothesis_card()
+    k = f4_round(conv, h) + 1
+    folder = f4_dir(conv, h, k)
+    if folder.exists():
+        raise Error(f"{folder} already exists")
+    _branch_briefs(conv, h, owner_id or owner_of(conv, h, prof), prof, k=k, rules=max(3, level(conv)))
+    _sentinel_brief(conv, cat, f5k)
+    _closure_brief(conv, f5k)
+    print(T("repinned", h=h, k=k, path=folder))
+    notice = translation_notice(cat, BRIEFED)
+    if notice:
+        print(notice)
 
 
 def status(ns) -> None:
@@ -2687,37 +3471,47 @@ def status(ns) -> None:
         print(T("status_clash", text=x))
     phases += ["f1"] + ([] if m["strategy"] in ("single", "fan-out") else ["f2"])
     for h in all_branches(conv):
-        phases += [f"f3/{h}"] + ([f"f4/{h}"] if h in branches(conv) else [])
+        phases += [f"f3/{h}"] + ([round_label(f"f4/{h}", k) for k in f4_rounds(conv, h)] if h in branches(conv)
+                                 else [])
     if m["strategy"] not in ("single", "fan-out"):
-        phases.append("f5")
-    for phase in phases:
+        # Every G5 by ordinal, and the closure that a G5 «not closed» opened, still to approve.
+        phases += [round_label("f5", k) for k in g5_ordinals(conv)] or ["f5"]
+        last = latest_g5(conv)
+        if last and g5_open(conv, *last) and f5_dir(conv, last[0] + 1).exists():
+            phases.append(round_label("f5", last[0] + 1))
+    for label in phases:
+        phase, k = split_label(label)
         if phase.startswith("f3/") and _early(conv, phase[3:]):
             print(T("status_early", phase=phase))
             continue
         if phase.startswith("f3/") and phase[3:] not in branches(conv):
             print(T("status_not_funded", phase=phase, h=phase[3:]))
             continue
-        g = read_gate(conv, phase)
+        g = read_gate(conv, label)
         if g is None:
-            print(T("status_pending", phase=phase))
+            print(T("status_pending", phase=label))
             continue
         if phase.startswith("f3/"):
-            # A G3 of the rules 1 holds without its dossier once its G4 was approved under the rules 2 (ENG-1).
-            g4 = read_gate(conv, "f4/" + phase[3:])
-            ok = g3_holds(conv, phase[3:], max(lvl, gate_rules(g4) if g4 else 1))
+            # A G3 of the rules 1 holds without its dossier once a G4 of the branch was approved under the rules 2.
+            g4s = [read_gate(conv, round_label("f4/" + phase[3:], j)) for j in f4_rounds(conv, phase[3:])]
+            ok = g3_holds(conv, phase[3:], max([lvl] + [gate_rules(x) for x in g4s if x]))
         else:
-            ok = valid(conv, phase)
+            ok = valid(conv, label)
         closed = g.get("closed")
         if closed is None and phase == "f5" and gate_rules(g) < 2:
-            closed = outcome_of(conv) != "not closed"   # a G5 of the rules 1 records no «closed»
+            closed = outcome_of(conv, k) != "not closed"   # a G5 of the rules 1 records no «closed»
         if ok and phase == "f5" and closed is False:
-            print(T("status_not_closed", phase=phase))
+            print(T("status_not_closed", phase=label))
         else:
-            print(T("status_approved" if ok else "status_invalid", phase=phase))
+            print(T("status_approved" if ok else "status_invalid", phase=label))
+    ks = contradictions(conv)   # ENG-15: the K# of the convening, when it has any
+    if ks:
+        print(T("status_contradictions", ids=", ".join(ks), path=conv.file("CONTRADICTIONS.jsonl").name))
 
 
 def build_parser(al: dict) -> argparse.ArgumentParser:
-    p = A.parser(prog="convene", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = A.parser(prog="convene", description=__doc__.replace("swarmer:", f"swarmer {swarmer_version()}:", 1),
+                 formatter_class=argparse.RawDescriptionHelpFormatter)
     add = A.subparsers(p, al)
     q = add("roles")
     A.arg(q, al, "--question")
@@ -2740,11 +3534,15 @@ def build_parser(al: dict) -> argparse.ArgumentParser:
     A.arg(q, al, "--notes", required=True)
     A.arg(q, al, "--not-delivered")
     A.arg(q, al, "--verify", action="store_true")
-    A.arg(q, al, "--rules", type=int, choices=(1, 2),
+    A.arg(q, al, "--rules", type=int, choices=(1, 2, 3),
           help="the rules of this gate, when higher than the convening's (gate_rules in the manifest)")
     q = add("seal")
     q.add_argument("C")
     q.add_argument("file", nargs="+")
+    q = add("contradiction")
+    q.add_argument("C")
+    q.add_argument("file", nargs="+")
+    A.arg(q, al, "--question", required=True, help="the binary question of the contradiction")
     q = add("select")
     q.add_argument("C")
     q.add_argument("hypotheses", nargs="+")
@@ -2760,6 +3558,10 @@ def build_parser(al: dict) -> argparse.ArgumentParser:
     A.arg(q, al, "--reason", required=True)
     A.arg(q, al, "--deciding-test", help="the test that would decide the branch (required under the rules 2 for a "
                                          "funded branch)")
+    q = add("repin")
+    q.add_argument("C")
+    q.add_argument("hypothesis")
+    A.arg(q, al, "--owner", metavar="ID")
     q = add("status")
     q.add_argument("C")
     return p
@@ -2769,7 +3571,8 @@ def main(argv=None) -> None:
     al = A.load(BASE)
     ns = build_parser(al).parse_args(sys.argv[1:] if argv is None else argv)
     commands = {"roles": roles, "prepare": prepare, "snapshot": snapshot, "gate": gate, "seal": seal,
-                "select": select, "fund": fund, "close-branch": close_branch, "status": status}
+                "contradiction": contradiction, "select": select, "fund": fund, "close-branch": close_branch,
+                "repin": repin, "status": status}
     try:
         commands[ns.command](ns)
     except (C.Error, OSError, ValueError) as e:
@@ -2781,7 +3584,7 @@ if __name__ == "__main__":
     main()
 #==== swarmer.sh: file engine/extensions.py ====
 #!/usr/bin/env python3
-"""swarmer 5.2: the extensions of the swarm.
+"""swarmer: the extensions of the swarm (since 5.2).
 
 An extension lives in `<swarm>/extensions/<name>/` (the repository has the same layout):
 - `extension.json`: name, version, requires (swarmer and other extensions), commands (command → entry module),
@@ -3049,7 +3852,7 @@ def block(swarm, name: str, lang: str, ref: str) -> str:
     raise Error(f"{FOLDER}/{name}/docs/{lang}/{doc}: the block «{b}» is missing")
 #==== swarmer.sh: file engine/generate.py ====
 #!/usr/bin/env python3
-"""The generator of swarmer 5.2: from the database, the documents of the language and the local overrides it
+"""The generator of swarmer: from the database, the documents of the language and the local overrides it
 generates, in the project root, the catalog, the agents, the skills and the documents in the chosen language, for
 every active target (the coding agents that read them: Claude Code, Codex, Antigravity, Gemini CLI, and the open
 standard AGENTS.md + Agent Skills that many other tools read).
@@ -3086,7 +3889,11 @@ import extensions as E  # noqa: E402
 import paths as S  # noqa: E402
 import professionals as P  # noqa: E402
 
-VERSION = "5.2"
+# The version of swarmer, written here only (ENG-14): the swarm's VERSION, the catalog, the manifest of a convening
+# and `convene --help` read it from here; plugin.json (N.M.patch, the package) and the documents agree with it, as
+# tests/test_robustness.py checks. N.M: the form of a database entry's «since version» and of an extension's
+# requirement.
+VERSION = "5.3"
 STRATEGIES = P.STRATEGIES
 # The costly strategies start only on an explicit request of the user.
 ONLY_USER = {"full", "plenary"}
@@ -3939,7 +4746,7 @@ def remove(root: Path) -> list[str]:
     return removed
 #==== swarmer.sh: file engine/generate_agents.py ====
 #!/usr/bin/env python3
-"""swarmer 5.0: the command of the 3.x, `python3 -I swarmer/generate_agents.py`, with its options.
+"""swarmer: the command of the 3.x, `python3 -I swarmer/generate_agents.py`, with its options.
 
     python3 -I swarmer/generate_agents.py                    # regenerates everything in the project
     python3 -I swarmer/generate_agents.py --check            # exits with 1 if something is not aligned to the sources
@@ -3999,7 +4806,7 @@ if __name__ == "__main__":
     main()
 #==== swarmer.sh: file engine/head.sh ====
 #!/usr/bin/env bash
-#: SWARMER, A UNIVERSAL AGENT SWARM FOR CODING AGENTS, version 5.2
+#: SWARMER, A UNIVERSAL AGENT SWARM FOR CODING AGENTS, version 5.3
 #: (Claude Code, Codex, Antigravity, Gemini CLI, and every tool that reads AGENTS.md and Agent Skills)
 #:
 #: One file: the swarm's documents, its database of professionals and its engine, plus the commands to install
@@ -4282,7 +5089,7 @@ main() {
 main "$@"
 #==== swarmer.sh: file engine/jury.py ====
 #!/usr/bin/env python3
-"""swarmer 5.0, protocol G (JURY.md): counts the votes of a jury and the threshold of the new experts.
+"""swarmer, protocol G (JURY.md): counts the votes of a jury and the threshold of the new experts.
 
     python3 -I swarmer/jury.py count <jury folder> <round>
     python3 -I swarmer/jury.py requests [swarmer/EXPERT_REQUESTS.md]
@@ -5093,10 +5900,14 @@ def previous(j: Jury, e, k):
     An option already REJECTED is not proposed again; a second TO_REPROPOSE on the same decision becomes TO_USER."""
     if k != 0:
         return
+    # The parent of the folder as given, made absolute first (ENG-24): the parent of «.» or «..» is «.», which read
+    # the previous juries inside the jury itself. Lexically, as os.path.abspath does: an absolute folder reads its
+    # previous juries where it did before, also through a symbolic link.
+    parent = Path(os.path.abspath(j.folder)).parent
     for rel in j.g.get("previous", []):
         if Path(rel).is_absolute() or ".." in Path(rel).parts or "/" in rel:
             raise Error(f"previous: «{rel}» not allowed")
-        c = (j.folder.parent / rel).resolve()
+        c = (parent / rel).resolve()
         outs = outcome_files(c)
         if not outs:
             raise Error(f"previous: {rel} has no outcome")
@@ -5319,7 +6130,7 @@ if __name__ == "__main__":
     main()
 #==== swarmer.sh: file engine/paths.py ====
 #!/usr/bin/env python3
-"""swarmer 5.0: paths, safe writes, the local folder, the notes of the generated files and the checks of the public
+"""swarmer: paths, safe writes, the local folder, the notes of the generated files and the checks of the public
 material.
 
 One module, used by the generator and by the command line, so that the rules are the same everywhere:
@@ -6115,7 +6926,7 @@ if __name__ == "__main__":
     main()
 #==== swarmer.sh: file engine/swarmer.py ====
 #!/usr/bin/env python3
-"""swarmer 5.2: the command line. Usually run as `bash swarmer/swarmer.sh <command>`; `help` says everything.
+"""swarmer: the command line. Usually run as `bash swarmer/swarmer.sh <command>`; `help` says everything.
 
 Standard library only. It launches no agent: it starts the coding agent of the project (Claude Code, Codex,
 Antigravity or Gemini CLI) with the skill of the strategy, or prepares,
@@ -6417,9 +7228,9 @@ def known_roles_ok() -> None:
 
 def alias_stub(alias: str, target: str) -> bytes:
     if alias.endswith(".sh"):
-        return (f"#!/usr/bin/env bash\n# swarmer 5.0: an alias of {target}.\n"
+        return (f"#!/usr/bin/env bash\n# swarmer: an alias of {target}.\n"
                 f'exec bash "$(dirname "$0")/{target}" "$@"\n').encode()
-    return (f'#!/usr/bin/env python3\n"""swarmer 5.0: an alias of {target}."""\nimport runpy\nimport sys\n'
+    return (f'#!/usr/bin/env python3\n"""swarmer: an alias of {target}."""\nimport runpy\nimport sys\n'
             f"from pathlib import Path\n\nm = Path(__file__).resolve().parent / \"{target}\"\nsys.argv[0] = str(m)\n"
             f"runpy.run_path(str(m), run_name=\"__main__\")\n").encode()
 
@@ -13391,14 +14202,16 @@ You are at the root of the user's project. The agents have the tools and permiss
 | command | what it does |
 |---|---|
 | `roles [--question TEXT]` | the roles with the core; with `--question`, only those whose keywords appear in the text, and the profiles |
-| `prepare --name N --strategy S --profile P --question TEXT [--roles a,b] [--dest D] [--seed N] [--n N --form F --rule R]` | the skeleton: `MANIFEST.json`, `CONTRACT.md` to fill in, the phase folders, the briefs of f0 and f1 (lanes with random names, with the canary); prints the path of the lane map, which is yours alone |
+| `prepare --name N --strategy S --profile P --question TEXT [--roles a,b] [--dest D] [--seed N] [--n N --form F --rule R]` | the skeleton: `MANIFEST.json`, `CONTRACT.md` to fill in, the phase folders, the briefs of f0 and f1 (lanes with random names, with the canary; in a fan-out race or mixed, a canary per arm) and, in a classic or a full, of f2 with its sentinel (`f2/00-sentinel/`, delivered before G2); prints the path of the lane map, which is yours alone |
 | `snapshot C` | as soon as the lanes have delivered, before reading them: records whether each file was read after its last write |
-| `gate C PHASE --notes TEXT [--not-delivered …] [--verify] [--rules 2]` | checks the gate conditions (f0, A1 for an amendment, f1, f2, f3/H-001, f4/H-001, f5) and writes `GATE_<phase>.json` with the sha256 of the files and the rules it was checked under; `--verify` redoes the checks without writing; `--rules 2` applies the rules 2 of the gates to this gate of an older convening |
-| `seal C FILE…` | time and sha256 in `SEALS.jsonl`: the triage after the signatures, the amendments, the predictions born in f4 before their tests |
-| `select C H-001 [H-002 H-003] [--radical H-00x] [--owner ID]` | after G2, only H# from the triage: opens the f3 and f4 branches with the briefs and the dossier, and writes the briefs of the sentinel and of the closure; under the rules 2 the radical is only recorded; `--owner` changes the role that writes the solution (normally the first of f3 in the profile) |
-| `fund C H-00x [--owner ID]` | under the rules 2: gives the radical branch its dossier and its briefs |
+| `gate C PHASE --notes TEXT [--not-delivered …] [--verify] [--rules 2\|3]` | checks the gate conditions (f0, A1 for an amendment, f1, f2, f3/H-001, f4/H-001, f5) and writes `GATE_<phase>.json` with the sha256 of the files and the rules it was checked under; `--verify` redoes the checks without writing; `--rules 2` or `--rules 3` applies those rules of the gates to this gate of an older convening (never lower than the convening's); under the rules 3 every gate checks G0 and the gated amendments again, so after G0 the contract changes only through an amendment (`AMENDMENT_1.md`, gate A1). `f4/H-001` is the branch's latest round (`GATE_f4_2_H-001.json` after a `repin`, only under the rules 3); after a G5 «not closed», `f5` is the next closure once its folder `f5_2/` exists (`GATE_f5_2.json`, created exclusively) |
+| `contradiction C FILE… --question TEXT` | allocates the next K# of the convening (`K-001`, `K-002`, …) in `CONTRADICTIONS.jsonl`, with the binary question and the files of its two sides: one numbering for every branch; `status` lists them, and under the rules 3 G5 wants each named in the closure |
+| `seal C FILE…` | time and sha256 in `SEALS.jsonl`: the triage after the signatures, the amendments, the predictions born in f4 before their tests (each block added later too); under the rules 3 also the outputs of f4 as they are delivered, `COUNTERCHECKS.md` and `DEFECTS.md` before the owner writes `REVISION.md`: G4 orders f4 by these seal times |
+| `select C H-001 [H-002 H-003] [--radical H-00x] [--owner ID]` | after G2, only H# from the triage, once: opens the f3 and f4 branches with the briefs and the dossier, and writes the briefs of the sentinel and of the closure (under the rules 3, with two funded branches, also of the sentinels of f3 and f4, once); under the rules 2 the radical is only recorded; `--owner` changes the role that writes the solution (normally the first of f3 in the profile) |
+| `fund C H-00x [--owner ID]` | under the rules 2: gives the radical branch its dossier and its briefs (and, under the rules 3, the sentinels of f3 and f4 if the branches become two); a sentinel is never an owner |
 | `close-branch C H-00x --reason TEXT [--deciding-test TEXT]` | closes a branch before G3: a radical never funded as "not funded"; a funded branch as "declared unresolved", with the test that would decide it (required under the rules 2); on a branch already declared unresolved without a test, `--deciding-test` adds it |
-| `status C` | where each phase and each branch stands |
+| `repin C H-00x [--owner ID]` | opens the next round of the f4 of a funded branch, on a revised pin: `f4_2/H-00x/` with every brief of f4, the previous round among the inputs and a dossier of its own; it changes no file of an earlier round, no seal and no gate, and rewrites the briefs of the closure |
+| `status C` | where each phase and each branch stands, every round and every G5 included |
 
 The script uses only the standard library, launches no agents and approves nothing on its own. A convening keeps the
 language it was born in: an Italian one (`MANIFESTO.json`, `CONTRATTO.md`, `CONSEGNA.md`, `f1/agente-<k>/`) keeps its
@@ -13462,7 +14275,7 @@ closest honest path, declaring it in the answer.
 | subagents | one agent per role, with the tool the environment offers (Claude Code: Agent with `subagent_type: "swarmer-<id>"`; Codex: the agent spawned by name; Antigravity: `invoke_subagent`; Gemini CLI: the tool with the subagent's name; `@swarmer-<id>` is the user's syntax, not the coordinator's) | the coordinator performs the roles one after another in the same session, each with its own brief, and writes at the top of the answer "roles performed in sequence by the coordinator: independence is reduced" |
 | parallel subagents | the independent phases in the same message, at most five at a time | one after another, in the same order as the waves |
 | model choice per role | the model written in `.swarmer/config.json` (`bash swarmer/swarmer.sh models`; it goes into the Claude Code agents, the other tools use the model of the session) | the session's model, declared |
-| shell | `convene.py` and `jury.py` prepare and check | the coordinator checks the gates against the written conditions, and declares it |
+| shell | `convene.py` and `jury.py` prepare and check | the coordinator checks the gates against the written conditions, draws the sentinels among the free roles fit for the question and numbers the K# in one list for the convening, writing the draw and the list down, and declares it |
 | writes | each agent in its own folder in `.swarmer/` | the briefs in the prompts; the answers are the deliverables |
 | structured questions to the user | the environment's tool (in Claude Code: AskUserQuestion), with the options and the recommended one first | a single clear question in the text |
 | network | reading documentation and public sources | "not verified" on what needed checking outside |
@@ -13953,8 +14766,11 @@ in the dialect of the jury.
 #==== swarmer.sh: file docs/en/PIPELINE.md ====
 # Swarm convenings: eight strategies
 
-**Status.** Version 5.2 (swarmer): the rules 2 of the gates (§«The rules of the gates»), with every gate approved
-before still valid. Version 5.0 of 16 November 2026: the strategies and rules of 4.0, with English names for
+**Status.** Version 5.3 (swarmer): the rules 3 of the gates, which read the order of f4 from the seals, and the
+rounds of a branch and of the closure (§«The rules of the gates», §«Branches, workspaces and the closure»); the
+sentinels of f2, f3 and f4 briefed by the engine (§«The sentinel»), one registry of the K# of a convening, and a
+canary per arm of a race. Version 5.2:
+the rules 2 of the gates, with every gate approved before still valid. Version 5.0 of 16 November 2026: the strategies and rules of 4.0, with English names for
 commands, files and protocol lines (§«What changes»). Version 4.0 added to the four strategies of 3.1 (single,
 classic, full, auto):
 - the **jury**, which decides a proposal by vote;
@@ -14038,7 +14854,10 @@ attempts at the same task are needed to choose one.
 2. **N** is the total number of agents, not how many run together: at most five at a time. Each agent's role
    comes from the profile, or is the one named; in a race between different roles or models, each arm is declared beforehand.
 3. **The briefs** follow "The brief, in every strategy", with the slice or the arm of the race. Each agent that
-   writes has its own folder, `.swarmer/<convening>/agent-<n>/`, or a branch or working copy of its own.
+   writes has its own folder, `.swarmer/<convening>/agent-<n>/`, or a branch or working copy of its own. In a race
+   (and in a mixed fan-out) each arm's brief starts with a canary of its own, which only the lane map knows: G1 refuses
+   a deliverable that does not start with its canary or holds another arm's, and wants the snapshot of the reads
+   (`snapshot C`) taken as soon as the arms have delivered, before reading them.
 4. **The collection.** Read only the final outcomes:
    - in slices, every slice must have an outcome; those without an outcome are uncovered and you say so;
    - in a race you apply the declared rule, never a different choice afterwards.
@@ -14111,6 +14930,21 @@ Class k starts only after the outcome of class k−1. The order of the tasks:
 
 A failure stops the branch and preserves its counterexample.
 
+**The predictions of f4** go in the `PREDICTIONS.md` of the role's folder, sealed (`seal C FILE`) before the test
+they decide. They are of two kinds, and under the rules 3 G4 orders each by the seal times of `SEALS.jsonl`, never by
+a file's mtime, which a copy or a touch moves:
+- **before the counterchecks:** those of the adversary's folder (`01-`), sealed before `COUNTERCHECKS.md` is first
+  sealed;
+- **after the counterchecks:** those of every role that works after them (the owner's revision, the debugger, the
+  measurements, V2, the arbiter), each sealed before that role's own output (`REVISION.md`, `DEFECTS.md`,
+  `MEASUREMENTS.md`, `HIDDEN_ASSUMPTIONS.md`, `VERDICT.md`) is first sealed.
+
+Every block added to a `PREDICTIONS.md` later has its own seal before that output, and the outcomes go in the output,
+not in `PREDICTIONS.md`. The outputs that the predictions and the revision are ordered against are sealed too, and two
+seals in the same second show no order. Under the rules 1 and 2 G4 wants every `PREDICTIONS.md` born in f4 sealed
+before the counterchecks, so the briefs of the roles that work after them ask for their predictions at the top of
+their output instead, with the time.
+
 **f5, verdicts and closure.**
 - For each H#, the dossier with the status per property: correctness, completeness, effectiveness, cost.
 - Every foundational result passes four verifications:
@@ -14129,7 +14963,8 @@ high-leverage decisions.
 **Always.**
 - An anomaly goes to the debugger before being used.
 - A K# contradiction goes to the two roles that hold it and to the adversary, with a binary question and at most two
-  passes.
+  passes. Its number comes from the convening's registry: `contradiction C FILE… --question TEXT` allocates the next
+  K#, so two branches never give one number to two contradictions.
 - At most five agents at a time.
 - Once the first third of the quota is spent, you move to the verdict with what there is.
 <!-- /strategy:classic -->
@@ -14380,17 +15215,25 @@ approval makes the gate invalid. A gate is not approved because the files exist.
 | G0 | complete contract: question, criterion, inputs, constraints, quota, profile |
 | GA (per amendment) | after G0, the amendment sealed and, under the rules 2, with the line «Amends: <fields of the contract>» (under the rules 1 its absence is a warning); it binds the amendment alone, so the contract and G0 stay as they are |
 | G1 | deliverables from all the lanes (or "not delivered" after two stops), no canary of one lane in the other, the snapshot of the reads taken before reading |
-| G2 | authors' signatures before the triage seal, seal before the tournament, selection only among the triage's H#, the arbiter's countersignature |
+| G2 | authors' signatures before the triage seal, seal before the tournament, selection only among the triage's H#, the arbiter's countersignature; under the rules 3, the deliverable of the sentinel of f2 (or its "not delivered"), which G2 binds |
 | G3 (per H#) | solution, verification, measurement plan and predictions frozen; the thresholds reachable and with a test that can decide them; the dossier excluded (it is bound at G4) |
-| G4 (per H#) | counter-tests before any cost; classes in order; predictions sealed before their tests; anomalies explained or declared; dossier complete and bound; under the rules 2, the line «Correctness: …» in the verdict, a deliverable from every role with a brief (the statistician too) or its "not delivered", and V2 (`HIDDEN_ASSUMPTIONS.md`) in the folder of a role outside the f3 team when correctness is proven or verified; the line only in the arbiter's verdict |
-| G5 | the arbiter's closure conditions and the four verifications of the foundational results. «Outcome: closed» needs at least one H# proven (Correctness proven or verified in the arbiter's verdict) and every branch with a G4 or an early closure (under the rules 2 a radical never funded too: closed as "not funded"); «Outcome: not closed» is approved as a recorded non-closure that names the open branches, and the convening stays not closed. Under the rules 2, also the sentinel (or «Declared missing: sentinel: <reason>») and the deciding test of every branch declared unresolved |
+| G4 (per H#) | counter-tests before any cost; classes in order; predictions sealed before their tests; anomalies explained or declared; dossier complete and bound; under the rules 2, the line «Correctness: …» in the verdict, a deliverable from every role with a brief (the statistician too) or its "not delivered", and V2 (`HIDDEN_ASSUMPTIONS.md`) in the folder of a role outside the f3 team when correctness is proven or verified; the line only in the arbiter's verdict; under the rules 3, the order of f4 read from the seals: each prediction before what it must precede (§«f4» above) and `REVISION.md` sealed after `COUNTERCHECKS.md` and `DEFECTS.md` |
+| G5 | the arbiter's closure conditions and the four verifications of the foundational results. «Outcome: closed» needs at least one H# proven (Correctness proven or verified in the arbiter's verdict) and every branch with a G4 or an early closure (under the rules 2 a radical never funded too: closed as "not funded"); «Outcome: not closed» is approved as a recorded non-closure that names the open branches, and the convening stays not closed. Under the rules 2, also the sentinel (or «Declared missing: sentinel: <reason>») and the deciding test of every branch declared unresolved. Under the rules 3, also the sentinels of f3 and f4 where they were briefed (the same line declares one missing), whose folders the first G5 binds, and every K# of `CONTRADICTIONS.jsonl` named in the closure, resolved or open. After a recorded non-closure that holds, the next closure (`f5_2/CLOSURE.md`, …) has a G5 of its own (§«Branches, workspaces and the closure») |
 
 **The rules of the gates.** The conditions and the files a gate binds have a version, the `gate_rules` key of the
-manifest: a new convening is born with the rules 2, and a missing key means 1 (the convenings of 4.0 and of 5.0).
+manifest: a new convening is born with the rules 3, and a missing key means 1 (the convenings of 4.0 and of 5.0).
+The manifest's `version` is not a format version: it records the swarmer that prepared the convening (5.0 to 5.2
+wrote 5.0 there), and no engine reads it.
 Each gate records its rules and is always recomputed under them, so an approved gate never becomes invalid because
-the engine was upgraded. `gate C PHASE --rules 2` applies the rules 2 to one new gate of an older convening. The
-relaxations (a field continued on the next lines, the copies inside a workspace) hold under every rule; the stricter
-conditions only under the rules 2, with one exception: «Outcome: closed» needs an H# proven under every rule. Under the
+the engine was upgraded. `gate C PHASE --rules 2` (or `--rules 3`) applies those rules to one new gate of an older
+convening. The rules 3 add to the rules 2 the order of f4 read from the seals (§«f4» above), the rounds (the G4 of
+a round opened by `repin` runs only under the rules 3, `--rules 3` in an older convening, and binds and counts only
+the round's own files) and the chain to the contract: every gate checks G0 again, not only the gate just before it, so
+a contract or a file of `f0/` changed after G1 stops every later gate, and an amendment's gate checks the other gated
+amendments again; and the sentinels of f2, f3 and f4 (§«The sentinel») and the K# named in the closure (§«Dossiers and
+briefs»). `--rules` only raises the rules of a gate, never below those of the convening. The relaxations (a
+field continued on the next lines, the copies inside a workspace, a placeholder `<to fill in>` only quoted in a code
+span, a code block or a sentence) hold under every rule; the stricter conditions only under the rules 2 and higher, with one exception: «Outcome: closed» needs an H# proven under every rule. Under the
 rules 1 a valid G4 whose verdict has no Correctness line still counts as proven, with a warning; under the rules 2 it
 does not, and the way out is to add the line and gate that G4 again with `--rules 2`. An amendment written without
 the line «Amends:» passes its gate under the rules 1, with a warning, so that the later gates of an older convening
@@ -14423,17 +15266,33 @@ gate notices it. The crossroads extension handles this, not the engine.
 
 ### The sentinel
 
-In classics with at least two branches, in f2, f3 and f4 a role that was not convened works, drawn at random. It has twenty minutes in
-read-only mode and delivers:
+In classics and fulls, in f2, f3 and f4 a role that was not convened works, drawn at random (in f3 and f4 with at
+least two branches). It has twenty minutes in read-only mode and delivers:
 - a shared assumption, put to the test with an external check;
-- the figures and identifiers of the dossier, recounted from the files.
+- the figures and identifiers of the phase, recounted from the files.
 
 A K# of its own enters only with a file. It serves to find what no profile would have convened.
 
-`select` (and `fund`) writes its brief in `f5/00-sentinel/TASK.md`, for a role drawn with the convening's seed among
-those in no lane and in no team; it delivers `f5/00-sentinel/SENTINEL.md`, and only there: f5 is bound by G5 alone, so
+Under the rules 3 the engine briefs each of them, and the brief records how its role was drawn:
+- **f2.** `prepare` writes `f2/00-sentinel/TASK.md`: the branches are not known before the selection, and the cards
+  and the triage are what every branch inherits. It delivers `f2/00-sentinel/SENTINEL.md` before G2, which binds it
+  with the rest of f2 and is refused without it, unless `--not-delivered <role>`.
+- **f3 and f4.** With at least two funded branches, `select` (or `fund`) writes `f3/00-sentinel/TASK.md` and
+  `f4/00-sentinel/TASK.md`, once and before any G5. G3 and G4 warn while theirs is missing, since a branch does not wait
+  for a sentinel of the whole convening; the first G5 is refused without them, unless `CLOSURE.md` has the line
+  «Declared missing: sentinel: <reason>», and binds their folders.
+- **The draw.** With the convening's seed, among the free roles (named by no brief of the convening and not convened
+  by its profile) that are fit for the question, with a keyword of their own in it as `roles --question` finds them;
+  among all the free roles when none is fit. Each sentinel is a different role, and `fund` and `repin` refuse a
+  sentinel as an owner.
+
+`select` (and `fund`) also writes the brief of the closure's sentinel in `f5/00-sentinel/TASK.md`, for a role drawn
+with the convening's seed among those in no lane and in no team (under the rules 3, by the draw above); it delivers `f5/00-sentinel/SENTINEL.md`, and only there: f5 is bound by G5 alone, so
 the sentinel invalidates no earlier gate. Under the rules 2, G4 warns while it is missing and G5 refuses without it, unless
 `CLOSURE.md` has the line «Declared missing: sentinel: <reason>». A branch never funded does not count among the two.
+A later closure has its sentinel beside it, `f5_2/00-sentinel/SENTINEL.md`: the one of an earlier closure does not
+count, and the role drawn is none of the earlier sentinels. A round opened by `repin` has no sentinel of its own: the
+next closure's reads it. Under the rules 1 and 2 the engine briefs the closure's sentinel alone, as in 5.2.
 
 ### Anomalies: the debugger
 
@@ -14498,20 +15357,39 @@ afterwards read the gated amendments.
 
 - **The radical branch.** Under the rules 2 `select` records the radical H# without briefing it, and
   `fund C H-00x` gives it its dossier and its briefs. A radical never funded is closed with `close-branch` as "not
-  funded", with no test; under the rules 2, G5 does not close while it is neither funded nor closed. After G5
-  neither `fund` nor `close-branch` runs.
+  funded", with no test; under the rules 2, G5 does not close while it is neither funded nor closed. After a G5 that
+  closes, or that no longer holds, neither `fund`, `close-branch` nor `repin` runs; after a G5 «not closed» that holds
+  they act, and brief the next closure (below).
 - **The early closure** of a funded branch is "declared unresolved" and, under the rules 2, needs
   `--deciding-test TEXT`, the test that would decide it, and the folders of the branch that hold only their untouched
   brief are removed (under the rules 1 they stay, as in 5.0). A closure declared unresolved without its test (5.0)
   gets it with `close-branch C H-00x --reason … --deciding-test TEXT`.
 - **The owner's revision.** In f4 the owner of the branch has a brief in `f4/<H#>/00-<owner>/`, and delivers
-  `REVISION.md` after the counterchecks and the defects.
+  `REVISION.md` after the counterchecks and the defects. Under the rules 3 G4 checks that order by the seals:
+  `COUNTERCHECKS.md` and `DEFECTS.md` are sealed before `REVISION.md`.
+- **One selection.** `select` runs once: a second one is refused, since it would write the empty card over a
+  completed dossier and the briefs over the branches' work.
+- **A new round of a branch.** `repin C H-00x` opens round 2 of the f4 of a branch on a revised pin (then 3, …), in
+  `f4_2/<H#>/`: every brief of f4 again, the previous round among the inputs, and a dossier of its own,
+  `f4_2/<H#>/<H#>.md`, from the card. No file of round 1, nor `f3/<H#>/<H#>.md`, nor a seal or a gate changes.
+  `gate C f4/H-00x` is then the G4 of the branch's latest round, `GATE_f4_2_<H#>.json`, under the rules 3: it binds
+  and counts only the round's own files, and the branch's state (G5, `status`) is that of its latest round.
 - **The workspace.** A role keeps its scratch files, copies and corpora in a `work/` folder inside its own folder: the
   gates bind it as one entry, and its files are not read as the branch's own.
 - **The closure.** The arbiter's brief, `f5/01-arbitro/TASK.md`, names as its output `f5/CLOSURE.md`, the file G5
   reads. Its inputs are the contract with its gated amendments, the selection, the dossier, the revision and the verdict
-  of every branch (or its early closure), the sentinel and the gates; the revision and the sentinel where they were
-  briefed. `select`, `fund` and `close-branch` rewrite it.
+  of every branch (or its early closure), the sentinels and the gates; the revision and the sentinels where they were
+  briefed. It says what G5 checks of a non-closure and names the branches it checks it on: every funded branch not
+  closed early and a radical neither funded nor closed, each unless its G4 holds by then. `select`, `fund`,
+  `close-branch` and `repin` rewrite it.
+- **A later closure.** After a G5 that holds and records «Outcome: not closed», `fund`, `close-branch` and `repin` act
+  again and write the briefs of the next closure beside the first, in `f5_2/` (then `f5_3/`, …), never in `f5/`,
+  which the first G5 binds. Once that folder exists, `gate C f5` checks `f5_2/CLOSURE.md` and its sentinel
+  `f5_2/00-sentinel/SENTINEL.md`, binds every file of `f5_2/`, and writes `GATE_f5_2.json`, created exclusively:
+  `GATE_f5.json` and every file it binds stay byte-identical. Until then `gate C f5 --verify` checks the first G5
+  again, and a gate f5 that would write is refused: the record of a non-closure is never written over. The latest G5
+  is the one of the highest ordinal in its file name (ASCII digits, read as an integer), never the newest mtime; a
+  gate file that cannot be read, or two names for one ordinal, stop every reader.
 
 ## The full strategy in detail
 
@@ -14574,11 +15452,36 @@ afterwards read the gated amendments.
   - the minimal test, the threshold and the time;
   - the maximum test class;
   - the prohibitions and the recipient.
-- Provisional IDs carry the role's prefix (`creativo-2`); the final H#, F# and K# are assigned by the arbiter.
+- Provisional IDs carry the role's prefix (`creativo-2`); the final H#, F# and K# are assigned by the arbiter, the
+  numbers of the K# from the convening's registry: `contradiction C FILE… --question TEXT` writes the next one, with the
+  question and the files of its two sides, in `CONTRADICTIONS.jsonl`, which `status` lists; under the rules 3 G5 wants
+  every K# of it named in the closure, and G4 warns on a K# cited and never allocated.
 - The answer to the user begins with a line "Swarm: <strategy>. Roles: <roles>.". Then comes the result, with
   the status of what it claims, the open items and at most three decisions that are theirs to make.
 
 ## What changes
+
+**The rules 3 of the gates (5.3).**
+- **The order of f4** is read from the seal times of `SEALS.jsonl`: the predictions before the counterchecks before
+  `COUNTERCHECKS.md`, those of the roles that work after them before their own output, every block appended with its
+  own seal; `REVISION.md` after `COUNTERCHECKS.md` and `DEFECTS.md`. The briefs of f4 name the kind of each role's
+  predictions.
+- **The rounds.** `repin` opens a new round of the f4 of a branch in `f4_<n>/<H#>/`; after a G5 «not closed» the next
+  closure goes in `f5_<n>/`, with its gate `GATE_f5_<n>.json`. Neither touches a file of an earlier round.
+- **One selection:** a second `select` is refused.
+- **The chain to the contract.** Every gate checks G0 again, and an amendment's gate the other gated amendments, not
+  only the gate just before it.
+- **The sentinels of f2, f3 and f4** are briefed by the engine (`prepare`, `select`, `fund`), drawn among the free
+  roles fit for the question, with the draw in the brief; G2 wants the one of f2, the first G5 those of f3 and f4, and
+  binds them.
+- **The K#** of a convening come from one registry, `CONTRADICTIONS.jsonl` (`contradiction C FILE… --question TEXT`);
+  G5 wants each named in the closure.
+- **Under every rule:** every f3 brief asks for the line «decides: yes|no» that G3 wants; the closure brief names the
+  branches a non-closure must name; a race (and a mixed fan-out) has a canary per arm, checked by G1.
+- **Compatibility.** A new convening is born with the rules 3; every gate approved before keeps its rules. The rounds
+  are read from the folders and the gate files, and the manifest keeps the keys of 5.2: an engine of 5.2 still loads
+  a convening of 5.3, sees round 1 of each branch and `GATE_f5.json` alone, so it reports a convening closed again by
+  a later closure as «not closed» and keeps `fund` and `close-branch` refused.
 
 **The rules 2 of the gates.**
 - **Versioned gates.** `gate_rules` in the manifest, `--rules` on one gate; every gate is recomputed under its own
@@ -14766,7 +15669,7 @@ the debugger has found its cause. Without a proven cause it remains "unexplained
 - If you worked longer than the brief allowed for, or had to stop, say so at the top, with the point
   you reached.
 #==== swarmer.sh: file docs/en/README.md ====
-# swarmer: the universal agent swarm for coding agents (version 5.2)
+# swarmer: the universal agent swarm for coding agents (version 5.3)
 
 A swarm of specialist professionals and sub-professionals, which a coordinator convenes for a request with
 one of eight strategies. The coordinator is the session of the coding agent open in the project (Claude Code, Codex,
@@ -14926,6 +15829,11 @@ byte, the same skills (with the new section on delegating in each tool). Other t
 **From 5.1.** The update to 5.2 enables no extension (`bash swarmer/swarmer.sh extensions --add crossroads` when you
 want it) and leaves every gate already approved valid: a convening started before keeps the rules 1 of its gates, a
 new one is born with the rules 2 (`PIPELINE.md`, §«The rules of the gates»).
+
+**From 5.2.** The update to 5.3 leaves every gate already approved valid: a convening keeps the rules of its gates, a
+new one is born with the rules 3, which read the order of f4 from the seals, and `gate C PHASE --rules 3` applies them
+to one new gate of an older convening. `repin` opens a new round of a branch, and after a G5 «not closed» the next
+closure goes in `f5_2/` (`PIPELINE.md`, §«Branches, workspaces and the closure»; `CHANGELOG.md`).
 #==== swarmer.sh: file docs/en/_CLAUDE.md ====
 ## Agent swarm
 
@@ -15157,14 +16065,16 @@ Sei nella radice del progetto dell'utente. Gli agenti hanno gli strumenti e i pe
 | comando | che cosa fa |
 |---|---|
 | `ruoli [--domanda TESTO]` | i ruoli con il nucleo; con `--domanda`, solo quelli le cui parole chiave compaiono nel testo, e i profili |
-| `prepara --nome N --strategia S --profilo P --domanda TESTO [--ruoli a,b] [--dest D] [--seme N]` | lo scheletro: `MANIFESTO.json`, `CONTRATTO.md` da compilare, le cartelle delle fasi, le consegne di f0 e f1 (corsie dal nome casuale, con il canarino); stampa il percorso della mappa delle corsie, che è solo tua |
+| `prepara --nome N --strategia S --profilo P --domanda TESTO [--ruoli a,b] [--dest D] [--seme N]` | lo scheletro: `MANIFESTO.json`, `CONTRATTO.md` da compilare, le cartelle delle fasi, le consegne di f0 e f1 (corsie dal nome casuale, con il canarino; in un ventaglio a gara o misto, un canarino per braccio) e, in una classica o in una completa, di f2 con la sua sentinella (`f2/00-sentinella/`, consegnata prima del G2); stampa il percorso della mappa delle corsie, che è solo tua |
 | `fotografa C` | appena le corsie hanno consegnato, prima di leggerle: registra se ogni file è stato letto dopo l'ultima scrittura |
-| `cancello C FASE --note TESTO [--verifica] [--regole 2]` | controlla le condizioni del cancello (f0, A1 per un emendamento, f1, f2, f3/H-001, f4/H-001, f5) e scrive `GATE_<fase>.json` con lo sha256 dei file e le regole con cui l'ha controllato; `--verifica` rifà i controlli senza scrivere; `--regole 2` applica le regole 2 dei cancelli a questo cancello di una convocazione più vecchia |
-| `sigilla C FILE…` | ora e sha256 in `SIGILLI.jsonl`: il triage dopo le firme, gli emendamenti, le previsioni nate in f4 prima delle loro prove |
-| `seleziona C H-001 [H-002 H-003] [--radicale H-00x] [--responsabile SIGLA]` | dopo G2, solo H# del triage: apre i rami f3 e f4 con le consegne e il dossier, e scrive le consegne della sentinella e della chiusura; con le regole 2 la radicale è solo registrata; `--responsabile` cambia il ruolo che scrive la soluzione (di norma il primo di f3 nel profilo) |
-| `finanzia C H-00x [--responsabile SIGLA]` | con le regole 2: dà al ramo radicale il dossier e le consegne |
+| `cancello C FASE --note TESTO [--verifica] [--regole 2\|3]` | controlla le condizioni del cancello (f0, A1 per un emendamento, f1, f2, f3/H-001, f4/H-001, f5) e scrive `GATE_<fase>.json` con lo sha256 dei file e le regole con cui l'ha controllato; `--verifica` rifà i controlli senza scrivere; `--regole 2` o `--regole 3` applica quelle regole dei cancelli a questo cancello di una convocazione più vecchia (mai sotto quelle della convocazione); con le regole 3 ogni cancello ricontrolla G0 e gli emendamenti approvati, così dopo G0 il contratto cambia solo con un emendamento (`EMENDAMENTO_1.md`, cancello A1). `f4/H-001` è l'ultimo giro del ramo (`GATE_f4_2_H-001.json` dopo un `rifissa`, solo con le regole 3); dopo un G5 «non chiuso», `f5` è la chiusura successiva quando esiste la sua cartella `f5_2/` (`GATE_f5_2.json`, creato in esclusiva) |
+| `contraddizione C FILE… --domanda TESTO` | assegna la K# successiva della convocazione (`K-001`, `K-002`, …) in `CONTRADDIZIONI.jsonl`, con la domanda binaria e i file dei suoi due lati: una numerazione sola per tutti i rami; `stato` le elenca, e con le regole 3 il G5 vuole ciascuna nominata nella chiusura |
+| `sigilla C FILE…` | ora e sha256 in `SIGILLI.jsonl`: il triage dopo le firme, gli emendamenti, le previsioni nate in f4 prima delle loro prove (anche ogni blocco aggiunto dopo); con le regole 3 anche le uscite di f4 man mano che arrivano, `CONTROPROVE.md` e `DIFETTI.md` prima che il responsabile scriva `REVISIONE.md`: il G4 ordina f4 con queste ore dei sigilli |
+| `seleziona C H-001 [H-002 H-003] [--radicale H-00x] [--responsabile SIGLA]` | dopo G2, solo H# del triage, una volta: apre i rami f3 e f4 con le consegne e il dossier, e scrive le consegne della sentinella e della chiusura (con le regole 3 e due rami finanziati, anche delle sentinelle di f3 e f4, una volta); con le regole 2 la radicale è solo registrata; `--responsabile` cambia il ruolo che scrive la soluzione (di norma il primo di f3 nel profilo) |
+| `finanzia C H-00x [--responsabile SIGLA]` | con le regole 2: dà al ramo radicale il dossier e le consegne (e, con le regole 3, le sentinelle di f3 e f4 se i rami diventano due); una sentinella non è mai responsabile |
 | `chiudi-ramo C H-00x --motivo TESTO [--prova-decisiva TESTO]` | chiude un ramo prima del G3: una radicale mai finanziata come «non finanziato»; un ramo finanziato come «non risolto dichiarato», con la prova che lo deciderebbe (obbligatoria con le regole 2); su un ramo già dichiarato non risolto senza prova, `--prova-decisiva` la aggiunge |
-| `stato C` | a che punto è ogni fase e ogni ramo |
+| `rifissa C H-00x [--responsabile SIGLA]` | apre il giro successivo della f4 di un ramo finanziato, su un pin rivisto: `f4_2/H-00x/` con ogni consegna di f4, il giro precedente fra gli ingressi e un dossier suo; non cambia nessun file di un giro precedente, nessun sigillo e nessun cancello, e riscrive le consegne della chiusura |
+| `stato C` | a che punto è ogni fase e ogni ramo, con ogni giro e ogni G5 |
 
 Lo script usa solo la libreria standard, non lancia agenti e non approva niente da solo. I nomi inglesi dei comandi
 e delle opzioni (`prepare`, `--question`, …) valgono anche loro. Una convocazione resta nella lingua in cui è nata:
@@ -15229,7 +16139,7 @@ strada più vicina onesta, dichiarandola nella risposta.
 | sottoagenti | un agente per ruolo, con lo strumento che l'ambiente offre (Claude Code: Agent con `subagent_type: "sciame-<sigla>"`; Codex: l'agente avviato per nome; Antigravity: `invoke_subagent`; Gemini CLI: lo strumento con il nome del sottoagente; `@sciame-<sigla>` è la sintassi dell'utente, non del coordinatore) | il coordinatore fa i ruoli uno dopo l'altro nella stessa sessione, ciascuno con la sua consegna, e scrive in testa alla risposta «ruoli svolti in sequenza dal coordinatore: l'indipendenza è ridotta» |
 | sottoagenti in parallelo | le fasi indipendenti nello stesso messaggio, al più cinque alla volta | in fila, con lo stesso ordine delle ondate |
 | scelta del modello per ruolo | il modello scritto in `.sciame/config.json` (`bash sciame/sciame.sh modelli`; va negli agenti di Claude Code, gli altri strumenti usano il modello della sessione) | il modello della sessione, dichiarato |
-| shell | `convoca.py` e `giuria.py` preparano e controllano | i cancelli li controlla il coordinatore con le condizioni scritte, e lo dichiara |
+| shell | `convoca.py` e `giuria.py` preparano e controllano | i cancelli li controlla il coordinatore con le condizioni scritte, estrae le sentinelle fra i ruoli liberi adatti alla domanda e numera le K# in un elenco solo per la convocazione, scrivendo l'estrazione e l'elenco, e lo dichiara |
 | scritture | ogni agente nella sua cartella in `.sciame/` | le consegne nei prompt, le risposte sono le consegne |
 | domande strutturate all'utente | lo strumento dell'ambiente (in Claude Code: AskUserQuestion), con le opzioni e la raccomandata per prima | una sola domanda chiara nel testo |
 | rete | lettura di documentazione e fonti pubbliche | «non verificato» su ciò che andava controllato fuori |
@@ -15720,8 +16630,11 @@ della giuria.
 #==== swarmer.sh: file docs/it/PIPELINE.md ====
 # Le convocazioni dello sciame: otto strategie
 
-**Stato.** Versione 5.2 (swarmer): le regole 2 dei cancelli (§«Le regole dei cancelli»), con ogni cancello
-approvato prima ancora valido. Versione 5.0 del 16 novembre 2026: le strategie e le regole sono quelle della 4.0, con
+**Stato.** Versione 5.3 (swarmer): le regole 3 dei cancelli, che leggono l'ordine di f4 dai sigilli, e i giri di un
+ramo e della chiusura (§«Le regole dei cancelli», §«I rami, gli spazi di lavoro e la chiusura»); le sentinelle di f2,
+f3 e f4 con la consegna scritta dal motore (§«La sentinella»), un registro solo delle K# di una convocazione, e un
+canarino per braccio di una gara. Versione 5.2: le
+regole 2 dei cancelli, con ogni cancello approvato prima ancora valido. Versione 5.0 del 16 novembre 2026: le strategie e le regole sono quelle della 4.0, con
 i nomi inglesi accanto agli italiani (§«Che cosa cambia»). La 4.0 aggiunse alle quattro strategie della 3.1 (singolo, classica, completa, auto)
 aggiunge:
 - la **giuria**, che decide una proposta con un voto;
@@ -15805,7 +16718,10 @@ indipendenti dello stesso compito per sceglierne uno.
 2. **N** è il numero totale di agenti, non quanti girano insieme: al più cinque alla volta. Il ruolo di ogni agente
    viene dal profilo, o è quello nominato; in una gara fra ruoli o modelli diversi, ogni braccio è dichiarato prima.
 3. **Le consegne** seguono «La consegna, in ogni strategia», con la fetta o il braccio della gara. Ogni agente che
-   scrive ha la sua cartella, `.sciame/<convocazione>/agente-<n>/`, oppure un ramo o una copia di lavoro sua.
+   scrive ha la sua cartella, `.sciame/<convocazione>/agente-<n>/`, oppure un ramo o una copia di lavoro sua. In una
+   gara (e in un ventaglio misto) la consegna di ogni braccio comincia con un canarino suo, che conosce solo la mappa
+   delle corsie: il G1 rifiuta una consegna che non comincia con il suo canarino o contiene quello di un altro braccio,
+   e vuole la fotografia delle letture (`fotografa C`) presa appena i bracci hanno consegnato, prima di leggerli.
 4. **La raccolta.** Leggi solo gli esiti finali:
    - nelle fette, ogni fetta deve avere un esito; quelle senza esito sono scoperte e lo dici;
    - nella gara applichi la regola dichiarata, mai un'altra scelta dopo.
@@ -15878,6 +16794,21 @@ La classe k parte solo dopo l'esito della k−1. L'ordine dei compiti:
 
 Un fallimento ferma il ramo e ne conserva il controesempio.
 
+**Le previsioni di f4** vanno nel `PREVISIONI.md` della cartella del ruolo, sigillate (`sigilla C FILE`) prima della
+prova che decidono. Sono di due tipi, e con le regole 3 il G4 ordina ciascuna con le ore dei sigilli di
+`SIGILLI.jsonl`, mai con l'mtime di un file, che una copia o un touch spostano:
+- **prima delle controprove:** quelle della cartella dell'avversario (`01-`), sigillate prima che `CONTROPROVE.md` sia
+  sigillato la prima volta;
+- **dopo le controprove:** quelle di ogni ruolo che lavora dopo di esse (la revisione del responsabile, il debugger, le
+  misure, V2, l'arbitro), ciascuna sigillata prima che l'uscita di quel ruolo (`REVISIONE.md`, `DIFETTI.md`,
+  `MISURE.md`, `ASSUNZIONI_NASCOSTE.md`, `VERDETTO.md`) sia sigillata la prima volta.
+
+Ogni blocco aggiunto dopo a un `PREVISIONI.md` ha il suo sigillo prima di quell'uscita, e gli esiti vanno nell'uscita,
+non in `PREVISIONI.md`. Anche le uscite rispetto a cui si ordinano le previsioni e la revisione sono sigillate, e due
+sigilli nello stesso secondo non mostrano un ordine. Con le regole 1 e 2 il G4 vuole ogni `PREVISIONI.md` nata in f4
+sigillata prima delle controprove, quindi le consegne dei ruoli che lavorano dopo di esse chiedono le loro previsioni
+in cima alla loro uscita, con l'ora.
+
 **f5, verdetti e chiusura.**
 - Per ogni H#, il dossier con lo stato per proprietà: correttezza, completezza, efficacia, costo.
 - Ogni risultato fondante passa quattro verifiche:
@@ -15896,7 +16827,8 @@ alta leva.
 **Sempre.**
 - Un'anomalia va al debugger prima di essere usata.
 - Una contraddizione K# va ai due ruoli che la sostengono e all'avversario, con una domanda binaria e al più due
-  passaggi.
+  passaggi. Il suo numero viene dal registro della convocazione: `contraddizione C FILE… --domanda TESTO` assegna la
+  K# successiva, così due rami non danno mai un numero solo a due contraddizioni.
 - Al più cinque agenti alla volta.
 - Speso il primo terzo della quota, passi al verdetto con ciò che c'è.
 <!-- /strategy:classic -->
@@ -16147,18 +17079,26 @@ l'approvazione rende il cancello non valido. Un cancello non si approva perché 
 | G0 | contratto completo: domanda, criterio, ingressi, vincoli, quota, profilo |
 | GA (per emendamento) | dopo il G0, l'emendamento sigillato e, con le regole 2, con la riga «Modifica: <campi del contratto>» (con le regole 1 la sua assenza è un avviso); lega solo l'emendamento, così il contratto e il G0 restano come sono |
 | G1 | consegne di tutte le corsie (o «non consegnato» dopo due arresti), nessun canarino di una corsia nell'altra, la foto delle letture fatta prima di leggere |
-| G2 | firme degli autori prima del sigillo del triage, sigillo prima del torneo, selezione solo fra gli H# del triage, controfirma dell'arbitro |
+| G2 | firme degli autori prima del sigillo del triage, sigillo prima del torneo, selezione solo fra gli H# del triage, controfirma dell'arbitro; con le regole 3, la consegna della sentinella di f2 (o il suo «non consegnato»), che il G2 lega |
 | G3 (per H#) | soluzione, verifica, piano delle misure e previsioni congelati; le soglie raggiungibili e con una prova che le possa decidere; il dossier escluso (lo lega il G4) |
-| G4 (per H#) | controprove prima di ogni costo; classi in ordine; previsioni sigillate prima delle loro prove; le anomalie spiegate o dichiarate; dossier completo e legato; con le regole 2, la riga «Correttezza: …» nel verdetto, una consegna da ogni ruolo con una consegna da svolgere (anche lo statistico) o il suo «non consegnato», e V2 (`ASSUNZIONI_NASCOSTE.md`) nella cartella di un ruolo fuori dalla squadra di f3 quando la correttezza è dimostrata o verificata; la riga solo nel verdetto dell'arbitro |
-| G5 | le condizioni di chiusura dell'arbitro e le quattro verifiche dei risultati fondanti. «Esito: chiuso» vuole almeno una H# provata (Correttezza dimostrata o verificata nel verdetto dell'arbitro) e ogni ramo con un G4 o una chiusura anticipata (con le regole 2 anche una radicale mai finanziata: chiusa come «non finanziato»); «Esito: non chiuso» si approva come non chiusura registrata che nomina i rami aperti, e la convocazione resta non chiusa. Con le regole 2, anche la sentinella (o «Dichiarato mancante: sentinella: <motivo>») e la prova decisiva di ogni ramo dichiarato non risolto |
+| G4 (per H#) | controprove prima di ogni costo; classi in ordine; previsioni sigillate prima delle loro prove; le anomalie spiegate o dichiarate; dossier completo e legato; con le regole 2, la riga «Correttezza: …» nel verdetto, una consegna da ogni ruolo con una consegna da svolgere (anche lo statistico) o il suo «non consegnato», e V2 (`ASSUNZIONI_NASCOSTE.md`) nella cartella di un ruolo fuori dalla squadra di f3 quando la correttezza è dimostrata o verificata; la riga solo nel verdetto dell'arbitro; con le regole 3, l'ordine di f4 letto dai sigilli: ogni previsione prima di ciò che deve precedere (§«f4» sopra) e `REVISIONE.md` sigillata dopo `CONTROPROVE.md` e `DIFETTI.md` |
+| G5 | le condizioni di chiusura dell'arbitro e le quattro verifiche dei risultati fondanti. «Esito: chiuso» vuole almeno una H# provata (Correttezza dimostrata o verificata nel verdetto dell'arbitro) e ogni ramo con un G4 o una chiusura anticipata (con le regole 2 anche una radicale mai finanziata: chiusa come «non finanziato»); «Esito: non chiuso» si approva come non chiusura registrata che nomina i rami aperti, e la convocazione resta non chiusa. Con le regole 2, anche la sentinella (o «Dichiarato mancante: sentinella: <motivo>») e la prova decisiva di ogni ramo dichiarato non risolto. Con le regole 3, anche le sentinelle di f3 e f4 dove hanno avuto una consegna (la stessa riga ne dichiara una mancante), le cui cartelle lega il primo G5, e ogni K# di `CONTRADDIZIONI.jsonl` nominata nella chiusura, risolta o aperta. Dopo una non chiusura registrata che regge, la chiusura successiva (`f5_2/CHIUSURA.md`, …) ha un G5 suo (§«I rami, gli spazi di lavoro e la chiusura») |
 
 **Le regole dei cancelli.** Le condizioni e i file che un cancello lega hanno una versione, la chiave
-`regole_cancelli` del manifesto: una convocazione nuova nasce con le regole 2, e una chiave assente vale 1 (le
-convocazioni della 4.0 e della 5.0). Ogni cancello registra le sue regole e si ricalcola sempre con quelle, così un
-cancello approvato non diventa mai non valido perché si è aggiornato il motore. `cancello C FASE --regole 2` applica le
-regole 2 a un cancello nuovo di una convocazione più vecchia. Gli allentamenti (un campo che continua sulle righe
-dopo, le copie dentro uno spazio di lavoro) valgono con ogni regola; le condizioni più strette solo con le regole 2,
-con un'eccezione: «Esito: chiuso» vuole una H# provata con ogni regola. Con le regole 1 un G4 valido il cui verdetto
+`regole_cancelli` del manifesto: una convocazione nuova nasce con le regole 3, e una chiave assente vale 1 (le
+convocazioni della 4.0 e della 5.0). La `versione` del manifesto non è una versione del formato: registra lo sciame
+che ha preparato la convocazione (dalla 5.0 alla 5.2 vi si scriveva 5.0), e nessun motore la legge. Ogni cancello registra le sue regole e si ricalcola sempre con quelle, così un
+cancello approvato non diventa mai non valido perché si è aggiornato il motore. `cancello C FASE --regole 2` (o
+`--regole 3`) applica quelle regole a un cancello nuovo di una convocazione più vecchia. Le regole 3 aggiungono alle
+regole 2 l'ordine di f4 letto dai sigilli (§«f4» sopra), i giri (il G4 di un giro aperto da `rifissa` segue solo le
+regole 3, `--regole 3` in una convocazione più vecchia, e lega e conta solo i file del giro) e la catena fino al
+contratto: ogni cancello ricontrolla G0, non solo il cancello subito prima, così un contratto o un file di `f0/`
+cambiato dopo G1 ferma ogni cancello successivo, e il cancello di un emendamento ricontrolla gli altri emendamenti
+approvati; e le sentinelle di f2, f3 e f4 (§«La sentinella») e le K# nominate nella chiusura (§«Dossier e consegne»).
+`--regole` alza soltanto le regole di un cancello, mai sotto quelle della convocazione. Gli allentamenti (un
+campo che continua sulle righe dopo, le copie dentro uno spazio di lavoro, un segnaposto `<da compilare>` soltanto
+citato in un frammento di codice, in un blocco di codice o in una frase) valgono con ogni regola; le condizioni più
+strette solo con le regole 2 e successive, con un'eccezione: «Esito: chiuso» vuole una H# provata con ogni regola. Con le regole 1 un G4 valido il cui verdetto
 non ha la riga Correttezza conta ancora come provato, con un avviso; con le regole 2 no, e la via d'uscita è
 aggiungere la riga e approvare di nuovo quel G4 con `--regole 2`. Un emendamento scritto senza la riga «Modifica:»
 passa il suo cancello con le regole 1, con un avviso, così i cancelli successivi di una convocazione più vecchia si
@@ -16191,19 +17131,37 @@ e nessun cancello se ne accorge. Lo tratta l'estensione crossroads, non il motor
 
 ### La sentinella
 
-Nelle classiche con almeno due rami, in f2, f3 e f4 lavora un ruolo non convocato, estratto a caso. Ha venti minuti in
-sola lettura e consegna:
+Nelle classiche e nelle complete, in f2, f3 e f4 lavora un ruolo non convocato, estratto a caso (in f3 e f4 con almeno
+due rami). Ha venti minuti in sola lettura e consegna:
 - un presupposto condiviso, messo alla prova con un controllo esterno;
-- le cifre e gli identificativi del dossier, ricontati dai file.
+- le cifre e gli identificativi della fase, ricontati dai file.
 
 Un suo K# entra solo con un file. Serve a trovare ciò che nessun profilo avrebbe convocato.
 
-`seleziona` (e `finanzia`) scrive la sua consegna in `f5/00-sentinella/TASK.md`, per un ruolo estratto con il seme
-della convocazione fra quelli che non sono in nessuna corsia e in nessuna squadra; consegna
+Con le regole 3 il motore scrive la consegna di ciascuna, e la consegna registra come è stato estratto il suo ruolo:
+- **f2.** `prepara` scrive `f2/00-sentinella/TASK.md`: i rami non si conoscono prima della selezione, e le schede e il
+  triage sono ciò che ogni ramo eredita. Consegna `f2/00-sentinella/SENTINELLA.md` prima del G2, che la lega con il
+  resto di f2 e senza di lei si rifiuta, salvo `--non-consegnati <ruolo>`.
+- **f3 e f4.** Con almeno due rami finanziati, `seleziona` (o `finanzia`) scrive `f3/00-sentinella/TASK.md` e
+  `f4/00-sentinella/TASK.md`, una volta e prima di ogni G5. Il G3 e il G4 avvisano finché manca la loro, perché un ramo
+  non aspetta una sentinella di tutta la convocazione; il primo G5 si rifiuta senza di loro, salvo che `CHIUSURA.md`
+  abbia la riga «Dichiarato mancante: sentinella: <motivo>», e ne lega le cartelle.
+- **L'estrazione.** Con il seme della convocazione, fra i ruoli liberi (che nessuna consegna della convocazione nomina
+  e che il suo profilo non convoca) adatti alla domanda, con una loro parola chiave in essa come la trova `ruoli
+  --domanda`; fra tutti i ruoli liberi quando nessuno è adatto. Ogni sentinella è un ruolo diverso, e `finanzia` e
+  `rifissa` rifiutano una sentinella come responsabile.
+
+`seleziona` (e `finanzia`) scrive anche la consegna della sentinella della chiusura in `f5/00-sentinella/TASK.md`, per
+un ruolo estratto con il seme della convocazione fra quelli che non sono in nessuna corsia e in nessuna squadra (con le
+regole 3, con l'estrazione qui sopra); consegna
 `f5/00-sentinella/SENTINELLA.md`, e solo lì: la fase f5 la lega solo il G5, così la sentinella non invalida nessun cancello
 precedente. Con le
 regole 2, il G4 avvisa finché manca e il G5 rifiuta senza di lei, salvo che `CHIUSURA.md` abbia la riga «Dichiarato
-mancante: sentinella: <motivo>». Un ramo mai finanziato non conta fra i due.
+mancante: sentinella: <motivo>». Un ramo mai finanziato non conta fra i due. Una chiusura successiva ha la sua
+sentinella accanto, `f5_2/00-sentinella/SENTINELLA.md`: quella di una chiusura precedente non conta, e il ruolo
+estratto non è nessuna delle sentinelle precedenti. Un giro aperto da `rifissa` non ha una sentinella sua: lo legge
+quella della chiusura successiva. Con le regole 1 e 2 il motore scrive solo la consegna della sentinella della
+chiusura, come nella 5.2.
 
 ### Le anomalie: il debugger
 
@@ -16269,21 +17227,40 @@ non c'è più; le consegne scritte dopo leggono gli emendamenti approvati.
 
 - **Il ramo radicale.** Con le regole 2 `seleziona` registra la H# radicale senza darle consegne, e
   `finanzia C H-00x` le dà il dossier e le consegne. Una radicale mai finanziata si chiude con `chiudi-ramo` come «non
-  finanziato», senza prova; con le regole 2 il G5 non chiude finché non è né finanziata né chiusa. Dopo il G5 non
-  girano né `finanzia` né `chiudi-ramo`.
+  finanziato», senza prova; con le regole 2 il G5 non chiude finché non è né finanziata né chiusa. Dopo un G5 che
+  chiude, o che non regge più, non girano né `finanzia`, né `chiudi-ramo`, né `rifissa`; dopo un G5 «non chiuso» che
+  regge agiscono, e danno le consegne della chiusura successiva (sotto).
 - **La chiusura anticipata** di un ramo finanziato è «non risolto dichiarato» e, con le regole 2, vuole
   `--prova-decisiva TESTO`, la prova che lo deciderebbe, e le cartelle del ramo che hanno solo la loro consegna intatta
   si tolgono (con le regole 1 restano, come nella 5.0). Una chiusura dichiarata non risolta senza la sua prova (5.0) la
   riceve con `chiudi-ramo C H-00x --motivo … --prova-decisiva TESTO`.
 - **La revisione del responsabile.** In f4 il responsabile del ramo ha una consegna in `f4/<H#>/00-<responsabile>/`, e
-  consegna `REVISIONE.md` dopo le controprove e i difetti.
+  consegna `REVISIONE.md` dopo le controprove e i difetti. Con le regole 3 il G4 controlla quell'ordine con i sigilli:
+  `CONTROPROVE.md` e `DIFETTI.md` sono sigillati prima di `REVISIONE.md`.
+- **Una selezione sola.** `seleziona` gira una volta: una seconda si rifiuta, perché scriverebbe la scheda vuota su un
+  dossier completato e le consegne sul lavoro dei rami.
+- **Un giro nuovo di un ramo.** `rifissa C H-00x` apre il giro 2 della f4 di un ramo su un pin rivisto (poi 3, …), in
+  `f4_2/<H#>/`: di nuovo ogni consegna di f4, il giro precedente fra gli ingressi, e un dossier suo,
+  `f4_2/<H#>/<H#>.md`, dalla scheda. Non cambia nessun file del giro 1, né `f3/<H#>/<H#>.md`, né un sigillo o un
+  cancello. `cancello C f4/H-00x` è allora il G4 dell'ultimo giro del ramo, `GATE_f4_2_<H#>.json`, con le regole 3: lega
+  e conta solo i file del giro, e lo stato del ramo (G5, `stato`) è quello del suo ultimo giro.
 - **Lo spazio di lavoro.** Un ruolo tiene i file di prova, le copie e i corpus in una cartella `lavoro/` dentro la sua
   cartella: i cancelli la legano come una voce sola, e i suoi file non si leggono come quelli del ramo.
 - **La chiusura.** La consegna dell'arbitro, `f5/01-arbitro/TASK.md`, nomina come uscita `f5/CHIUSURA.md`, il file che
   legge il G5. I suoi ingressi sono il contratto con i suoi emendamenti approvati, la selezione, il dossier, la revisione e
-  il verdetto di ogni ramo (o la sua chiusura anticipata), la sentinella e i cancelli; la revisione e la sentinella dove
-  hanno avuto una consegna. `seleziona`, `finanzia` e
-  `chiudi-ramo` la riscrivono.
+  il verdetto di ogni ramo (o la sua chiusura anticipata), le sentinelle e i cancelli; la revisione e le sentinelle dove
+  hanno avuto una consegna. Dice che cosa controlla il G5 di una non chiusura e nomina i rami su cui lo controlla: ogni
+  ramo finanziato non chiuso in anticipo e una radicale né finanziata né chiusa, ciascuno a meno che allora il suo G4
+  regga. `seleziona`, `finanzia` e `chiudi-ramo` la riscrivono, e così `rifissa`.
+- **Una chiusura successiva.** Dopo un G5 che regge e registra «Esito: non chiuso», `finanzia`, `chiudi-ramo` e
+  `rifissa` agiscono di nuovo e scrivono le consegne della chiusura successiva accanto alla prima, in `f5_2/` (poi
+  `f5_3/`, …), mai in `f5/`, che il primo G5 lega. Quando quella cartella esiste, `cancello C f5` controlla
+  `f5_2/CHIUSURA.md` e la sua sentinella `f5_2/00-sentinella/SENTINELLA.md`, lega ogni file di `f5_2/`, e scrive
+  `GATE_f5_2.json`, creato in esclusiva: `GATE_f5.json` e ogni file che lega restano identici byte per byte. Fino ad
+  allora `cancello C f5 --verifica` controlla di nuovo il primo G5, e un cancello f5 che scriverebbe si rifiuta: la
+  registrazione di una non chiusura non si sovrascrive mai. L'ultimo G5 è quello con l'ordinale più alto nel nome del
+  file (cifre ASCII, lette come intero), mai l'mtime più recente; un file di cancello che non si legge, o due nomi per
+  un ordinale, fermano ogni lettore.
 
 ## La strategia completa nei dettagli
 
@@ -16346,11 +17323,37 @@ non c'è più; le consegne scritte dopo leggono gli emendamenti approvati.
   - la prova minima, la soglia e il tempo;
   - la classe massima di prova;
   - i divieti e il destinatario.
-- Gli ID provvisori portano il prefisso del ruolo (`creativo-2`); gli H#, F# e K# definitivi li assegna l'arbitro.
+- Gli ID provvisori portano il prefisso del ruolo (`creativo-2`); gli H#, F# e K# definitivi li assegna l'arbitro, i
+  numeri delle K# dal registro della convocazione: `contraddizione C FILE… --domanda TESTO` scrive la successiva, con
+  la domanda e i file dei suoi due lati, in `CONTRADDIZIONI.jsonl`, che `stato` elenca; con le regole 3 il G5 vuole
+  ogni sua K# nominata nella chiusura, e il G4 avvisa di una K# citata e mai assegnata.
 - La risposta all'utente comincia con una riga «Sciame: <strategia>. Ruoli: <ruoli>.». Poi viene il risultato, con
   gli stati di ciò che afferma, gli aperti e al più tre decisioni che spettano a lui.
 
 ## Che cosa cambia
+
+**Le regole 3 dei cancelli (5.3).**
+- **L'ordine di f4** si legge dalle ore dei sigilli di `SIGILLI.jsonl`: le previsioni prima delle controprove prima di
+  `CONTROPROVE.md`, quelle dei ruoli che lavorano dopo di esse prima della loro uscita, ogni blocco aggiunto con il suo
+  sigillo; `REVISIONE.md` dopo `CONTROPROVE.md` e `DIFETTI.md`. Le consegne di f4 nominano il tipo delle previsioni di
+  ogni ruolo.
+- **I giri.** `rifissa` apre un giro nuovo della f4 di un ramo in `f4_<n>/<H#>/`; dopo un G5 «non chiuso» la chiusura
+  successiva va in `f5_<n>/`, con il suo cancello `GATE_f5_<n>.json`. Nessuno dei due tocca un file di un giro precedente.
+- **Una selezione sola:** una seconda `seleziona` si rifiuta.
+- **La catena fino al contratto.** Ogni cancello ricontrolla G0, e il cancello di un emendamento gli altri emendamenti
+  approvati, non solo il cancello subito prima.
+- **Le sentinelle di f2, f3 e f4** hanno la consegna scritta dal motore (`prepara`, `seleziona`, `finanzia`), estratte
+  fra i ruoli liberi adatti alla domanda, con l'estrazione nella consegna; il G2 vuole quella di f2, il primo G5 quelle
+  di f3 e f4, e le lega.
+- **Le K#** di una convocazione vengono da un registro solo, `CONTRADDIZIONI.jsonl` (`contraddizione C FILE…
+  --domanda TESTO`); il G5 vuole ciascuna nominata nella chiusura.
+- **Con ogni regola:** ogni consegna di f3 chiede la riga «decide: sì|no» che il G3 vuole; la consegna della chiusura
+  nomina i rami che una non chiusura deve nominare; una gara (e un ventaglio misto) ha un canarino per braccio, che il
+  G1 controlla.
+- **Compatibilità.** Una convocazione nuova nasce con le regole 3; ogni cancello approvato prima tiene le sue regole. I
+  giri si leggono dalle cartelle e dai file dei cancelli, e il manifesto tiene le chiavi della 5.2: un motore 5.2 carica
+  ancora una convocazione della 5.3, vede il giro 1 di ogni ramo e solo `GATE_f5.json`, quindi dà «non chiusa» una
+  convocazione chiusa di nuovo da una chiusura successiva e tiene rifiutati `finanzia` e `chiudi-ramo`.
 
 **Le regole 2 dei cancelli.**
 - **Cancelli con la versione.** `regole_cancelli` nel manifesto, `--regole` su un cancello; ogni cancello si ricalcola
@@ -16538,7 +17541,7 @@ il debugger non ne ha trovato la causa. Senza causa provata resta «non spiegata
 - Se hai lavorato più a lungo di quanto la consegna prevedeva, o hai dovuto fermarti, dillo in testa, con il punto in
   cui sei arrivato.
 #==== swarmer.sh: file docs/it/README.md ====
-# swarmer: lo sciame di agenti universale per gli agenti di programmazione (versione 5.2)
+# swarmer: lo sciame di agenti universale per gli agenti di programmazione (versione 5.3)
 
 Uno sciame di professionisti e sottoprofessionisti specialistici, che un coordinatore convoca per una richiesta con
 una di otto strategie. Il coordinatore è la sessione dell'agente di programmazione aperta nel progetto (Claude Code,
@@ -16704,6 +17707,12 @@ byte per byte, le stesse skill (con la sezione nuova su come delegare in ogni st
 (`bash sciame/sciame.sh estensioni --aggiungi incroci` quando la vuoi) e lascia validi tutti i cancelli già
 approvati: una convocazione cominciata prima tiene le regole 1 dei suoi cancelli, una nuova nasce con le regole 2
 (`PIPELINE.md`, §«Le regole dei cancelli»).
+
+**Dalla 5.2.** L'aggiornamento alla 5.3 lascia validi tutti i cancelli già approvati: una convocazione tiene le regole
+dei suoi cancelli, una nuova nasce con le regole 3, che leggono l'ordine di f4 dai sigilli, e `cancello C FASE --regole 3`
+le applica a un cancello nuovo di una convocazione più vecchia. `rifissa` apre un giro nuovo di un ramo, e dopo un G5
+«non chiuso» la chiusura successiva va in `f5_2/` (`PIPELINE.md`, §«I rami, gli spazi di lavoro e la chiusura»;
+`CHANGELOG.it.md`).
 #==== swarmer.sh: file docs/it/_CLAUDE.md ====
 ## Sciame di agenti
 
@@ -16975,6 +17984,8 @@ Questa pull request aggiunge al database `db/professionals.json`:
   "select": [],
   "fund": [],
   "close-branch": [],
+  "repin": [],
+  "contradiction": [],
   "status": [],
   "targets": [],
   "extensions": []
@@ -17100,8 +18111,14 @@ Questa pull request aggiunge al database `db/professionals.json`:
   "translations": "translations"
  },
  "missions": {
-  "closure": "The closure: at least one H# proven (Correctness proven or verified in its verdict), no open contradiction on an adopted conclusion, predictions resolved or declared unresolved with the test that would decide them, the four checks of the founding results. Also write {closure_file} with the line «Outcome: closed» or «Outcome: not closed», and at most three decisions for the user. «Outcome: not closed» is a recorded non-closure: name in it every branch without a verdict. If the sentinel did not work, write the line «Declared missing: sentinel: <reason>».",
+  "closure": "The closure: at least one H# proven (Correctness proven or verified in its verdict), no open contradiction on an adopted conclusion, predictions resolved or declared unresolved with the test that would decide them, the four checks of the founding results. Also write {closure_file} with the line «Outcome: closed» or «Outcome: not closed», and at most three decisions for the user. «Outcome: not closed» is a recorded non-closure: {open} If the sentinel did not work, write the line «Declared missing: sentinel: <reason>».",
+  "closure_open": "name in it every branch without a valid G4 of its latest round nor an early closure, and a radical never funded nor closed, as G5 checks: here {branches}, each unless its G4 holds by then.",
+  "closure_radical": "the radical {h}, never funded",
+  "closure_none": "none",
+  "k_registry": "The K# of this convening are allocated by the coordinator, convening-wide, with contradiction C FILE… --question TEXT, in {registry}: cite those; a contradiction without its K# is provisional, with your role's id (role-1), until it is allocated.",
+  "k_closure": "Under the gate rules 3 G5 wants every K# of {registry} named in {closure_file}, resolved or open.",
   "owner_solution": "You own {h}. Write the solution: steps, invariants, cost, «depends on», «invalidated if it changes». The predictions with their threshold go in PREDICTIONS.md, with the line «decides: yes» or «decides: no».",
+  "f3_predictions": "A prediction of yours goes in PREDICTIONS.md in your folder, with its threshold, before the test it decides, and with the line «decides: yes» or «decides: no»: G3 wants that line in every PREDICTIONS.md of f3.",
   "proof": "Write the proof or the check of {h}, after the owner's SOLUTION.md: what makes it correct, under which assumptions, and how it is checked.",
   "measurement_plan": "The measurement plan of {h}: what is measured, with which threshold, before the tests. If no measurements are needed, say so and why.",
   "attack": "The attack on {h}: the cases that should break it, with the predictions first.",
@@ -17120,9 +18137,20 @@ Questa pull request aggiunge al database `db/professionals.json`:
   "single": "Carry out the request in your role, in full, and reread your work with your «questions it always asks» before delivering.",
   "fan_out_slice": "You are an agent of a fan-out, with one slice of the work: yours is written below by the coordinator. Do only your slice, in full, and check the done criterion before delivering.",
   "race": "You are one arm of a race: other agents have your same brief, and the coordinator will choose with the rule declared in the contract. Work alone, in full, and check the done criterion before delivering.",
-  "owner_revision": "You own {h}. After the counterchecks and the defects, write the revision: what changes in the solution and why, each change with the countercheck or the defect it answers; what does not change, with the reason. A prediction born now goes in PREDICTIONS.md and is sealed by the coordinator before its test.",
+  "owner_revision": "You own {h}. After the counterchecks and the defects, write the revision: what changes in the solution and why, each change with the countercheck or the defect it answers; what does not change, with the reason.",
+  "f4_round": "This is round {k} of the f4 of {h}, opened by repin on a revised pin: the previous round, {previous}, is an input and stays as it is, and everything of this round goes in {folder}; its gate G4 runs under the gate rules 3 and counts only this round's files.",
+  "predictions_before": "Under the gate rules 3 your predictions come before the counterchecks: they go in PREDICTIONS.md in your folder, which the coordinator seals, with every block added to it later, before {output} is first sealed; the outcomes go in {output}, not in PREDICTIONS.md.",
+  "predictions_after": "You work after the counterchecks: a prediction of yours goes in PREDICTIONS.md in your folder, a post-countercheck prediction, which the gate rules 3 order by the seals against your own output: the coordinator seals it, with every block added to it later, before {output} is first sealed; the outcomes go in {output}, not in PREDICTIONS.md.",
+  "predictions_after_old": "You work after the counterchecks: under the gate rules {rules} of this convening G4 wants every PREDICTIONS.md born in f4 sealed before the counterchecks, so do not write one; write each prediction at the top of {output}, with its time from date -Is, before the test it decides.",
+  "revision_order": "The gate rules 3 check this order by the seals: COUNTERCHECKS.md and DEFECTS.md are sealed before REVISION.md, so write the revision once both are delivered.",
   "hidden_assumption_audit": "The hidden-assumption audit (V2) of {h}: you took part neither in the construction nor in the reread. List the unstated necessary conditions of its founding results: versions, data representations, encodings, caches and state, call order, edges, empty domains, operational limits, differences between the theory and the behavior of the system. For each: where it is assumed, whether it holds, and the check that says so. A negative audit lists the conditions checked.",
-  "sentinel": "You are the sentinel: a role that was not convened, read only, twenty minutes. Put one assumption shared by the branches to the test with an external check, and recount from the files the figures and the identifiers of the dossiers. A K# of your own enters only with a file. Write nothing outside your folder."
+  "sentinel": "You are the sentinel: a role that was not convened, read only, twenty minutes. Put one assumption shared by the branches to the test with an external check, and recount from the files the figures and the identifiers of the dossiers. A K# of your own enters only with a file. Write nothing outside your folder.",
+  "sentinel_f2": "You are the sentinel of f2: a role that was not convened, read only, twenty minutes. Put one assumption shared by the cards to the test with an external check, and recount from the files the figures and the identifiers of the cards, of the triage and of the tournament. Deliver SENTINEL.md in your folder before G2, which binds it. A K# of your own enters only with a file. Write nothing outside your folder.",
+  "sentinel_f3": "You are the sentinel of f3: a role that was not convened, read only, twenty minutes. Put one assumption shared by the solutions of the branches to the test with an external check, and recount from the files the figures and the identifiers of their solutions, verifications, measurement plans and predictions. Deliver SENTINEL.md in your folder: G5 binds it. A K# of your own enters only with a file. Write nothing outside your folder.",
+  "sentinel_f4": "You are the sentinel of f4: a role that was not convened, read only, twenty minutes. Put one assumption shared by the branches to the test with an external check, and recount from the files the figures and the identifiers of their counterchecks, measurements and dossiers. Deliver SENTINEL.md in your folder: G5 binds it. A K# of your own enters only with a file. Write nothing outside your folder.",
+  "sentinel_draw": "How you were drawn: with the seed {seed} of the convening, among the {n} free roles fit for the question, those with a keyword of their own in it ({pool}); yours: {words}. A free role is one that no brief of this convening names and that its profile does not convene.",
+  "sentinel_draw_unfit": "How you were drawn: with the seed {seed} of the convening, among all the {n} free roles, since none has a keyword of its own in the question. A free role is one that no brief of this convening names and that its profile does not convene.",
+  "sentinel_draw_none": "How you were drawn: no role of the swarm is free (each is named by a brief of this convening or convened by its profile), so the sentinel is {role}, by default."
  },
  "convene": {
   "agent": "Agent",
@@ -17182,9 +18210,12 @@ Questa pull request aggiunge al database `db/professionals.json`:
   "gate_warning": "  warning: {text}",
   "branch_not_funded": "{h} closed: not funded (the radical branch was never briefed)",
   "branch_funded": "{h} funded: its dossier and its briefs are written",
+  "repinned": "{h}: round {k} of f4 opened in {path}, with its briefs and its dossier; the earlier rounds stay as they are, and its G4 runs under the gate rules 3 (gate C f4/{h} --rules 3)",
+  "contradiction_allocated": "{id} allocated in {path}: {question}",
   "radical_recorded": "Radical {h} recorded, not funded: fund C {h} briefs it, close-branch C {h} --reason … closes it",
   "status_not_closed": "  {phase}: approved, NOT CLOSED (a recorded non-closure)",
   "status_not_funded": "  {phase}: radical not funded (fund C {h}, or close-branch C {h})",
+  "status_contradictions": "  K#: {ids} ({path})",
   "deciding_test_added": "{h}: the test that would decide it is recorded in its early closure",
   "status_clash": "  WARNING: {text}"
  }
@@ -17418,6 +18449,12 @@ Questa pull request aggiunge al database `db/professionals.json`:
   "close-branch": [
    "chiudi-ramo"
   ],
+  "repin": [
+   "rifissa"
+  ],
+  "contradiction": [
+   "contraddizione"
+  ],
   "status": [
    "stato"
   ],
@@ -17636,8 +18673,14 @@ Questa pull request aggiunge al database `db/professionals.json`:
   "translations": "traduzioni"
  },
  "missions": {
-  "closure": "La chiusura: almeno una H# provata (Correttezza dimostrata o verificata nel suo verdetto), nessuna contraddizione aperta su una conclusione adottata, previsioni risolte o dichiarate non risolte con la prova che le deciderebbe, le quattro verifiche dei risultati fondanti. Scrivi anche {closure_file} con la riga «Esito: chiuso» o «Esito: non chiuso», e al più tre decisioni per l'utente. «Esito: non chiuso» è una non chiusura registrata: nomina ogni ramo senza verdetto. Se la sentinella non ha lavorato, scrivi la riga «Dichiarato mancante: sentinella: <motivo>».",
+  "closure": "La chiusura: almeno una H# provata (Correttezza dimostrata o verificata nel suo verdetto), nessuna contraddizione aperta su una conclusione adottata, previsioni risolte o dichiarate non risolte con la prova che le deciderebbe, le quattro verifiche dei risultati fondanti. Scrivi anche {closure_file} con la riga «Esito: chiuso» o «Esito: non chiuso», e al più tre decisioni per l'utente. «Esito: non chiuso» è una non chiusura registrata: {open} Se la sentinella non ha lavorato, scrivi la riga «Dichiarato mancante: sentinella: <motivo>».",
+  "closure_open": "nomina ogni ramo senza un G4 valido del suo ultimo giro né una chiusura anticipata, e una radicale mai finanziata né chiusa, come controlla il G5: qui {branches}, ciascuno a meno che allora il suo G4 regga.",
+  "closure_radical": "la radicale {h}, mai finanziata",
+  "closure_none": "nessuno",
+  "k_registry": "Le K# di questa convocazione le assegna il coordinatore, per tutta la convocazione, con contraddizione C FILE… --domanda TESTO, in {registry}: cita quelle; una contraddizione senza la sua K# è provvisoria, con la sigla del tuo ruolo (ruolo-1), finché non è assegnata.",
+  "k_closure": "Con le regole 3 dei cancelli il G5 vuole ogni K# di {registry} nominata in {closure_file}, risolta o aperta.",
   "owner_solution": "Sei il responsabile di {h}. Scrivi la soluzione: passi, invarianti, costo, «dipende da», «invalidata se cambia». Le previsioni con la soglia in PREVISIONI.md, con la riga «decide: sì» o «decide: no».",
+  "f3_predictions": "Una tua previsione va in PREVISIONI.md nella tua cartella, con la sua soglia, prima della prova che decide, e con la riga «decide: sì» o «decide: no»: il G3 vuole quella riga in ogni PREVISIONI.md della f3.",
   "proof": "Scrivi la prova o la verifica di {h}, dopo SOLUZIONE.md del responsabile: che cosa la rende corretta, con quali ipotesi, e come la si controlla.",
   "measurement_plan": "Il piano delle misure di {h}: che cosa si misura, con quale soglia, prima delle prove. Se non servono misure, scrivilo con il perché.",
   "attack": "L'attacco a {h}: i casi che dovrebbero romperla, con le previsioni prima.",
@@ -17656,9 +18699,20 @@ Questa pull request aggiunge al database `db/professionals.json`:
   "single": "Esegui la richiesta nel tuo ruolo, per intero, e rileggiti con le tue «domande che si pone sempre» prima di consegnare.",
   "fan_out_slice": "Sei un agente di un ventaglio, con una fetta del lavoro: la tua è scritta qui sotto dal coordinatore. Fai solo la tua fetta, per intero, e verifica il criterio di fatto prima di consegnare.",
   "race": "Sei un braccio di una gara: altri agenti hanno la tua stessa consegna, e il coordinatore sceglierà con la regola dichiarata nel contratto. Lavora da solo, per intero, e verifica il criterio di fatto prima di consegnare.",
-  "owner_revision": "Sei il responsabile di {h}. Dopo le controprove e i difetti, scrivi la revisione: che cosa cambia nella soluzione e perché, ogni cambio con la controprova o il difetto a cui risponde; che cosa non cambia, con il motivo. Una previsione nata ora va in PREVISIONI.md e la sigilla il coordinatore prima della sua prova.",
+  "owner_revision": "Sei il responsabile di {h}. Dopo le controprove e i difetti, scrivi la revisione: che cosa cambia nella soluzione e perché, ogni cambio con la controprova o il difetto a cui risponde; che cosa non cambia, con il motivo.",
+  "f4_round": "Questo è il giro {k} della f4 di {h}, aperto da rifissa su un pin rivisto: il giro precedente, {previous}, è un ingresso e resta com'è, e tutto ciò che è di questo giro va in {folder}; il suo cancello G4 segue le regole 3 dei cancelli e conta solo i file di questo giro.",
+  "predictions_before": "Con le regole 3 dei cancelli le tue previsioni vengono prima delle controprove: vanno in PREVISIONI.md nella tua cartella, che il coordinatore sigilla, con ogni blocco aggiunto dopo, prima che {output} sia sigillato la prima volta; gli esiti vanno in {output}, non in PREVISIONI.md.",
+  "predictions_after": "Lavori dopo le controprove: una tua previsione va in PREVISIONI.md nella tua cartella, una previsione successiva alle controprove, che le regole 3 dei cancelli ordinano con i sigilli rispetto alla tua uscita: il coordinatore la sigilla, con ogni blocco aggiunto dopo, prima che {output} sia sigillato la prima volta; gli esiti vanno in {output}, non in PREVISIONI.md.",
+  "predictions_after_old": "Lavori dopo le controprove: con le regole {rules} dei cancelli di questa convocazione G4 vuole ogni PREVISIONI.md nata in f4 sigillata prima delle controprove, quindi non scriverne una; scrivi ogni previsione in cima a {output}, con l'ora da date -Is, prima della prova che la decide.",
+  "revision_order": "Le regole 3 dei cancelli controllano quest'ordine con i sigilli: CONTROPROVE.md e DIFETTI.md sono sigillati prima di REVISIONE.md, quindi scrivi la revisione quando li hai entrambi.",
   "hidden_assumption_audit": "L'audit delle ipotesi nascoste (V2) di {h}: non hai preso parte né alla costruzione né alla rilettura. Elenca le condizioni necessarie non dichiarate dei suoi risultati fondanti: versioni, rappresentazioni dei dati, codifiche, cache e stato, ordine delle chiamate, bordi, domini vuoti, limiti operativi, differenze fra la teoria e il comportamento del sistema. Per ciascuna: dove è assunta, se regge, e il controllo che lo dice. Un audit negativo elenca le condizioni controllate.",
-  "sentinel": "Sei la sentinella: un ruolo non convocato, in sola lettura, venti minuti. Metti alla prova un presupposto condiviso dai rami con un controllo esterno, e riconta dai file le cifre e gli identificativi dei dossier. Una K# tua entra solo con un file. Non scrivere nulla fuori dalla tua cartella."
+  "sentinel": "Sei la sentinella: un ruolo non convocato, in sola lettura, venti minuti. Metti alla prova un presupposto condiviso dai rami con un controllo esterno, e riconta dai file le cifre e gli identificativi dei dossier. Una K# tua entra solo con un file. Non scrivere nulla fuori dalla tua cartella.",
+  "sentinel_f2": "Sei la sentinella della f2: un ruolo non convocato, in sola lettura, venti minuti. Metti alla prova un presupposto condiviso dalle schede con un controllo esterno, e riconta dai file le cifre e gli identificativi delle schede, del triage e del torneo. Consegna SENTINELLA.md nella tua cartella prima del G2, che la lega. Una K# tua entra solo con un file. Non scrivere nulla fuori dalla tua cartella.",
+  "sentinel_f3": "Sei la sentinella della f3: un ruolo non convocato, in sola lettura, venti minuti. Metti alla prova un presupposto condiviso dalle soluzioni dei rami con un controllo esterno, e riconta dai file le cifre e gli identificativi delle loro soluzioni, verifiche, piani delle misure e previsioni. Consegna SENTINELLA.md nella tua cartella: la lega il G5. Una K# tua entra solo con un file. Non scrivere nulla fuori dalla tua cartella.",
+  "sentinel_f4": "Sei la sentinella della f4: un ruolo non convocato, in sola lettura, venti minuti. Metti alla prova un presupposto condiviso dai rami con un controllo esterno, e riconta dai file le cifre e gli identificativi delle loro controprove, misure e dossier. Consegna SENTINELLA.md nella tua cartella: la lega il G5. Una K# tua entra solo con un file. Non scrivere nulla fuori dalla tua cartella.",
+  "sentinel_draw": "Come sei stata estratta: con il seme {seed} della convocazione, tra i {n} ruoli liberi adatti alla domanda, quelli con una loro parola chiave in essa ({pool}); le tue: {words}. Un ruolo è libero se nessuna consegna di questa convocazione lo nomina e il suo profilo non lo convoca.",
+  "sentinel_draw_unfit": "Come sei stata estratta: con il seme {seed} della convocazione, tra tutti i {n} ruoli liberi, perché nessuno ha una sua parola chiave nella domanda. Un ruolo è libero se nessuna consegna di questa convocazione lo nomina e il suo profilo non lo convoca.",
+  "sentinel_draw_none": "Come sei stata estratta: nessun ruolo dello sciame è libero (ciascuno è nominato da una consegna di questa convocazione o convocato dal suo profilo), quindi la sentinella è {role}, per difetto."
  },
  "convene": {
   "agent": "Agente",
@@ -17718,16 +18772,19 @@ Questa pull request aggiunge al database `db/professionals.json`:
   "gate_warning": "  avviso: {text}",
   "branch_not_funded": "{h} chiusa: non finanziata (il ramo radicale non ha mai avuto consegne)",
   "branch_funded": "{h} finanziata: il suo dossier e le sue consegne sono scritti",
+  "repinned": "{h}: giro {k} della f4 aperto in {path}, con le sue consegne e il suo dossier; i giri precedenti restano com'erano, e il suo G4 segue le regole 3 dei cancelli (cancello C f4/{h} --regole 3)",
+  "contradiction_allocated": "{id} assegnata in {path}: {question}",
   "radical_recorded": "Radicale {h} registrata, non finanziata: finanzia C {h} le dà le consegne, chiudi-ramo C {h} --motivo … la chiude",
   "status_not_closed": "  {phase}: approvato, NON CHIUSO (una non chiusura registrata)",
   "status_not_funded": "  {phase}: radicale non finanziata (finanzia C {h}, oppure chiudi-ramo C {h})",
+  "status_contradictions": "  K#: {ids} ({path})",
   "deciding_test_added": "{h}: la prova che la deciderebbe è registrata nella sua chiusura anticipata",
   "status_clash": "  ATTENZIONE: {text}"
  }
 }
 #==== swarmer.sh: file wrappers/convene.py ====
 #!/usr/bin/env python3
-"""swarmer 5.0: the usual command, swarmer/convene.py. The code is in swarmer/engine/convene.py."""
+"""swarmer: the usual command, swarmer/convene.py. The code is in swarmer/engine/convene.py."""
 import runpy
 import sys
 from pathlib import Path
@@ -17737,7 +18794,7 @@ sys.argv[0] = str(m)
 runpy.run_path(str(m), run_name="__main__")
 #==== swarmer.sh: file wrappers/jury.py ====
 #!/usr/bin/env python3
-"""swarmer 5.0: the usual command, swarmer/jury.py. The code is in swarmer/engine/jury.py."""
+"""swarmer: the usual command, swarmer/jury.py. The code is in swarmer/engine/jury.py."""
 import runpy
 import sys
 from pathlib import Path
@@ -17745,6 +18802,410 @@ from pathlib import Path
 m = Path(__file__).resolve().parent / "engine" / "jury.py"
 sys.argv[0] = str(m)
 runpy.run_path(str(m), run_name="__main__")
+#==== swarmer.sh: file tests/test_briefs.py ====
+#!/usr/bin/env python3
+"""Test battery of the briefs, the sentinels, the K# and the race canaries (swarmer 5.3):
+python3 -I -B tests/test_briefs.py
+
+Uses the harness of tests/test_convene.py (an installation in English and one in Italian, the commands by subprocess,
+the Italian aliases in the Italian one) and the seal helpers of tests/test_rounds.py. The checks are the acceptance
+tests of group 3 of the 5.3 core patch:
+- E3 (ENG-17): the engine briefs the sentinels of f2 (prepare), f3 and f4 (select, fund: two funded branches, under
+  the rules 3, before any G5), and `sentinel_found` accepts them: G2 wants the f2 one or its «not delivered», G3 and
+  G4 warn while theirs is missing, G5 wants every briefed one (or «Declared missing: sentinel: …») and binds the
+  folders of f3 and f4; the rules 2 keep the sentinel of the closure alone;
+- E5 (ENG-20): every f3 brief asks for the line «decides: yes|no», which G3 wants in every PREDICTIONS.md of f3;
+- E6 (ENG-23): the closure brief states what G5 checks for a non-closure (every branch without a valid G4 nor an
+  early closure, and a radical never funded nor closed) and names those branches;
+- E9 (ENG-15): `contradiction C FILE… --question TEXT` allocates the K# convening-wide in CONTRADICTIONS.jsonl;
+  status lists them; under the rules 3 G5 wants every allocated K# named in the closure, G4 warns on a K# cited and
+  never allocated, and the briefs of the verdict and of the closure name the registry;
+- E10 (ENG-16): under the rules 3 a sentinel is drawn among the free roles fit for the question (a keyword of theirs
+  in it), all the free roles when none is fit, and its brief records the draw;
+- E11 (ENG-12): in a fan-out race (and a mixed one) every arm has a canary of its own, in its brief and in the map,
+  and G1 checks it; a fan-out of slices has none, as before.
+Exits with 1 if a check fails.
+"""
+from __future__ import annotations
+
+import json
+import re
+import sys
+import tempfile
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(HERE))
+import test_convene as TC  # noqa: E402   the harness: Swarm, check, the engine modules
+import test_rounds as TR  # noqa: E402   the seals of a round of f4 in the order of the rules 3
+
+C, V, check = TC.C, TC.V, TC.check
+ARB = C.ROLES["arbiter"]
+AGENT = re.compile(r"`(?:swarmer|sciame)-([^`/\s]+)`")
+
+
+def head(s, key: str) -> str:
+    return TR.mission_head(s, key)
+
+
+def brief_role(task: Path) -> str:
+    """The role of a brief, from its agent line."""
+    mt = AGENT.search(task.read_text(encoding="utf-8")) if task.is_file() else None
+    return mt.group(1) if mt else ""
+
+
+def line_with(text: str, part: str) -> str:
+    """The line of `text` that contains `part` (a mission is one line in its brief), or ''."""
+    return next((x for x in text.splitlines() if part and part in x), "")
+
+
+def fit_roles(s, question: str) -> set[str]:
+    """The roles with a keyword of theirs in the question, whole and in any case (computed here, not by the engine)."""
+    cat = json.loads((s.swarm / "catalog.json").read_text(encoding="utf-8"))
+    q = question.lower()
+    return {r["id"] for r in cat["roles"]
+            if any(re.search(rf"(?<!\w){re.escape(k.lower())}(?!\w)", q) for k in r["keywords"])}
+
+
+def convened(s, c: Path) -> set[str]:
+    """The roles named by a brief of the convening other than a sentinel's, and every role of its profile."""
+    cat = json.loads((s.swarm / "catalog.json").read_text(encoding="utf-8"))
+    prof = cat["profiles"][s.manifest(c)["profile"]]
+    out = {x for k in ("A", "B", "translates", "f3", "f4") for x in prof.get(k, [])}
+    for task in c.rglob("TASK.md"):
+        if task.parent.name != s.N("00-sentinel"):
+            out.add(brief_role(task))
+    return out
+
+
+def round1(s, c: Path, h: str, correctness="refuted", extra=b"") -> None:
+    """f4/<h> delivered and sealed in the order of the rules 3, with its dossier."""
+    outs = TR.deliver(s, c / "f4" / h, correctness)
+    if extra:
+        v = outs[f"09-{ARB}"]
+        v.write_bytes(v.read_bytes() + extra)
+    s.dossier(c, h)
+    TR.write_seals(s, c, TR.seal_rows(s, c) + TR.output_rows(s, outs))
+
+
+def registry(s, c: Path) -> list[dict]:
+    p = c / s.N("CONTRADICTIONS.jsonl")
+    return [json.loads(x) for x in p.read_text(encoding="utf-8").splitlines()] if p.is_file() else []
+
+
+# --- E11: a canary per arm of a fan-out race (ENG-12) ---
+
+def e11_race(s):
+    L = f"E11 [{s.lang}]"
+    word = C.CONVENE_LINES["canary"][s.lang]
+    for form in ("race", "mixed", "slices"):
+        s.n += 1
+        dest = s.root / f"fan{s.n}"
+        args = ["prepare", "--name", "f", "--strategy", "fan-out", "--profile", "code", "--question", "q", "--n", "3",
+                "--form", form, "--dest", dest] + (["--rule", "first"] if form != "slices" else [])
+        rc, out = s.run(*args)
+        assert rc == 0, out
+        c = next(p for p in dest.iterdir() if not p.name.startswith("."))
+        folders = [c / "f1" / s.N(f"agent-{k}") for k in (1, 2, 3)]
+        heads = [(f / "TASK.md").read_text(encoding="utf-8").splitlines()[0] for f in folders]
+        canaries = [x.split(" ", 1)[1] if x.startswith(word + " ") else None for x in heads]
+        m = s.manifest(c)
+        if form == "slices":
+            check(f"{L}: slices: no canary and no map, as before", not any(canaries) and not m.get("map"), heads)
+            continue
+        check(f"{L}: {form}: every arm's brief starts with a canary of its own",
+              all(canaries) and len(set(canaries)) == 3, heads)
+        mp = {}
+        if m.get("map") and Path(m["map"]).is_file():
+            mp = C.to_canonical(json.loads(Path(m["map"]).read_text(encoding="utf-8")), C.CONVENE_KEYS["map"])
+        check(f"{L}: {form}: the map, outside the convening, holds the canary of each arm",
+              sorted(v.get("canary") for v in mp.values()) == sorted(x for x in canaries if x) and len(mp) == 3
+              and c not in Path(m.get("map") or "/").parents, mp)
+        contract = c / s.N("CONTRACT.md")
+        contract.write_text(contract.read_text(encoding="utf-8").replace(s.line("<to fill in>", "<da compilare>"),
+                                                                         "filled"), encoding="utf-8")
+        rc, out = s.run("gate", c, "f0", "--notes", "x")
+        assert rc == 0, out
+        outs = [f / s.N("DELIVERABLE.md") for f in folders]
+        for p, k in zip(outs, canaries):
+            p.write_text(f"{word} {k}\nDONE\n", encoding="utf-8")
+        rc, out = s.run("gate", c, "f1", "--notes", "x", "--verify")
+        check(f"{L}: {form}: G1 without the snapshot of the reads: refused", rc == 1 and "snapshot" in out, out)
+        s.run("snapshot", c)
+        rc, out = s.run("gate", c, "f1", "--notes", "x", "--verify")
+        check(f"{L}: {form}: every arm with its own canary, snapshot taken: G1 holds", rc == 0, out)
+        old = outs[1].read_text(encoding="utf-8")
+        outs[1].write_text(old + f"copied from the other arm: {canaries[0]}\n", encoding="utf-8")
+        s.run("snapshot", c)
+        rc, out = s.run("gate", c, "f1", "--notes", "x", "--verify")
+        check(f"{L}: {form}: an arm with the canary of another: G1 refused (contamination)",
+              rc == 1 and "contamination" in out, out)
+        outs[1].write_text("DONE\n", encoding="utf-8")
+        s.run("snapshot", c)
+        rc, out = s.run("gate", c, "f1", "--notes", "x", "--verify")
+        check(f"{L}: {form}: an arm without its canary: G1 refused", rc == 1 and "canary" in out, out)
+        outs[1].write_text(old, encoding="utf-8")
+        s.run("snapshot", c)
+        rc, out = s.run("gate", c, "f1", "--notes", "x")
+        check(f"{L}: {form}: restored: G1 approved", rc == 0, out)
+
+
+# --- E5: the «decides» line asked in every f3 brief (ENG-20) ---
+
+def e5_decides(s):
+    L = f"E5 [{s.lang}]"
+    line = C.CONVENE_LINES["decides"][s.lang]
+    for rules in (2, 3):
+        c = s.classic(rules=rules)
+        s.gate_f2(c)
+        rc, out = s.run("select", c, "H-001")
+        assert rc == 0, out
+        b = c / "f3" / "H-001"
+        roles = sorted(d for d in b.iterdir() if d.is_dir() and re.match(r"0[1-4]-", d.name))
+        missing = [d.name for d in roles if line not in (d / "TASK.md").read_text(encoding="utf-8")]
+        check(f"{L}: rules {rules}: every f3 brief (owner and companions) asks for the line {line}",
+              len(roles) == 4 and not missing, missing)
+        # every role follows its brief: its deliverable, and its predictions with the line asked
+        for d, name in zip(roles, ("SOLUTION.md", "VERIFICATION.md", "MEASUREMENT_PLAN.md", "ATTACK.md")):
+            (d / s.N(name)).write_text("done\n", encoding="utf-8")
+            (d / s.N("PREDICTIONS.md")).write_text("threshold 1, before the test\n"
+                                                   + s.line("decides: yes", "decide: sì") + "\n", encoding="utf-8")
+        rc, out = s.run("gate", c, "f3/H-001", "--notes", "x")
+        check(f"{L}: rules {rules}: a fresh classic whose f3 roles follow their briefs: G3 passes, no line appended",
+              rc == 0, out)
+
+
+# --- E6: the closure brief says what G5 checks (ENG-23) ---
+
+def e6_closure(s):
+    L = f"E6 [{s.lang}]"
+    c = s.classic(rules=2)
+    s.gate_f2(c)
+    rc, out = s.run("select", c, "H-001", "H-003", "--radical", "H-002")
+    assert rc == 0, out
+    task = c / "f5" / f"01-{ARB}" / "TASK.md"
+    rule = head(s, "closure_open")
+    x = line_with(task.read_text(encoding="utf-8"), rule)
+    check(f"{L}: the closure brief states G5's rule for a non-closure", bool(x), rule)
+    tail = x[x.find(rule) + len(rule):] if x else ""
+    check(f"{L}: and names every branch it checks: the funded ones and the radical never funded",
+          all(h in tail for h in ("H-001", "H-002", "H-003")), tail)
+    s.sentinel(c)
+    s.closure(c, closed=False, extra="H-001, H-003 and H-002 stay open\n")
+    rc, out = s.run("gate", c, "f5", "--notes", "x", "--verify")
+    check(f"{L}: a non-closure naming the branches of the brief: G5 holds", rc == 0, out)
+    s.closure(c, closed=False, extra="H-001 and H-003 stay open\n")
+    rc, out = s.run("gate", c, "f5", "--notes", "x", "--verify")
+    check(f"{L}: one naming the funded branches only: G5 refused for the radical, as the brief said",
+          rc == 1 and "H-002" in out, out)
+    rc, out = s.run("close-branch", c, "H-002", "--reason", "no time")
+    assert rc == 0, out
+    x = line_with(task.read_text(encoding="utf-8"), rule)
+    tail = x[x.find(rule) + len(rule):] if x else ""
+    check(f"{L}: once the radical is closed, the rewritten brief no longer names it",
+          "H-001" in tail and "H-003" in tail and "H-002" not in tail, tail)
+
+
+# --- E9: the K# allocated convening-wide (ENG-15) ---
+
+def e9_contradictions(s):
+    L = f"E9 [{s.lang}]"
+    c = s.classic(rules=3)
+    s.gate_f2(c)
+    rc, out = s.run("select", c, "H-001")
+    assert rc == 0, out
+    s.f3(c, "H-001")
+    b3 = c / "f3" / "H-001"
+    sol, att = next(b3.glob("01-*")) / s.N("SOLUTION.md"), next(b3.glob("04-*")) / s.N("ATTACK.md")
+    rc, out = s.run("contradiction", c, sol, att, "--question", "does the bound hold at n = 0?")
+    rows = registry(s, c)
+    check(f"{L}: contradiction allocates K-001 in {s.N('CONTRADICTIONS.jsonl')}, with its files",
+          rc == 0 and "K-001" in out and [r.get("id") for r in rows] == ["K-001"]
+          and str(sol) in json.dumps(rows, ensure_ascii=False), (out, rows))
+    rc, out = s.run("contradiction", c, att, "--question", "is the attack in scope?")
+    check(f"{L}: the next one is K-002, convening-wide",
+          rc == 0 and "K-002" in out and [r.get("id") for r in registry(s, c)] == ["K-001", "K-002"], out)
+    rc, out = s.run("contradiction", c, c / "nope.md", "--question", "x")
+    check(f"{L}: a file that does not exist: refused, nothing allocated", rc == 1 and len(registry(s, c)) == 2, out)
+    out = s.status(c)
+    check(f"{L}: status lists the K# allocated", "K-001" in out and "K-002" in out, out)
+    verdict = c / "f4" / "H-001" / f"09-{ARB}" / "TASK.md"
+    closure_task = c / "f5" / f"01-{ARB}" / "TASK.md"
+    note = head(s, "k_registry")
+    check(f"{L}: rules 3: the briefs of the verdict and of the closure name the registry",
+          note in verdict.read_text(encoding="utf-8") and note in closure_task.read_text(encoding="utf-8"), note)
+    round1(s, c, "H-001", extra=b"K-007 is open, and K-001-3 is numbered by its branch\n")
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x")
+    check(f"{L}: rules 3: G4 approved, with a warning on K-007, cited and never allocated",
+          rc == 0 and "K-007" in out, out)
+    check(f"{L}: and on K-001-3, a K# numbered by its branch, which is not K-001 of the registry",
+          rc == 0 and "K-001-3" in out, out)
+    s.closure(c, closed=False, extra="H-001 refuted; K-001 resolved\n")
+    rc, out = s.run("gate", c, "f5", "--notes", "x", "--verify")
+    check(f"{L}: rules 3: a closure that does not name K-002: G5 refused", rc == 1 and "K-002" in out, out)
+    s.closure(c, closed=False, extra="H-001 refuted; K-001 resolved, K-002 open\n")
+    rc, out = s.run("gate", c, "f5", "--notes", "x", "--verify")
+    check(f"{L}: rules 3: every allocated K# named: G5 holds", rc == 0, out)
+    s.closure(c, closed=False, extra="H-001 refuted; K-001 resolved, K-002-1 open\n")
+    rc, out = s.run("gate", c, "f5", "--notes", "x", "--verify")
+    check(f"{L}: rules 3: K-002-1 (numbered by a branch) does not name K-002: G5 refused", rc == 1 and "K-002" in out,
+          out)
+    s.closure(c, closed=False, extra="H-001 refuted; K-001 resolved, K-002 open\n")
+    reg = c / s.N("CONTRADICTIONS.jsonl")
+    old = reg.read_bytes()
+    reg.write_bytes(old + old.splitlines(keepends=True)[0])
+    rc, out = s.run("status", c)
+    check(f"{L}: a K# written twice in the registry stops the readers with exit 1", rc == 1 and "K-001" in out, out)
+    reg.write_bytes(old)
+    # the rules 2: the registry works, G5 does not check it
+    c = s.classic(rules=2)
+    s.gate_f2(c)
+    s.run("select", c, "H-001")
+    s.f3(c, "H-001")
+    s.f4(c, "H-001")
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x")
+    assert rc == 0, out
+    rc, out = s.run("contradiction", c, c / s.N("CONTRACT.md"), "--question", "q?")
+    check(f"{L}: rules 2: contradiction allocates K-001 too", rc == 0 and "K-001" in out, out)
+    s.closure(c, closed=False, extra="H-001 refuted\n")
+    rc, out = s.run("gate", c, "f5", "--notes", "x", "--verify")
+    check(f"{L}: rules 2: G5 does not check the K#, as in 5.2", rc == 0, out)
+
+
+# --- E3 and E10: the sentinels of f2, f3 and f4 (ENG-17), the draw by fitness, recorded (ENG-16) ---
+
+def e3_sentinels(s):
+    L3, L10 = f"E3 [{s.lang}]", f"E10 [{s.lang}]"
+    q = "kalman lidar slam"
+    fit = fit_roles(s, q)
+    c = s.classic(rules=3, question=q, sentinel=False)
+    sent = {ph: c / ph / s.N("00-sentinel") for ph in ("f2", "f3", "f4", "f5")}
+    t2 = sent["f2"] / "TASK.md"
+    check(f"{L3}: prepare briefs the sentinel of f2, with its output in f2/{s.N('00-sentinel')}",
+          t2.is_file() and f"`{sent['f2'] / s.N('SENTINEL.md')}`" in t2.read_text(encoding="utf-8"))
+    r2 = brief_role(t2)
+    check(f"{L10}: the sentinel of f2 is fit for the question (a keyword of its own in it)", r2 in fit, (r2, fit))
+    rec = line_with(t2.read_text(encoding="utf-8") if t2.is_file() else "", head(s, "sentinel_draw"))
+    check(f"{L10}: its brief records the draw: the seed and the fit roles drawn among",
+          bool(rec) and "3" in rec and all(r in rec for r in fit), rec)
+    rc, out = s.run("gate", c, "f2", "--notes", "x", "--verify")
+    check(f"{L3}: rules 3: G2 refused while the sentinel of f2 has not delivered", rc == 1 and "sentinel" in out, out)
+    rc, out = s.run("gate", c, "f2", "--notes", "x", "--verify", "--not-delivered", r2)
+    check(f"{L3}: or declared not delivered: G2 holds", rc == 0, out)
+    (sent["f2"] / s.N("SENTINEL.md")).write_text("checked\n", encoding="utf-8")
+    rc, out = s.run("gate", c, "f2", "--notes", "x")
+    g2 = s.gate_json(c, "f2")[1]["fingerprints"] if rc == 0 else {}
+    check(f"{L3}: delivered: G2 approved, and binds it", str(sent["f2"] / s.N("SENTINEL.md")) in g2, out)
+    rc, out = s.run("select", c, "H-001", "H-002")
+    assert rc == 0, out
+    t3, t4, t5 = (sent[p] / "TASK.md" for p in ("f3", "f4", "f5"))
+    check(f"{L3}: with two branches select briefs the sentinels of f3 and f4", t3.is_file() and t4.is_file())
+    rs = [brief_role(t) for t in (t2, t3, t4, t5)]
+    check(f"{L3}: the four sentinels are four roles, none convened by a brief or by the profile",
+          len(set(rs)) == 4 and all(rs) and not set(rs) & convened(s, c), (rs, set(rs) & convened(s, c)))
+    check(f"{L10}: f3 and f4 drawn among the fit roles left", rs[1] in fit and rs[2] in fit, (rs, fit))
+    check(f"{L10}: with no fit role left, the closure's sentinel is drawn among all the free ones, and says so",
+          rs[3] not in fit and head(s, "sentinel_draw_unfit") in (t5.read_text(encoding="utf-8") if t5.is_file()
+                                                                   else ""), rs)
+    for h in ("H-001", "H-002"):
+        s.f3(c, h, gate=False)
+    rc, out = s.run("gate", c, "f3/H-001", "--notes", "x")
+    where3 = f"f3/{s.N('00-sentinel')}"
+    check(f"{L3}: G3 approved, with a warning while the sentinel of f3 has not delivered", rc == 0 and where3 in out,
+          out)
+    (sent["f3"] / s.N("SENTINEL.md")).write_text("checked\n", encoding="utf-8")
+    rc, out = s.run("gate", c, "f3/H-002", "--notes", "x")
+    check(f"{L3}: once it delivered, no such warning", rc == 0 and where3 not in out, out)
+    for h in ("H-001", "H-002"):
+        round1(s, c, h)
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x")
+    where4 = f"f4/{s.N('00-sentinel')}"
+    check(f"{L3}: G4 approved, with a warning while the sentinel of f4 has not delivered", rc == 0 and where4 in out,
+          out)
+    V._FP.clear()
+    before = V.sentinel_found(V.Convening.load(c), phase="f4")
+    (sent["f4"] / s.N("SENTINEL.md")).write_text("checked\n", encoding="utf-8")
+    check(f"{L3}: sentinel_found accepts the sentinel of f4 once it delivered",
+          not before and V.sentinel_found(V.Convening.load(c), phase="f4"))
+    rc, out = s.run("gate", c, "f4/H-002", "--notes", "x")
+    check(f"{L3}: and G4 no longer warns", rc == 0 and where4 not in out, out)
+    sentinel5 = sent["f5"] / s.N("SENTINEL.md")
+    sentinel5.write_text("checked\n", encoding="utf-8")
+    s.closure(c, closed=False, extra="H-001 and H-002 refuted\n")
+    s4 = sent["f4"] / s.N("SENTINEL.md")
+    s4.unlink()
+    rc, out = s.run("gate", c, "f5", "--notes", "x", "--verify")
+    check(f"{L3}: rules 3: G5 refused without the sentinel of f4", rc == 1 and where4 in out, out)
+    s.closure(c, closed=False, extra="H-001 and H-002 refuted\n"
+              + s.line("Declared missing: sentinel: f4 stopped\n", "Dichiarato mancante: sentinella: f4 fermata\n"))
+    rc, out = s.run("gate", c, "f5", "--notes", "x", "--verify")
+    check(f"{L3}: or with the line «Declared missing» in the closure: G5 holds", rc == 0, out)
+    s4.write_text("checked\n", encoding="utf-8")
+    s.closure(c, closed=False, extra="H-001 and H-002 refuted\n")
+    rc, out = s.run("gate", c, "f5", "--notes", "x")
+    fp = s.gate_json(c, "f5")[1]["fingerprints"] if rc == 0 else {}
+    check(f"{L3}: every sentinel delivered: G5 approved, binding the sentinels of f3 and f4",
+          str(s4) in fp and str(sent["f3"] / s.N("SENTINEL.md")) in fp, (out, sorted(fp)))
+    s4.write_text("checked, and edited after G5\n", encoding="utf-8")
+    check(f"{L3}: the sentinel of f4 edited after G5: status reports G5 invalid",
+          s.st("status_invalid", phase="f5") in s.status(c))
+    s4.write_text("checked\n", encoding="utf-8")
+    # rules 3, a radical funded before any G5: the sentinels stay as drawn, and none of them owns a branch
+    c = s.classic(rules=3)
+    s.gate_f2(c)
+    rc, out = s.run("select", c, "H-001", "H-002", "--radical", "H-003")
+    assert rc == 0, out
+    paths = [c / ph / s.N("00-sentinel") / "TASK.md" for ph in ("f3", "f4", "f5")]
+    before = [p.read_bytes() if p.is_file() else b"" for p in paths]
+    owner = brief_role(paths[0])
+    rc, out = s.run("fund", c, "H-003", "--owner", owner)
+    check(f"{L10}: fund with a sentinel as --owner: refused, nothing written",
+          rc == 1 and "sentinel" in out and not (c / "f3" / "H-003").exists(), out)
+    rc, out = s.run("fund", c, "H-003")
+    after = [p.read_bytes() if p.is_file() else b"" for p in paths]
+    check(f"{L3}: fund leaves the briefs of the sentinels of f3 and f4 as written, and draws the closure's again alike",
+          rc == 0 and all(before) and after == before, (out, [a == b for a, b in zip(after, before)]))
+    # the rules 2: the sentinel of the closure alone, as in 5.2
+    c = s.classic(rules=2)
+    s.gate_f2(c)
+    s.run("select", c, "H-001", "H-002")
+    check(f"{L3}: rules 2: no sentinel of f3 nor of f4 is briefed",
+          not (c / "f3" / s.N("00-sentinel")).exists() and not (c / "f4" / s.N("00-sentinel")).exists())
+    # rules 3, a radical funded after a G5 «not closed»: no sentinel of f3 or f4 then, the first G5 holds
+    c = s.classic(rules=3)
+    s.gate_f2(c)
+    rc, out = s.run("select", c, "H-001", "--radical", "H-002")
+    assert rc == 0, out
+    s.f3(c, "H-001")
+    round1(s, c, "H-001")
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x")
+    assert rc == 0, out
+    s.closure(c, closed=False, extra="H-001 refuted, H-002 never funded\n")
+    rc, out = s.run("gate", c, "f5", "--notes", "x")
+    assert rc == 0, out
+    rc, out = s.run("fund", c, "H-002")
+    check(f"{L3}: rules 3: fund after a G5 «not closed» briefs no sentinel of f3 nor f4, and the first G5 holds",
+          rc == 0 and not (c / "f3" / s.N("00-sentinel")).exists() and TR.holds(c, "f5"), out)
+
+
+def main():
+    with tempfile.TemporaryDirectory() as b:
+        base = Path(b)
+        for lang in ("en", "it"):
+            s = TC.Swarm(base, lang)
+            for t in (e11_race, e5_decides, e6_closure, e9_contradictions, e3_sentinels):
+                try:
+                    t(s)
+                except Exception as e:   # one item failing on an unchanged engine does not hide the others
+                    check(f"{t.__name__} [{s.lang}] ran to the end", False, repr(e))
+    failed = [n for n, ok in TC.results if not ok]
+    print(f"\n{len(TC.results) - len(failed)}/{len(TC.results)} checks passed")
+    sys.exit(1 if failed else 0)
+
+
+if __name__ == "__main__":
+    main()
 #==== swarmer.sh: file tests/test_convene.py ====
 #!/usr/bin/env python3
 """Test battery of the gates of a convening (PIPELINE.md, engine/convene.py): python3 -I -B tests/test_convene.py
@@ -17876,18 +19337,24 @@ class Swarm:
         return C.to_canonical(json.loads(p.read_text(encoding="utf-8")), C.MANIFEST_SCHEMA)
 
     # --- a classic convening, written by hand up to G2 ---
-    def classic(self, profile="data", rules=2, triage=("H-001", "H-002", "H-003")) -> Path:
+    def classic(self, profile="data", rules=2, triage=("H-001", "H-002", "H-003"), question="q",
+                sentinel=True) -> Path:
         self.n += 1
         dest = self.root / f"conv{self.n}"
-        rc, out = self.run("prepare", "--name", "k", "--strategy", "classic", "--profile", profile, "--question", "q",
-                           "--seed", "3", "--dest", dest)
+        rc, out = self.run("prepare", "--name", "k", "--strategy", "classic", "--profile", profile, "--question",
+                           question, "--seed", "3", "--dest", dest)
         assert rc == 0, out
         c = next(p for p in dest.iterdir() if not p.name.startswith("."))
-        if rules == 1:   # a convening born before the rules 2: no gate_rules key
-            p = c / self.N("MANIFEST.json")
-            m = json.loads(p.read_text(encoding="utf-8"))
-            m.pop("regole_cancelli" if self.it else "gate_rules")
-            p.write_text(json.dumps(m, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        # The rules the convening is born with: 1 (before the rules 2, no gate_rules key), 2 (5.2) or 3 (5.3), so
+        # that the checks of each rule keep testing that rule whatever rules a new convening is born with.
+        p = c / self.N("MANIFEST.json")
+        m = json.loads(p.read_text(encoding="utf-8"))
+        key = "regole_cancelli" if self.it else "gate_rules"
+        if rules == 1:
+            m.pop(key)
+        else:
+            m[key] = rules
+        p.write_text(json.dumps(m, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
         contract = c / self.N("CONTRACT.md")
         contract.write_text(contract.read_text(encoding="utf-8").replace(self.line("<to fill in>", "<da compilare>"),
                                                                          "filled"), encoding="utf-8")
@@ -17913,6 +19380,11 @@ class Swarm:
         (f2 / self.N("04-tournament") / self.N("TOURNAMENT.md")).write_text("ok\n", encoding="utf-8")
         (f2 / self.N("05-selection") / self.N("SELECTION.md")).write_text(
             " ".join(triage) + f"\n{C.CONVENE_LINES['countersign'][self.lang]}\n", encoding="utf-8")
+        # 5.3: the sentinel of f2 that prepare briefs delivers before G2, which binds it (`sentinel` False leaves it
+        # undelivered, for the checks of that rule).
+        d = f2 / self.N("00-sentinel")
+        if sentinel and (d / "TASK.md").is_file():
+            (d / self.N("SENTINEL.md")).write_text("checked\n", encoding="utf-8")
         return c
 
     def gate_f2(self, c):
@@ -17952,6 +19424,11 @@ class Swarm:
         self.dossier(c, h)
 
     def sentinel(self, c: Path):
+        # 5.3: the sentinels of f3 and f4 that select briefs under the rules 3 deliver too.
+        for ph in ("f3", "f4"):
+            d = c / ph / self.N("00-sentinel")
+            if (d / "TASK.md").is_file():
+                (d / self.N("SENTINEL.md")).write_text("checked\n", encoding="utf-8")
         d = c / "f5" / self.N("00-sentinel")
         d.mkdir(parents=True, exist_ok=True)
         (d / self.N("SENTINEL.md")).write_text("checked\n", encoding="utf-8")
@@ -18258,7 +19735,9 @@ def t9_closure_brief(s: Swarm):
         c / "f3" / "H-001" / "H-001.md"]
     check(f"{L}: the inputs include the verdicts, the revision of the owner, the dossiers and the sentinel",
           all(f"`{p}`" in text for p in want), [str(p) for p in want if f"`{p}`" not in text])
-    check(f"{L}: the unfunded radical is not among the inputs", "H-002" not in text)
+    inputs = [x for x in text.splitlines() if x.startswith("  - `")]
+    check(f"{L}: the unfunded radical is not among the inputs (5.3: the closure brief names it as a branch to name)",
+          inputs and not any("H-002" in x for x in inputs), inputs)
     s.run("fund", c, "H-002")
     text = task.read_text(encoding="utf-8")
     check(f"{L}: after fund the radical's verdict and dossier are listed",
@@ -18385,12 +19864,21 @@ def t13_review_g5(s: Swarm):
     s.gate_f2(c)
     s.run("select", c, "H-001", "--radical", "H-002")
     for where in (c / "f2", c / "f3" / "H-001", c / "f4" / "H-001"):
+        # 5.3: prepare briefs the sentinel of f2 in f2/00-sentinel/, which G2 binds: it is left as it was found.
         d = where / s.N("00-sentinel")
-        d.mkdir(parents=True)
-        (d / s.N("SENTINEL.md")).write_text("checked\n", encoding="utf-8")
-        check(f"{L}: a sentinel in {where.relative_to(c)} does not count (only f5)",
+        existed = d.exists()
+        d.mkdir(parents=True, exist_ok=True)
+        p = d / s.N("SENTINEL.md")
+        old = p.read_bytes() if p.exists() else None
+        p.write_text("checked\n", encoding="utf-8")
+        check(f"{L}: a sentinel in {where.relative_to(c)} does not count for the closure (only f5)",
               not V.sentinel_found(V.Convening.load(c)))
-        shutil.rmtree(d)
+        if not existed:
+            shutil.rmtree(d)
+        elif old is None:
+            p.unlink()
+        else:
+            p.write_bytes(old)
     s.f3(c, "H-001")
     s.f4(c, "H-001", correctness="proven")
     rc, out = s.run("gate", c, "f4/H-001", "--notes", "x")
@@ -18417,7 +19905,8 @@ def t14_review_old(s: Swarm):
     """Review of the upgrade path: a convening of the rules 1 with an amendment without «Amends», a radical declared
     unresolved without a test, G4 and G5 under --rules 2, the keys of 5.0 in its gates, status."""
     L = f"T14 [{s.lang}]"
-    c = s.classic(rules=1)
+    c = s.classic(rules=1, sentinel=False)
+    shutil.rmtree(c / "f2" / s.N("00-sentinel"))   # 5.3: as prepare of 5.0 wrote it, before G2: no sentinel of f2
     a1 = c / s.N("AMENDMENT_A1.md")
     a1.write_text("git allowed in a throwaway repository\n", encoding="utf-8")
     s.run("seal", c, a1)
@@ -20623,6 +22112,1526 @@ GROUPS = [("extensions", group_extensions), ("hunksha", group_hunksha), ("a", gr
 
 if __name__ == "__main__":
     main()
+#==== swarmer.sh: file tests/test_engine53.py ====
+#!/usr/bin/env python3
+"""Acceptance tests of swarmer 5.3, the core patch R1: python3 -I -B tests/test_engine53.py
+
+Written by the tester from the specification, before reading the tests of the patch's authors:
+- E1-E11, the «Engine tests» of propolis-design's f5/01-arbitro/ACCEPTANCE.md (ENG-12..23, COORD-1, COORD-2);
+- E1 and E4 as the REVISION lines on D5 of 20261120-jury-propolis-plan/OUTCOME_round_0.json widen them: the order of
+  f4 read from the seal times of SEALS.jsonl, never from an mtime (a late seal followed by a touch of
+  COUNTERCHECKS.md stays refused, a block appended after the seal without its own seal is refused), and a repin that
+  opens a round 2 of f4 with every round-1 file byte-identical, whose G4 under the rules 3 counts only its own files;
+- E12, clause 10 of that jury's round 3: after an approved G5 «not closed», fund and close-branch act again, a second
+  G5 goes to a new gate file that binds its own closure folder, GATE_f5.json and every file it binds stay
+  byte-identical, the latest G5 is the one of the highest ASCII ordinal (never the mtime, never the sorted names), the
+  lock opens only on a latest G5 that holds, and a gate file of f5 that is empty, starts with a BOM or is not UTF-8
+  stops fund and close-branch with exit 1 and nothing written; in English and in Italian;
+- ENG-24 (`jury.py count .`), ENG-25 (a deliverable that only quotes the placeholder) and ENG-26 (a later gate under
+  the rules 3 does not see an f0 changed after G1).
+
+Installs the swarm twice in a temporary folder, in English and in Italian, and drives `<swarm>/convene.py` and
+`<swarm>/jury.py` by subprocess (the canonical commands in English, the aliases in Italian). Every non-UTF-8 file name
+stays inside the temporary folder. Exits with 1 if a check fails.
+"""
+from __future__ import annotations
+
+import datetime
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+import traceback
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+SOURCE = HERE.parent
+ENGINE = SOURCE / "engine" / "swarmer.py"
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(SOURCE / "engine"))
+import compat as C  # noqa: E402
+import convene as V  # noqa: E402
+
+results: list[tuple[str, bool]] = []
+T0 = int(time.time()) - 200_000   # the seal times the tests choose: whole seconds, two days back
+NAMES = {"00": "REVISION.md", "01": "COUNTERCHECKS.md", "02": "DEFECTS.md", "08": "HIDDEN_ASSUMPTIONS.md",
+         "09": "VERDICT.md"}   # the outputs of the role folders of a round of f4 (PIPELINE f4)
+CORRECTNESS_IT = {"proven": "dimostrata", "verified": "verificata", "refuted": "smentita"}
+NOT_UTF8 = b"\xff\xfeodd-\xe9.txt"
+
+
+def check(name, ok, detail=""):
+    results.append((name, bool(ok)))
+    print(("ok   " if ok else "FAILED ") + name + ("" if ok or not detail else f"\n     {str(detail)[:1500]}"),
+          flush=True)
+
+
+def i18n(lang):
+    out = json.loads((SOURCE / "i18n" / "en.json").read_text(encoding="utf-8"))
+    for k, v in json.loads((SOURCE / "i18n" / f"{lang}.json").read_text(encoding="utf-8")).items():
+        out[k] = {**out[k], **v} if isinstance(v, dict) and isinstance(out.get(k), dict) else v
+    return out
+
+
+TEXTS = {"en": i18n("en"), "it": i18n("it")}
+
+
+def clean_env():
+    e = {k: v for k, v in os.environ.items() if not k.startswith(("SWARMER_", "SCIAME_"))}
+    e["PATH"] = os.pathsep.join(d for d in e.get("PATH", "").split(os.pathsep)
+                                if d and not os.path.exists(os.path.join(d, "claude")))
+    return e
+
+
+def _file_limit(n):
+    def apply():
+        import resource
+        import signal
+        signal.signal(signal.SIGXFSZ, signal.SIG_IGN)
+        resource.setrlimit(resource.RLIMIT_FSIZE, (n, n))
+    return apply
+
+
+def py(*arg, cwd=None, fsize=None):
+    """A Python script of the swarm, isolated; `fsize` caps the size of every file it writes (a write that fails)."""
+    p = subprocess.run([sys.executable, "-I", "-B", *map(str, arg)], capture_output=True, stdin=subprocess.DEVNULL,
+                       env=clean_env(), cwd=cwd, preexec_fn=_file_limit(fsize) if fsize else None)
+    return p.returncode, (p.stdout + p.stderr).decode("utf-8", "replace")
+
+
+def iso(t: float) -> str:
+    return datetime.datetime.fromtimestamp(t).astimezone().isoformat(timespec="seconds")
+
+
+def files(root: Path) -> dict[str, bytes]:
+    """Every regular file under `root` and its bytes: what «byte-identical» and «nothing written» compare."""
+    out = {}
+    for dp, _dn, fn in os.walk(root):
+        for f in fn:
+            p = Path(dp) / f
+            if not p.is_symlink():
+                out[str(p.relative_to(root))] = p.read_bytes()
+    return out
+
+
+def changes(a: dict, b: dict) -> list[str]:
+    return sorted(k for k in set(a) | set(b) if a.get(k) != b.get(k))
+
+
+def restore(c: Path, backup: Path) -> None:
+    """The convening as it was, at the same absolute path (a gate binds absolute paths), with its mtimes."""
+    shutil.rmtree(c)
+    shutil.copytree(backup, c, symlinks=True)
+
+
+def roles_named(folder: Path, skip: Path | None = None) -> set[str]:
+    """The roles named by the agent line of every brief under `folder`."""
+    out = set()
+    for p in folder.rglob("TASK.md"):
+        if skip is not None and p == skip:
+            continue
+        out |= set(re.findall(r"`(?:swarmer|sciame)-([a-z0-9-]+)`", p.read_text(encoding="utf-8", errors="replace")))
+    return out
+
+
+def agent_of(task: Path) -> str | None:
+    m = re.search(r"`(?:swarmer|sciame)-([a-z0-9-]+)`", task.read_text(encoding="utf-8", errors="replace"))
+    return m.group(1) if m else None
+
+
+class Swarm:
+    """An installation in one language, and the convenings it drives."""
+
+    def __init__(self, base: Path, lang: str):
+        self.lang = lang
+        self.it = lang == "it"
+        self.base = base
+        self.root = base / f"root_{lang}"
+        self.root.mkdir(parents=True)
+        rc, out = py(ENGINE, "install", "--from", SOURCE, "--root", self.root, "--language", lang)
+        assert rc == 0, out
+        self.swarm = self.root / ("sciame" if self.it else "swarmer")
+        self.t = TEXTS[lang]
+        self.cat = json.loads((self.swarm / "catalog.json").read_text(encoding="utf-8"))
+        self.n = 0
+        self.seal_keys = None
+
+    # names, lines and texts of this installation
+    def N(self, canonical: str) -> str:
+        return C.localize_path(canonical, self.lang, "convene")
+
+    def line(self, en: str, it: str) -> str:
+        return it if self.it else en
+
+    def st(self, key, **kw) -> str:
+        return self.t["convene"][key].format(**kw).strip()
+
+    def mission(self, key, **kw) -> str:
+        return self.t["missions"][key].format(**kw)
+
+    def placeholder(self) -> str:
+        return C.CONVENE_LINES["to_fill_in"][self.lang]
+
+    def run(self, *args, **kw):
+        """convene.py with the canonical names (en) or with the Italian aliases (it)."""
+        args = [str(a) for a in args]
+        if self.it:
+            cmds, opts = self.t["commands"], self.t["options"]
+            args = [(cmds.get(a) or [a])[0] if i == 0 else ((opts.get(a) or [a])[0] if a.startswith("--") else a)
+                    for i, a in enumerate(args)]
+        return py(self.swarm / "convene.py", *args, **kw)
+
+    def status(self, c):
+        return self.run("status", c)[1]
+
+    def gate(self, c, phase, *extra, **kw):
+        return self.run("gate", c, phase, "--notes", "x", *extra, **kw)
+
+    def verify(self, c, phase, *extra):
+        return self.run("gate", c, phase, "--notes", "x", "--verify", *extra)
+
+    def gate_ok(self, c, phase, *extra):
+        rc, out = self.gate(c, phase, *extra)
+        assert rc == 0, f"gate {phase}: {out}"
+
+    def gate_file(self, c: Path, label: str) -> Path:
+        return c / f"GATE_{label.replace('/', '_')}.json"
+
+    def gate_c(self, c: Path, label: str) -> dict:
+        p = self.gate_file(c, label)
+        if not p.is_file():
+            return {}
+        return C.to_canonical(json.loads(p.read_text(encoding="utf-8")), C.CONVENE_KEYS["gate"])
+
+    def manifest(self, c: Path) -> dict:
+        return C.to_canonical(json.loads((c / self.N("MANIFEST.json")).read_text(encoding="utf-8")),
+                              C.MANIFEST_SCHEMA)
+
+    def set_rules(self, c: Path, rules: int) -> None:
+        p = c / self.N("MANIFEST.json")
+        m = json.loads(p.read_text(encoding="utf-8"))
+        key = "regole_cancelli" if self.it else "gate_rules"
+        assert m.get(key) == 3, f"a new convening is born with the rules 3: {m.get(key)}"
+        if rules == 3:
+            return
+        if rules == 1:
+            m.pop(key)
+        else:
+            m[key] = rules
+        p.write_text(json.dumps(m, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        # a convening born before 5.3 has no brief of the sentinel of f2
+        shutil.rmtree(c / "f2" / self.N("00-sentinel"), ignore_errors=True)
+
+    # --- the seals, with the times the test chooses (the format is the engine's own, read from a real seal) ---
+    def _keys(self, c: Path, p: Path) -> dict:
+        if self.seal_keys is None:
+            rc, out = self.run("seal", c, p)
+            assert rc == 0, out
+            sp = c / self.N("SEALS.jsonl")
+            lines = sp.read_text(encoding="utf-8").splitlines()
+            row = json.loads(lines[-1])
+            sp.write_text("".join(x + "\n" for x in lines[:-1]), encoding="utf-8")
+            k = {}
+            for key, v in row.items():
+                if isinstance(v, str) and re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d[+-]\d\d:\d\d", v):
+                    k["time"] = key
+                elif isinstance(v, str) and v == str(p.resolve()):
+                    k["file"] = key
+                elif isinstance(v, str) and re.fullmatch(r"[0-9a-f]{64}", v):
+                    k["sha256"] = key
+                elif isinstance(v, int):
+                    k["bytes"] = key
+            assert set(k) == {"time", "file", "sha256", "bytes"}, row
+            self.seal_keys = (k, list(row))
+        return self.seal_keys
+
+    def seal(self, c: Path, p: Path, t: float) -> None:
+        """A seal of `p` as it is now, at the time `t`, appended to SEALS.jsonl (SIGILLI.jsonl)."""
+        k, order = self._keys(c, p)
+        data = p.read_bytes()
+        vals = {"time": iso(t), "file": str(p.resolve()), "sha256": hashlib.sha256(data).hexdigest(),
+                "bytes": len(data)}
+        row = {key: vals[canon] for key in order for canon, kk in k.items() if kk == key}
+        with open(c / self.N("SEALS.jsonl"), "a", encoding="utf-8") as f:
+            f.write(json.dumps(row) + "\n")
+
+    def seals(self, c: Path, plan) -> None:
+        """SEALS.jsonl made again from scratch: plan is [(path, time)], in order."""
+        sp = c / self.N("SEALS.jsonl")
+        f2 = str(c / "f2") + os.sep
+        keep = [x for x in sp.read_text(encoding="utf-8").splitlines()
+                if any(isinstance(v, str) and v.startswith(f2) for v in json.loads(x).values())] if sp.exists() else []
+        sp.write_text("".join(x + "\n" for x in keep), encoding="utf-8")
+        for p, t in plan:
+            self.seal(c, p, t)
+
+    # --- a classic convening, written by hand up to G2 ---
+    def prepare(self, strategy="classic", profile="data", question="q", seed=3, extra=()):
+        self.n += 1
+        dest = self.root / f"conv{self.n}"
+        rc, out = self.run("prepare", "--name", "k", "--strategy", strategy, "--profile", profile, "--question",
+                           question, "--seed", seed, "--dest", dest, *extra)
+        assert rc == 0, out
+        c = next(p for p in dest.iterdir() if not p.name.startswith("."))
+        return c, dest
+
+    def fill_contract(self, c: Path) -> None:
+        p = c / self.N("CONTRACT.md")
+        p.write_text(p.read_text(encoding="utf-8").replace(self.placeholder(), "filled"), encoding="utf-8")
+
+    def classic(self, rules=3, profile="data", question="q", seed=3, triage=("H-001", "H-002", "H-003"),
+                upto="f2", f2_sentinel=True) -> Path:
+        c, dest = self.prepare("classic", profile, question, seed)
+        self.set_rules(c, rules)
+        self.fill_contract(c)
+        self.gate_ok(c, "f0")
+        lanes = next(p for p in dest.iterdir() if p.name.startswith("."))
+        mp = json.loads(next(lanes.glob("*.json")).read_text(encoding="utf-8"))
+        for role, v in mp.items():
+            folder, canary = v.get("folder") or v.get("cartella"), v.get("canary") or v.get("canarino")
+            Path(folder, self.N("DELIVERABLE.md")).write_text(
+                f"{C.CONVENE_LINES['canary'][self.lang]} {canary}\nDONE\nidea of {role}\n", encoding="utf-8")
+        assert self.run("snapshot", c)[0] == 0
+        self.gate_ok(c, "f1")
+        if upto == "f1":
+            return c
+        f2 = c / "f2"
+        (f2 / self.N("01-translation") / self.N("CARDS.md")).write_text("cards\n", encoding="utf-8")
+        triage_p = f2 / self.N("03-triage") / self.N("TRIAGE.md")
+        triage_p.write_text("".join(f"{h} TEST\n" for h in triage), encoding="utf-8")
+        assert self.run("seal", c, triage_p)[0] == 0
+        sig = f2 / self.N("02-signatures") / "logico.md"
+        sig.write_text("faithful\n", encoding="utf-8")
+        os.utime(sig, (1, 1))
+        (f2 / self.N("04-tournament") / self.N("TOURNAMENT.md")).write_text("ok\n", encoding="utf-8")
+        (f2 / self.N("05-selection") / self.N("SELECTION.md")).write_text(
+            " ".join(triage) + f"\n{C.CONVENE_LINES['countersign'][self.lang]}\n", encoding="utf-8")
+        if rules >= 3 and f2_sentinel and (f2 / self.N("00-sentinel") / "TASK.md").is_file():
+            self.sentinel(c, phase="f2")
+        return c
+
+    def decides(self) -> str:
+        return self.line("decides: yes", "decide: sì")
+
+    def f3(self, c: Path, h: str, gate=True):
+        """f3 of `h` as the briefs ask: every role writes its output and a PREDICTIONS.md with the line «decides»."""
+        b = c / "f3" / h
+        for d, name in (("01-", "SOLUTION.md"), ("02-", "VERIFICATION.md"), ("03-", "MEASUREMENT_PLAN.md"),
+                        ("04-", "ATTACK.md")):
+            x = next(b.glob(d + "*"))
+            (x / self.N(name)).write_text(f"{name}\n", encoding="utf-8")
+            (x / self.N("PREDICTIONS.md")).write_text(f"threshold 1\n{self.decides()}\n", encoding="utf-8")
+        if gate:
+            self.gate_ok(c, f"f3/{h}")
+
+    def dossier(self, c: Path, h: str, p: Path | None = None, extra=""):
+        p = p or c / "f3" / h / f"{h}.md"
+        p.write_text(f"# {h}\n\n- ID: {h}\n- Short title: t\n- Results:\n  - r1\n  - r2\n{extra}", encoding="utf-8")
+
+    def verdict(self, correctness: str) -> str:
+        return self.line(f"Correctness: {correctness}", f"Correttezza: {CORRECTNESS_IT[correctness]}") + "\n"
+
+    def f4(self, c: Path, h: str, correctness="refuted", audit=True, folder: Path | None = None,
+           dossier: Path | None = None) -> dict[str, Path]:
+        """The deliverable of every briefed role folder of a round of f4, the arbiter's verdict, the dossier."""
+        b = folder or c / "f4" / h
+        out = {}
+        for d in sorted(b.iterdir()):
+            if not d.is_dir() or not re.match(r"\d\d-", d.name) or (d.name.startswith("08-") and not audit):
+                continue
+            name = NAMES.get(d.name[:2], "MEASUREMENTS.md")
+            (d / self.N(name)).write_text(self.verdict(correctness) if name == "VERDICT.md" else "done\n",
+                                          encoding="utf-8")
+            out[d.name[:2]] = d / self.N(name)
+        self.dossier(c, h, dossier)
+        return out
+
+    def f4_r3(self, c: Path, h: str, correctness="refuted", audit=True, folder=None, dossier=None, t=None):
+        """f4 under the rules 3: the outputs, with COUNTERCHECKS, DEFECTS and REVISION sealed in that order."""
+        t = T0 if t is None else t
+        out = self.f4(c, h, correctness, audit, folder, dossier)
+        for i, k in enumerate(("01", "02", "00")):
+            self.seal(c, out[k], t + 10 * (i + 1))
+        return out
+
+    def f5(self, c: Path, k: int = 1) -> Path:
+        return c / ("f5" if k == 1 else f"f5_{k}")
+
+    def sentinel(self, c: Path, k: int = 1, phase: str | None = None) -> Path:
+        d = (c / phase if phase else self.f5(c, k)) / self.N("00-sentinel")
+        d.mkdir(parents=True, exist_ok=True)
+        p = d / self.N("SENTINEL.md")
+        p.write_text("checked\n", encoding="utf-8")
+        return p
+
+    def closure(self, c: Path, closed=True, extra="", k: int = 1) -> Path:
+        line = (self.line("Outcome: closed", "Esito: chiuso") if closed else
+                self.line("Outcome: not closed", "Esito: non chiuso"))
+        p = self.f5(c, k) / self.N("CLOSURE.md")
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(f"{line}\n{extra}", encoding="utf-8")
+        return p
+
+    def declared_missing(self) -> str:
+        return self.line("Declared missing: sentinel: no free role\n",
+                         "Dichiarato mancante: sentinella: nessun ruolo libero\n")
+
+
+def role_dir(b: Path, prefix: str) -> Path:
+    return next(d for d in sorted(b.iterdir()) if d.is_dir() and d.name.startswith(prefix))
+
+
+# ------------------------------------------------------------------------------------------------------------------
+# E1 (ENG-19, COORD-1) and E7 (ENG-21, COORD-2): the order of f4 from the seal times
+# ------------------------------------------------------------------------------------------------------------------
+
+def f4_case(s: Swarm, c: Path, b: Path):
+    """The pieces of a round of f4 under the rules 3, with the outputs written but no seal."""
+    s.f3(c, "H-001")
+    out = s.f4(c, "H-001", correctness="refuted")
+    P = s.N("PREDICTIONS.md")
+    p01 = role_dir(b, "01-") / P
+    p01.write_text("before the counterchecks: threshold 1\n", encoding="utf-8")
+    return out, p01, role_dir(b, "02-") / P, role_dir(b, "00-") / P
+
+
+def e1(s: Swarm, base: Path):
+    L = f"E1 [{s.lang}]"
+    c = s.classic(rules=3)
+    s.gate_ok(c, "f2")
+    assert s.run("select", c, "H-001")[0] == 0
+    b = c / "f4" / "H-001"
+    # COORD-1: the f4 briefs name the category of each role's predictions
+    cc, dd = s.N("COUNTERCHECKS.md"), s.N("DEFECTS.md")
+    t01 = (role_dir(b, "01-") / "TASK.md").read_text(encoding="utf-8")
+    t02 = (role_dir(b, "02-") / "TASK.md").read_text(encoding="utf-8")
+    t00 = (role_dir(b, "00-") / "TASK.md").read_text(encoding="utf-8")
+    check(f"{L}: the counterchecks' brief says its predictions come before {cc} (rules 3)",
+          s.mission("predictions_before", output=cc) in t01, t01[-900:])
+    check(f"{L}: the debugger's brief names the post-countercheck category, against {dd}",
+          s.mission("predictions_after", output=dd) in t02, t02[-900:])
+    check(f"{L}: the owner's brief names the post-countercheck category, against {s.N('REVISION.md')}",
+          s.mission("predictions_after", output=s.N("REVISION.md")) in t00, t00[-900:])
+    out, p01, pdbg, pown = f4_case(s, c, b)
+    CC, DEF, REV = out["01"], out["02"], out["00"]
+    base_plan = [(p01, T0 + 1), (CC, T0 + 10), (DEF, T0 + 20), (REV, T0 + 30)]
+
+    def case(name, plan, want_ok, needle=None, files_=(), after=None):
+        for p in (pdbg, pown):
+            if p.exists() and p not in files_:
+                p.unlink()
+        for p in files_:
+            p.write_text("a prediction: threshold 1\n", encoding="utf-8")
+        s.seals(c, plan)
+        if after:
+            after()
+        rc, o = s.verify(c, "f4/H-001")
+        ok = rc == 0 if want_ok else (rc == 1 and (needle is None or needle in o))
+        check(f"{L}: {name}", ok, o)
+
+    case("the counterchecks' prediction sealed before COUNTERCHECKS, the outputs in order: G4 holds", base_plan, True)
+    case("a debugger prediction sealed after COUNTERCHECKS and before its DEFECTS.md passes G4",
+         base_plan + [(pdbg, T0 + 15)], True, files_=(pdbg,))
+    case("a debugger prediction sealed after its DEFECTS.md fails G4",
+         base_plan + [(pdbg, T0 + 25)], False, pdbg.parent.name, files_=(pdbg,))
+    case("a debugger prediction sealed in the same second as its DEFECTS.md fails G4 (no order shown)",
+         base_plan + [(pdbg, T0 + 20)], False, pdbg.parent.name, files_=(pdbg,))
+    case("an owner prediction sealed after its own REVISION.md fails G4 (5.2 passed it)",
+         base_plan + [(pown, T0 + 35)], False, pown.parent.name, files_=(pown,))
+    case("an owner prediction sealed before its own REVISION.md passes G4",
+         base_plan + [(pown, T0 + 25)], True, files_=(pown,))
+    case("an unsealed post-countercheck prediction fails G4", base_plan, False, pdbg.parent.name, files_=(pdbg,))
+    late = [(CC, T0 + 10), (p01, T0 + 12), (DEF, T0 + 20), (REV, T0 + 30)]
+    future = time.time() + 86400
+    case("a late seal of the counterchecks' prediction followed by a touch of COUNTERCHECKS.md stays refused",
+         late, False, p01.parent.name, after=lambda: os.utime(CC, (future, future)))
+
+    def append_cc():
+        CC.write_text(CC.read_text(encoding="utf-8") + "more\n", encoding="utf-8")
+        s.seal(c, CC, T0 + 40)
+    case("a late seal followed by an append to COUNTERCHECKS.md and a new seal of it stays refused",
+         late, False, p01.parent.name, after=append_cc)
+    CC.write_text("done\n", encoding="utf-8")
+
+    def append_block():
+        pdbg.write_text(pdbg.read_text(encoding="utf-8") + "a second block: threshold 2\n", encoding="utf-8")
+    case("a prediction block appended after the seal without its own seal is refused",
+         base_plan + [(pdbg, T0 + 15)], False, pdbg.parent.name, files_=(pdbg,), after=append_block)
+
+    def append_sealed(t):
+        def f():
+            append_block()
+            s.seal(c, pdbg, t)
+        return f
+    case("the appended block with its own seal before DEFECTS.md passes",
+         base_plan + [(pdbg, T0 + 15)], True, files_=(pdbg,), after=append_sealed(T0 + 17))
+    case("the appended block sealed only after DEFECTS.md is refused",
+         base_plan + [(pdbg, T0 + 15)], False, pdbg.parent.name, files_=(pdbg,), after=append_sealed(T0 + 22))
+    pdbg.write_text("a prediction: threshold 1\n", encoding="utf-8")
+
+    def mtimes():
+        os.utime(pdbg, (future, future))
+        for p in (CC, DEF, REV):
+            os.utime(p, (T0 - 5000, T0 - 5000))
+    case("the order is read from the seals, not the mtimes: a debugger prediction touched after DEFECTS.md, the "
+         "outputs dated back, still passes", base_plan + [(pdbg, T0 + 15)], True, files_=(pdbg,), after=mtimes)
+    # the rules 2 keep their order: every PREDICTIONS.md of f4 sealed before the mtime of COUNTERCHECKS.md
+    c2 = s.classic(rules=2)
+    s.gate_ok(c2, "f2")
+    assert s.run("select", c2, "H-001")[0] == 0
+    b2 = c2 / "f4" / "H-001"
+    t02 = (role_dir(b2, "02-") / "TASK.md").read_text(encoding="utf-8")
+    check(f"{L}: under the rules 2 the debugger's brief asks for no PREDICTIONS.md it could not seal (COORD-1)",
+          s.mission("predictions_after_old", rules=2, output=dd) in t02
+          and s.mission("predictions_after", output=dd) not in t02, t02[-900:])
+    out2, p01b, pdbgb, _ = f4_case(s, c2, b2)
+    pdbgb.write_text("a prediction\n", encoding="utf-8")
+    assert s.run("seal", c2, p01b, pdbgb)[0] == 0
+    os.utime(out2["01"], (T0, T0))
+    rc, o = s.verify(c2, "f4/H-001")
+    check(f"{L}: rules 2 unchanged: a prediction sealed after the mtime of COUNTERCHECKS.md is refused",
+          rc == 1 and "sealed after the counterchecks" in o, o)
+    os.utime(out2["01"], (future, future))
+    rc, o = s.verify(c2, "f4/H-001")
+    check(f"{L}: rules 2 unchanged: sealed before that mtime it passes, as in 5.2", rc == 0, o)
+
+
+def e7(s: Swarm, base: Path):
+    L = f"E7 [{s.lang}]"
+    c = s.classic(rules=3)
+    s.gate_ok(c, "f2")
+    assert s.run("select", c, "H-001")[0] == 0
+    b = c / "f4" / "H-001"
+    t00 = (role_dir(b, "00-") / "TASK.md").read_text(encoding="utf-8")
+    check(f"{L}: the owner's brief says the revision comes after COUNTERCHECKS and DEFECTS (COORD-2)",
+          s.mission("revision_order") in t00, t00[-900:])
+    out, p01, _pdbg, _pown = f4_case(s, c, b)
+    CC, DEF, REV = out["01"], out["02"], out["00"]
+    rev = REV.parent.name
+    for name, plan, want_ok in (
+            ("a REVISION.md sealed before COUNTERCHECKS.md is refused",
+             [(p01, T0 + 1), (REV, T0 + 5), (CC, T0 + 10), (DEF, T0 + 20)], False),
+            ("a REVISION.md sealed after COUNTERCHECKS.md but before DEFECTS.md is refused",
+             [(p01, T0 + 1), (CC, T0 + 10), (REV, T0 + 15), (DEF, T0 + 20)], False),
+            ("a REVISION.md sealed in the same second as DEFECTS.md is refused",
+             [(p01, T0 + 1), (CC, T0 + 10), (DEF, T0 + 20), (REV, T0 + 20)], False),
+            ("a REVISION.md never sealed is refused", [(p01, T0 + 1), (CC, T0 + 10), (DEF, T0 + 20)], False),
+            ("a REVISION.md sealed after both passes", [(p01, T0 + 1), (CC, T0 + 10), (DEF, T0 + 20), (REV, T0 + 30)],
+             True)):
+        s.seals(c, plan)
+        rc, o = s.verify(c, "f4/H-001")
+        check(f"{L}: {name}", rc == 0 if want_ok else (rc == 1 and rev in o), o)
+    os.utime(REV, (T0 - 9000, T0 - 9000))
+    rc, o = s.verify(c, "f4/H-001")
+    check(f"{L}: a REVISION.md older by mtime but sealed after both still passes (the seals decide)", rc == 0, o)
+    c2 = s.classic(rules=2)
+    s.gate_ok(c2, "f2")
+    assert s.run("select", c2, "H-001")[0] == 0
+    s.f3(c2, "H-001")
+    out2 = s.f4(c2, "H-001")
+    os.utime(out2["00"], (T0, T0))
+    rc, o = s.verify(c2, "f4/H-001")
+    check(f"{L}: rules 2 unchanged: a REVISION.md older than the counterchecks still passes G4, as in 5.2", rc == 0, o)
+
+
+# ------------------------------------------------------------------------------------------------------------------
+# E2 (ENG-13): a name that is not UTF-8, and a write that fails
+# ------------------------------------------------------------------------------------------------------------------
+
+def e2(s: Swarm, base: Path):
+    L = f"E2 [{s.lang}]"
+    d = base / f"e2_inproc_{s.lang}"
+    d.mkdir()
+    with open(os.path.join(os.fsencode(d), NOT_UTF8), "wb") as f:
+        f.write(b"x\n")
+    (d / "plain.txt").write_text("y\n", encoding="utf-8")
+    odd = os.fsdecode(os.path.join(os.fsencode(d), NOT_UTF8))
+    try:
+        t = V._tree(d, set())
+        check(f"{L}: _tree succeeds on a non-UTF-8 name", t.startswith("tree:"), t)
+    except Exception as e:  # noqa: BLE001
+        check(f"{L}: _tree succeeds on a non-UTF-8 name", False, repr(e))
+    fp = {}
+    try:
+        V._bind(d, fp, set())
+        check(f"{L}: _bind succeeds and binds the non-UTF-8 name", odd in fp, sorted(fp))
+    except Exception as e:  # noqa: BLE001
+        check(f"{L}: _bind succeeds and binds the non-UTF-8 name", False, repr(e))
+    gp = d / "GATE_x.json"
+    try:
+        V.Convening(d, s.lang).write_json(gp, {"phase": "f0", "time": "t", "notes": "n", "not_delivered": [],
+                                              "fingerprints": fp}, "gate")
+        back = C.to_canonical(json.loads(gp.read_bytes().decode("utf-8")), C.CONVENE_KEYS["gate"])
+        check(f"{L}: write_json writes UTF-8 JSON that gives the non-UTF-8 name back", back["fingerprints"] == fp,
+              back)
+    except Exception as e:  # noqa: BLE001
+        check(f"{L}: write_json writes UTF-8 JSON that gives the non-UTF-8 name back", False, repr(e))
+    for rules in (2, 3):
+        c = s.classic(rules=rules)
+        s.gate_ok(c, "f2")
+        assert s.run("select", c, "H-001")[0] == 0
+        s.f3(c, "H-001")
+        (s.f4_r3 if rules == 3 else s.f4)(c, "H-001")
+        x = role_dir(c / "f4" / "H-001", "03-")
+        work = x / s.N("work")
+        work.mkdir()
+        bad = []
+        for folder in (x, work):
+            q = os.path.join(os.fsencode(folder), NOT_UTF8)
+            with open(q, "wb") as f:
+                f.write(b"raw\n")
+            bad.append(q)
+        rc, out = s.gate(c, "f4/H-001")
+        check(f"{L} rules {rules}: G4 approved with a non-UTF-8 name in a role folder and in its workspace", rc == 0,
+              out)
+        gp = s.gate_file(c, "f4/H-001")
+        try:
+            g = C.to_canonical(json.loads(gp.read_bytes().decode("utf-8")), C.CONVENE_KEYS["gate"])
+        except Exception as e:  # noqa: BLE001
+            g = {"error": repr(e)}
+        check(f"{L} rules {rules}: the gate file is UTF-8 JSON and binds the file by its own name",
+              os.fsdecode(bad[0]) in g.get("fingerprints", {}) and str(work) + "/" in g.get("fingerprints", {}), g)
+        check(f"{L} rules {rules}: status: G4 approved", s.st("status_approved", phase="f4/H-001") in s.status(c))
+        for q, what in zip(bad, ("the file", "the workspace")):
+            with open(q, "ab") as f:
+                f.write(b"!")
+            out = s.status(c)
+            check(f"{L} rules {rules}: one byte more in {what} with the non-UTF-8 name invalidates G4",
+                  s.st("status_invalid", phase="f4/H-001") in out, out)
+            with open(q, "wb") as f:
+                f.write(b"raw\n")
+        check(f"{L} rules {rules}: restored, G4 holds again", s.st("status_approved", phase="f4/H-001") in s.status(c))
+        # a failed approval: the write of the gate file is cut at 64 bytes (RLIMIT_FSIZE)
+        old = gp.read_bytes()
+        rc, out = s.gate(c, "f4/H-001", fsize=64)
+        stray = [p.name for p in c.iterdir() if p.name.startswith(".") or p.name.endswith(".tmp")]
+        check(f"{L} rules {rules}: a gate whose write fails exits 1 and leaves the old gate file byte for byte",
+              rc == 1 and gp.read_bytes() == old and not stray and "Traceback" not in out, (rc, out, stray))
+    c, _dest = s.prepare()
+    s.fill_contract(c)
+    rc, out = s.gate(c, "f0", fsize=64)
+    left = [p.name for p in c.iterdir() if "GATE_f0" in p.name]
+    check(f"{L}: a first gate whose write fails leaves no gate file (no 0-byte GATE_f0.json) and no temporary file",
+          rc == 1 and left == [], (rc, out, left))
+    check(f"{L}: after it status works and shows f0 to approve", s.st("status_pending", phase="f0") in s.status(c))
+
+
+# ------------------------------------------------------------------------------------------------------------------
+# E3 (ENG-17): the sentinels of f2, f3 and f4
+# ------------------------------------------------------------------------------------------------------------------
+
+def e3(s: Swarm, base: Path):
+    L = f"E3 [{s.lang}]"
+    SD, SN = s.N("00-sentinel"), s.N("SENTINEL.md")
+    c = s.classic(rules=3, f2_sentinel=False)
+    t2 = c / "f2" / SD / "TASK.md"
+    check(f"{L}: prepare briefs the sentinel of f2 ({t2.relative_to(c)})", t2.is_file())
+    if not t2.is_file():
+        return
+    rc, out = s.verify(c, "f2")
+    check(f"{L}: under the rules 3 G2 wants the f2 sentinel's deliverable", rc == 1 and SN in out, out)
+    r2 = agent_of(t2)
+    rc, out = s.verify(c, "f2", "--not-delivered", r2)
+    check(f"{L}: G2 with --not-delivered of the f2 sentinel", rc == 0, out)
+    s.sentinel(c, phase="f2")
+    s.gate_ok(c, "f2")
+    rc, out = s.run("select", c, "H-001", "H-002")
+    t3, t4, t5 = c / "f3" / SD / "TASK.md", c / "f4" / SD / "TASK.md", c / "f5" / SD / "TASK.md"
+    check(f"{L}: select of two branches briefs the sentinels of f3, f4 and the closure",
+          rc == 0 and t3.is_file() and t4.is_file() and t5.is_file(), out)
+    m = s.manifest(c)
+    prof = s.cat["profiles"][m["profile"]]
+    convened = set(m["f1"]) | {v.get("role") for v in m["f1"].values()}
+    convened |= {r for k in ("A", "B", "translates", "f3", "f4") for r in prof.get(k, [])}
+    for h in ("H-001", "H-002"):
+        for f in ("f3", "f4"):
+            convened |= {re.sub(r"^\d+-", "", x.name) for x in (c / f / h).iterdir() if x.is_dir()}
+    for t in (t2, t3, t4, t5):
+        if not t.is_file():
+            continue
+        r = agent_of(t)
+        others = roles_named(c, skip=t)
+        check(f"{L}: the sentinel {r} of {t.parent.parent.name} is a role no other brief names and the profile does "
+              f"not convene", r and r not in convened and r not in others, (r, sorted(others & {r})))
+    s.f3(c, "H-001")
+    s.f3(c, "H-002", gate=False)
+    rc, out = s.gate(c, "f3/H-002")
+    check(f"{L}: G3 is approved while the f3 sentinel has not delivered (a warning, G5 requires it)", rc == 0, out)
+    for h, v in (("H-001", "proven"), ("H-002", "refuted")):
+        s.f4_r3(c, h, correctness=v)
+        s.gate_ok(c, f"f4/{h}")
+    s.closure(c, closed=True)
+    s.sentinel(c)
+    rc, out = s.verify(c, "f5")
+    check(f"{L}: G5 refused without the deliverables of the f3 and f4 sentinels",
+          rc == 1 and f"f3/{SD}" in out and f"f4/{SD}" in out, out)
+    p3 = s.sentinel(c, phase="f3")
+    rc, out = s.verify(c, "f5")
+    check(f"{L}: G5 still refused with the f3 sentinel alone", rc == 1 and f"f4/{SD}" in out and f"f3/{SD}" not in out,
+          out)
+    p4 = s.sentinel(c, phase="f4")
+    out = s.status(c)
+    check(f"{L}: the f4 sentinel delivering after the G4s invalidates no G4",
+          s.st("status_approved", phase="f4/H-001") in out and s.st("status_approved", phase="f4/H-002") in out, out)
+    try:
+        conv = V.Convening.load(c)
+        ok = V.sentinel_found(conv, phase="f3") and V.sentinel_found(conv, phase="f4")
+        check(f"{L}: sentinel_found accepts the sentinels of f3 and f4", ok)
+    except Exception as e:  # noqa: BLE001
+        check(f"{L}: sentinel_found accepts the sentinels of f3 and f4", False, repr(e))
+    rc, out = s.gate(c, "f5")
+    check(f"{L}: with the sentinels of f3, f4 and the closure, G5 is approved", rc == 0, out)
+    old = p3.read_bytes()
+    p3.write_bytes(old + b"!")
+    out = s.status(c)
+    check(f"{L}: the first G5 binds the f3 sentinel's deliverable", s.st("status_invalid", phase="f5") in out, out)
+    p3.write_bytes(old)
+    shutil.rmtree(p3.parent)
+    shutil.rmtree(p4.parent)
+    shutil.rmtree(s.f5(c) / SD)
+    s.closure(c, closed=True, extra=s.declared_missing())
+    rc, out = s.verify(c, "f5")
+    check(f"{L}: «Declared missing: sentinel» in the closure stands for the missing sentinels", rc == 0, out)
+
+
+# ------------------------------------------------------------------------------------------------------------------
+# E4 (ENG-18, ENG-22): repin opens round 2, and a second select is refused
+# ------------------------------------------------------------------------------------------------------------------
+
+def e4(s: Swarm, base: Path):
+    L = f"E4 [{s.lang}]"
+    P = s.N("PREDICTIONS.md")
+    c = s.classic(rules=2)
+    s.gate_ok(c, "f2")
+    assert s.run("select", c, "H-001")[0] == 0
+    s.f3(c, "H-001")
+    dossier1 = c / "f3" / "H-001" / "H-001.md"
+    before = files(c)
+    for args in (("H-002",), ("H-001",), ("H-002", "--radical", "H-003")):
+        rc, out = s.run("select", c, *args)
+        check(f"{L}: a second select ({' '.join(args)}) is refused and writes nothing", rc == 1 and files(c) == before,
+              (out, changes(before, files(c))))
+    # round 1, approved under the rules 2 with predictions sealed after their own outputs (as propolis-design's)
+    b = c / "f4" / "H-001"
+    out1 = s.f4(c, "H-001", correctness="refuted")
+    pown, pdbg = role_dir(b, "00-") / P, role_dir(b, "02-") / P
+    pown.write_text("owner: threshold 1\n", encoding="utf-8")
+    pdbg.write_text("debugger: threshold 1\n", encoding="utf-8")
+    s.seals(c, [(out1["01"], T0 + 10), (out1["02"], T0 + 20), (out1["00"], T0 + 30), (pdbg, T0 + 25),
+                (pown, T0 + 40)])
+    rc, out = s.gate(c, "f4/H-001")
+    check(f"{L}: round 1's G4 approved under the rules 2 with two late predictions", rc == 0, out)
+    snap = files(c)
+    rc, out = s.run("repin", c, "H-001")
+    r2 = c / "f4_2" / "H-001"
+    after = files(c)
+    changed = [k for k in snap if after.get(k) != snap[k]]
+    added = [k for k in after if k not in snap]
+    check(f"{L}: repin opens round 2 in f4_2/H-001/", rc == 0 and r2.is_dir(), out)
+    roles1 = sorted(d.name for d in b.iterdir() if d.is_dir())
+    roles2 = sorted(d.name for d in r2.iterdir() if d.is_dir() and (d / "TASK.md").is_file()) if r2.is_dir() else []
+    check(f"{L}: round 2 has a brief for every role folder of round 1 and a dossier of its own",
+          roles1 == roles2 and (r2 / "H-001.md").is_file(), (roles1, roles2))
+    f5brief = lambda k: k.startswith("f5" + os.sep) and k.endswith("TASK.md")  # noqa: E731
+    check(f"{L}: repin leaves every file of round 1, of f3, the seals and the gates byte-identical",
+          all(f5brief(k) for k in changed), changed)
+    check(f"{L}: what repin adds is in f4_2/ (or a brief of the closure)",
+          all(k.startswith("f4_2" + os.sep) or f5brief(k) for k in added) and added, added)
+    check(f"{L}: f3/H-001/H-001.md is never touched", dossier1.read_bytes() == snap[str(dossier1.relative_to(c))])
+    t9 = (role_dir(r2, "09-") / "TASK.md").read_text(encoding="utf-8") if r2.is_dir() else ""
+    t2 = (role_dir(r2, "02-") / "TASK.md").read_text(encoding="utf-8") if r2.is_dir() else ""
+    check(f"{L}: the round-2 briefs read round 1 (f4/H-001) and write in f4_2/H-001",
+          f"`{b}`" in t9 and str(r2) in t9, t9[:1500])
+    check(f"{L}: the round-2 debugger's brief names the post-countercheck category of the rules 3",
+          s.mission("predictions_after", output=s.N("DEFECTS.md")) in t2, t2[-900:])
+    out = s.status(c)
+    check(f"{L}: status: G3 and round 1's G4 still approved, round 2 to approve",
+          s.st("status_approved", phase="f3/H-001") in out and s.st("status_approved", phase="f4/H-001") in out
+          and s.st("status_pending", phase="f4_2/H-001") in out, out)
+    seals_before = (c / s.N("SEALS.jsonl")).read_bytes()
+    out2 = s.f4(c, "H-001", correctness="proven", folder=r2, dossier=r2 / "H-001.md")
+    p2dbg, p2own = role_dir(r2, "02-") / P, role_dir(r2, "00-") / P
+    p2dbg.write_text("round 2 debugger: threshold 1\n", encoding="utf-8")
+    for p, t in ((out2["01"], T0 + 110), (p2dbg, T0 + 115), (out2["02"], T0 + 120), (out2["00"], T0 + 130)):
+        s.seal(c, p, t)
+    rc, o = s.verify(c, "f4/H-001")
+    g = s.gate_c(c, "f4_2/H-001")
+    check(f"{L}: round 2's G4 does not run under the rules 2 of the convening", rc == 1 or g.get("rules") == 3, o)
+    rc, o = s.verify(c, "f4/H-001", "--rules", "3")
+    check(f"{L}: with round 1's late files in place a clean round 2 passes G4 under the rules 3", rc == 0, o)
+    keep = (c / s.N("SEALS.jsonl")).read_bytes()
+    p2own.write_text("round 2 owner: threshold 1\n", encoding="utf-8")
+    s.seal(c, p2own, T0 + 140)
+    rc, o = s.verify(c, "f4/H-001", "--rules", "3")
+    check(f"{L}: a round-2 prediction sealed after its own output fails", rc == 1 and p2own.parent.name in o, o)
+    p2own.unlink()
+    (c / s.N("SEALS.jsonl")).write_bytes(keep)
+    rc, o = s.gate(c, "f4/H-001", "--rules", "3")
+    g = s.gate_c(c, "f4_2/H-001")
+    check(f"{L}: GATE_f4_2_H-001.json records the rules 3 and binds only round 2's files",
+          rc == 0 and g.get("rules") == 3 and g["fingerprints"]
+          and all(k.startswith(str(r2) + os.sep) for k in g["fingerprints"]), (o, sorted(g.get("fingerprints", {}))))
+    now = files(c)
+    check(f"{L}: after round 2 every round-1 file is byte-identical and SEALS.jsonl was only appended to",
+          all(now.get(k) == v for k, v in snap.items() if not f5brief(k) and k != s.N("SEALS.jsonl"))
+          and now[s.N("SEALS.jsonl")].startswith(seals_before) and seals_before == snap[s.N("SEALS.jsonl")],
+          [k for k, v in snap.items() if now.get(k) != v])
+    s.closure(c, closed=True)
+    rc, o = s.verify(c, "f5")
+    check(f"{L}: G5 reads the branch's latest round: «closed» on round 2's proven verdict (round 1 refuted)",
+          rc == 0, o)
+    out = s.status(c)
+    check(f"{L}: status shows both rounds approved",
+          s.st("status_approved", phase="f4/H-001") in out and s.st("status_approved", phase="f4_2/H-001") in out, out)
+
+
+# ------------------------------------------------------------------------------------------------------------------
+# E5 (ENG-20): the companions' f3 briefs ask for «decides»
+# ------------------------------------------------------------------------------------------------------------------
+
+def e5(s: Swarm, base: Path):
+    L = f"E5 [{s.lang}]"
+    yes, no = s.line("decides: yes", "decide: sì"), s.line("decides: no", "decide: no")
+    for rules in (3, 2):
+        c = s.classic(rules=rules)
+        s.gate_ok(c, "f2")
+        assert s.run("select", c, "H-001")[0] == 0
+        b = c / "f3" / "H-001"
+        for pre in ("01-", "02-", "03-", "04-"):
+            t = (role_dir(b, pre) / "TASK.md").read_text(encoding="utf-8")
+            check(f"{L} rules {rules}: the f3 brief of {role_dir(b, pre).name} asks for the line «{yes}»",
+                  yes in t and no in t, t[-700:])
+        s.f3(c, "H-001", gate=False)
+        snap = {p: p.read_bytes() for p in b.rglob("*.md")}
+        rc, out = s.gate(c, "f3/H-001")
+        check(f"{L} rules {rules}: a fresh classic whose f3 roles follow their briefs passes G3", rc == 0, out)
+        check(f"{L} rules {rules}: with no line appended afterwards",
+              all(p.read_bytes() == v for p, v in snap.items()))
+    c = s.classic(rules=3)
+    s.gate_ok(c, "f2")
+    assert s.run("select", c, "H-001")[0] == 0
+    s.f3(c, "H-001", gate=False)
+    p = role_dir(c / "f3" / "H-001", "03-") / s.N("PREDICTIONS.md")
+    p.write_text("threshold 1\n", encoding="utf-8")
+    rc, out = s.verify(c, "f3/H-001")
+    check(f"{L}: a companion's PREDICTIONS.md without the line is still refused", rc == 1 and p.parent.name in out, out)
+
+
+# ------------------------------------------------------------------------------------------------------------------
+# E6 (ENG-23): the closure brief says what G5 checks
+# ------------------------------------------------------------------------------------------------------------------
+
+def e6(s: Swarm, base: Path):
+    L = f"E6 [{s.lang}]"
+    c = s.classic(rules=2)
+    s.gate_ok(c, "f2")
+    assert s.run("select", c, "H-001", "H-002", "--radical", "H-003")[0] == 0
+    task = s.f5(c) / f"01-{C.ROLES['arbiter']}" / "TASK.md"
+    words = s.line(("valid G4", "early closure", "radical", "never funded"),
+                   ("G4 valido", "chiusura anticipata", "radicale", "mai finanziata"))
+
+    def text():
+        t = task.read_text(encoding="utf-8")
+        return t.split("\n## ", 1)[-1]
+
+    t = text()
+    check(f"{L}: the closure brief states G5's rule of a non-closure (valid G4, early closure, a radical never "
+          f"funded nor closed)", all(w in t for w in words), t)
+    check(f"{L}: it names the open branches H-001, H-002 and the radical H-003",
+          all(h in t for h in ("H-001", "H-002", "H-003")), t)
+    rc, out = s.run("close-branch", c, "H-002", "--reason", "no time", "--deciding-test", "the oracle on 10 cases")
+    t = text()
+    check(f"{L}: after the early closure of H-002 the brief no longer names it among the open ones",
+          rc == 0 and "H-002" not in t and "H-001" in t and "H-003" in t, (out, t))
+    s.f3(c, "H-001")
+    s.f4(c, "H-001", correctness="proven")
+    s.gate_ok(c, "f4/H-001")
+    s.sentinel(c)
+    # as conditions does: G5 «not closed» names exactly the radical (H-001 has a valid G4, H-002 is closed early)
+    s.closure(c, closed=False, extra="nothing named\n")
+    rc, out = s.verify(c, "f5")
+    check(f"{L}: «not closed» without naming the radical: refused, and the brief named it",
+          rc == 1 and "H-003" in out and "H-003" in text(), out)
+    s.closure(c, closed=False, extra="H-003 is open\n")
+    rc, out = s.verify(c, "f5")
+    check(f"{L}: «not closed» naming what the brief names as open: approved", rc == 0, out)
+
+
+# ------------------------------------------------------------------------------------------------------------------
+# E8 (ENG-14): the version, 5.3 everywhere it is stated
+# ------------------------------------------------------------------------------------------------------------------
+
+def e8(swarms: dict, base: Path):
+    L = "E8"
+    for lang, s in swarms.items():
+        v = (s.swarm / "VERSION").read_text(encoding="utf-8").split()
+        check(f"{L} [{lang}]: the installed VERSION says 5.3", v[:1] == ["5.3"], v)
+        check(f"{L} [{lang}]: the catalog says 5.3", s.cat.get("version") == "5.3", s.cat.get("version"))
+        rc, out = s.run("--help")
+        check(f"{L} [{lang}]: convene --help says swarmer 5.3", "swarmer 5.3" in out, out[:300])
+        c, _ = s.prepare()
+        check(f"{L} [{lang}]: a new convening's manifest records 5.3", s.manifest(c).get("version") == "5.3",
+              s.manifest(c).get("version"))
+        for w in ("convene.py", "jury.py"):
+            t = (s.swarm / w).read_text(encoding="utf-8")
+            check(f"{L} [{lang}]: the installed wrapper {w} states no older version",
+                  not re.search(r"\b5\.[0-2]\b", t), t[:300])
+    plugin = json.loads((SOURCE / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+    check(f"{L}: plugin.json (the Claude Code plugin and the Agensi package) is 5.3.0",
+          plugin.get("version") == "5.3.0", plugin.get("version"))
+    for p in sorted((SOURCE / "wrappers").glob("*.py")):
+        t = p.read_text(encoding="utf-8")
+        check(f"{L}: wrappers/{p.name} states no 5.0, 5.1 or 5.2", not re.search(r"\b5\.[0-2]\b", t), t[:300])
+    conv = (SOURCE / "engine" / "convene.py").read_text(encoding="utf-8")
+    check(f"{L}: engine/convene.py has no VERSION = \"5.0\"", not re.search(r"VERSION\s*=\s*['\"]5\.0", conv))
+    for p in sorted((SOURCE / "engine").glob("*.py")):
+        head = p.read_text(encoding="utf-8").split("\n", 3)[:3]
+        check(f"{L}: the docstring of engine/{p.name} states no older swarmer version",
+              not any(re.search(r"(swarmer|sciame)\s+5\.[0-2]\b", x) for x in head), head)
+    for sh in ("swarmer.sh", "sciame.sh"):
+        t = (SOURCE / sh).read_text(encoding="utf-8").split("\n", 3)[1]
+        check(f"{L}: {sh} says version 5.3 in its head", "5.3" in t, t)
+    for lang in ("en", "it"):
+        t = (SOURCE / "docs" / lang / "README.md").read_text(encoding="utf-8").split("\n", 1)[0]
+        check(f"{L}: docs/{lang}/README.md says 5.3", "5.3" in t, t)
+        t = (SOURCE / "docs" / lang / "PIPELINE.md").read_text(encoding="utf-8")[:600]
+        check(f"{L}: docs/{lang}/PIPELINE.md's status says 5.3", re.search(r"(Version|Versione) 5\.3", t), t)
+    for name in ("CHANGELOG.md", "CHANGELOG.it.md"):
+        p = SOURCE / name
+        t = p.read_text(encoding="utf-8") if p.is_file() else ""
+        check(f"{L}: {name} has a 5.3.0 entry", re.search(r"^## 5\.3\.0\b", t, re.M), t[:200])
+    script = SOURCE / ".github" / "scripts" / "agensi.py"
+    if script.is_file() and (SOURCE / ".git").exists() and shutil.which("git"):
+        out_dir = base / "agensi-pkg"
+        rc, out = py(script, "--package", out_dir / "swarmer", "--api", base / "agensi-site")
+        skill = out_dir / "swarmer" / "SKILL.md"
+        ver = re.search(r"^version: (\S+)", skill.read_text(encoding="utf-8"), re.M) if skill.is_file() else None
+        check(f"{L}: the Agensi edition's package states 5.3", rc == 0 and ver and ver.group(1).startswith("5.3"),
+              (rc, out[-600:], ver and ver.group(1)))
+    else:
+        print(f"skip {L}: the Agensi package needs the git checkout")
+
+
+# ------------------------------------------------------------------------------------------------------------------
+# E9 (ENG-15): a convening-wide K# allocator that the engine reads
+# ------------------------------------------------------------------------------------------------------------------
+
+def e9(s: Swarm, base: Path):
+    L = f"E9 [{s.lang}]"
+    c = s.classic(rules=3)
+    s.gate_ok(c, "f2")
+    assert s.run("select", c, "H-001", "H-002")[0] == 0
+    s.f3(c, "H-001")
+    s.f3(c, "H-002")
+    a = role_dir(c / "f3" / "H-001", "01-") / s.N("SOLUTION.md")
+    b = role_dir(c / "f3" / "H-002", "01-") / s.N("SOLUTION.md")
+    reg = c / s.N("CONTRADICTIONS.jsonl")
+    rc1, o1 = s.run("contradiction", c, a, b, "--question", "is the bound tight?")
+    rc2, o2 = s.run("contradiction", c, b, "--question", "does the cache hold?")
+    rows = [json.loads(x) for x in reg.read_text(encoding="utf-8").splitlines()] if reg.is_file() else []
+    ids = [next((v for v in r.values() if isinstance(v, str) and re.fullmatch(r"K-\d{3}", v)), None) for r in rows]
+    check(f"{L}: contradiction allocates K-001 then K-002, one numbering for every branch, in {reg.name}",
+          rc1 == 0 and rc2 == 0 and ids == ["K-001", "K-002"] and "K-001" in o1 and "K-002" in o2, (o1, o2, rows))
+    check(f"{L}: the record keeps the binary question and the files of its sides",
+          rows and "is the bound tight?" in json.dumps(rows[0], ensure_ascii=False) and str(a) in json.dumps(rows[0]),
+          rows[:1])
+    out = s.status(c)
+    check(f"{L}: status lists the K# of the convening", "K-001" in out and "K-002" in out, out)
+    for h, v in (("H-001", "proven"), ("H-002", "refuted")):
+        s.f4_r3(c, h, correctness=v)
+        if h == "H-002":
+            vp = role_dir(c / "f4" / h, "09-") / s.N("VERDICT.md")
+            vp.write_text(vp.read_text(encoding="utf-8") + "K-007 is open\n", encoding="utf-8")
+            rc, out = s.gate(c, f"f4/{h}")
+            check(f"{L}: G4 warns on a K# cited and never allocated", rc == 0 and "K-007" in out, out)
+        else:
+            s.gate_ok(c, f"f4/{h}")
+    for ph in ("f3", "f4"):
+        s.sentinel(c, phase=ph)
+    s.sentinel(c)
+    s.closure(c, closed=True, extra="K-001 resolved\n")
+    rc, out = s.verify(c, "f5")
+    check(f"{L}: G5 refused while an allocated K# is not named in the closure", rc == 1 and "K-002" in out, out)
+    s.closure(c, closed=True, extra="K-001 resolved; K-002 open\n")
+    rc, out = s.verify(c, "f5")
+    check(f"{L}: G5 with every allocated K# named", rc == 0, out)
+    keep = reg.read_bytes()
+    for bad, what in ((keep + keep.splitlines(True)[0], "a K# written twice"), (keep + b"not a record\n",
+                                                                                 "a line that is not a K# record")):
+        reg.write_bytes(bad)
+        rc, out = s.run("status", c)
+        check(f"{L}: {what} stops status with exit 1", rc == 1 and "Traceback" not in out, out)
+        rc, out = s.run("contradiction", c, a, "--question", "x?")
+        check(f"{L}: {what} stops the allocator too", rc == 1 and reg.read_bytes() == bad, out)
+    reg.write_bytes(keep)
+
+
+# ------------------------------------------------------------------------------------------------------------------
+# E10 (ENG-16): a fitness filter for a drawn sentinel, recorded in its brief
+# ------------------------------------------------------------------------------------------------------------------
+
+def fit_roles(s: Swarm, question: str) -> dict[str, list[str]]:
+    """The roles with a keyword of their own, whole and in any case, in the question (computed here, not by roles)."""
+    q = question.lower()
+    out = {}
+    for r in s.cat["roles"]:
+        hit = [k for k in r.get("keywords", []) if re.search(rf"(?<!\w){re.escape(k.lower())}(?!\w)", q)]
+        if hit:
+            out[r["id"]] = hit
+    return out
+
+
+def e10(s: Swarm, base: Path):
+    L = f"E10 [{s.lang}]"
+    by = {r["id"]: r for r in s.cat["roles"]}
+    k1, k2 = by["prestazioni"]["keywords"][0], by["economista"]["keywords"][0]
+    question = f"{k1} / {k2} ?"
+    fit = fit_roles(s, question)
+    c, _ = s.prepare(question=question, seed=11)
+    task = c / "f2" / s.N("00-sentinel") / "TASK.md"
+    if not task.is_file():
+        check(f"{L}: the f2 sentinel is briefed under the rules 3", False)
+        return
+    role = agent_of(task)
+    m = s.manifest(c)
+    prof = s.cat["profiles"][m["profile"]]
+    convened = {r for k in ("A", "B", "translates", "f3", "f4") for r in prof.get(k, [])} | set(m["f1"])
+    free_fit = [r for r in fit if r not in convened and r not in roles_named(c, skip=task)]
+    pro = [r for r in free_fit if by[r].get("type", "professional") == "professional"]
+    what = task.read_text(encoding="utf-8").split("\n## ", 1)[-1]
+    check(f"{L}: the sentinel is drawn among the free roles fit for the question, professionals first",
+          role in (pro or free_fit), (role, fit, free_fit))
+    check(f"{L}: the brief records the draw: the seed and the drawn role's keywords",
+          role in fit and "11" in what and all(k.lower() in what.lower() for k in fit[role]), what)
+    c2, _ = s.prepare(question=question, seed=11)
+    check(f"{L}: the draw is reproducible from the seed",
+          agent_of(c2 / "f2" / s.N("00-sentinel") / "TASK.md") == role)
+    c3, _ = s.prepare(question="q", seed=12)
+    t3 = c3 / "f2" / s.N("00-sentinel") / "TASK.md"
+    w3 = t3.read_text(encoding="utf-8").split("\n## ", 1)[-1] if t3.is_file() else ""
+    prefix = s.t["missions"]["sentinel_draw_unfit"].split("{n}")[0].format(seed=12)
+    check(f"{L}: with no fit role the brief records a draw among all the free roles", prefix in w3, w3)
+    r3 = agent_of(t3) if t3.is_file() else None
+    check(f"{L}: and the drawn role is free", r3 and r3 not in convened and r3 not in roles_named(c3, skip=t3), r3)
+
+
+# ------------------------------------------------------------------------------------------------------------------
+# E11 (ENG-12): a canary per arm in a fan-out race, checked by G1
+# ------------------------------------------------------------------------------------------------------------------
+
+def e11(s: Swarm, base: Path):
+    L = f"E11 [{s.lang}]"
+    token = C.CONVENE_LINES["canary_token"][s.lang]
+    word = C.CONVENE_LINES["canary"][s.lang]
+    c, _ = s.prepare("fan-out", extra=("--n", 3, "--form", "race", "--rule", "first"))
+    s.fill_contract(c)
+    s.gate_ok(c, "f0")
+    m = s.manifest(c)
+    arms = [Path(v["folder"]) for v in m["f1"].values()]
+    canaries = []
+    for a in arms:
+        found = re.findall(re.escape(token) + r"[0-9a-f]{16}", (a / "TASK.md").read_text(encoding="utf-8"))
+        canaries.append(found[0] if found else None)
+    check(f"{L}: every arm of the race has a canary of its own in its brief",
+          all(canaries) and len(set(canaries)) == len(arms) == 3, canaries)
+    mp = m.get("map")
+    lane_map = C.to_canonical(json.loads(Path(mp).read_text(encoding="utf-8")), C.CONVENE_KEYS["map"]) if mp else {}
+    check(f"{L}: the lane map records each arm's canary",
+          sorted(v.get("canary") for v in lane_map.values()) == sorted(x for x in canaries if x), lane_map)
+    D = s.N("DELIVERABLE.md")
+
+    def write(texts):
+        for a, t in zip(arms, texts):
+            (a / D).write_text(t, encoding="utf-8")
+    write(["DONE\nmy answer\n"] * 3)
+    rc, out = s.verify(c, "f1")
+    check(f"{L}: G1 refuses deliverables without their canary", rc == 1, out)
+    write([f"{word} {k}\nDONE\nmy answer\n" for k in canaries])
+    shot = c / s.N("SNAPSHOT.json")
+    rc, out = s.verify(c, "f1")
+    check(f"{L}: G1 wants the snapshot of the reads in a race", rc == 1 and not shot.exists(), out)
+    assert s.run("snapshot", c)[0] == 0
+    rc, out = s.verify(c, "f1")
+    check(f"{L}: each arm with its own canary and the snapshot: G1 holds", rc == 0, out)
+    write([f"{word} {canaries[0]}\nDONE\n", f"{word} {canaries[1]}\nDONE\nas {canaries[0]} said\n",
+           f"{word} {canaries[2]}\nDONE\n"])
+    assert s.run("snapshot", c)[0] == 0
+    rc, out = s.verify(c, "f1")
+    check(f"{L}: an arm carrying another arm's canary is refused (contamination)", rc == 1, out)
+    write([f"{word} {canaries[1]}\nDONE\n", f"{word} {canaries[0]}\nDONE\n", f"{word} {canaries[2]}\nDONE\n"])
+    assert s.run("snapshot", c)[0] == 0
+    rc, out = s.verify(c, "f1")
+    check(f"{L}: two arms with each other's canary are refused", rc == 1, out)
+    c2, _ = s.prepare("fan-out", extra=("--n", 2, "--form", "slices"))
+    s.fill_contract(c2)
+    s.gate_ok(c2, "f0")
+    arms2 = [Path(v["folder"]) for v in s.manifest(c2)["f1"].values()]
+    check(f"{L}: a fan-out of slices has no canary, as before",
+          not any(token in (a / "TASK.md").read_text(encoding="utf-8") for a in arms2))
+    for a in arms2:
+        (a / D).write_text("DONE\nmy slice\n", encoding="utf-8")
+    rc, out = s.verify(c2, "f1")
+    check(f"{L}: and G1 of the slices needs neither canary nor snapshot", rc == 0, out)
+
+
+# ------------------------------------------------------------------------------------------------------------------
+# E12 (clause 10): a later closure after a G5 «not closed»
+# ------------------------------------------------------------------------------------------------------------------
+
+def plant_gate(s: Swarm, c: Path, src: int, dst, closed, folder=True, name=None) -> Path:
+    """A later gate file of f5 made from the one of the closure `src`: its folder copied to f5_<dst>/ (if `folder`),
+    its fingerprints moved there, its «closed» set. The fingerprints still match the copied bytes."""
+    sdir, ddir = s.f5(c, src), c / f"f5_{dst}"
+    if folder:
+        shutil.copytree(sdir, ddir, symlinks=True)
+    g = s.gate_c(c, "f5" if src == 1 else f"f5_{src}")
+    g["fingerprints"] = {k.replace(str(sdir) + os.sep, str(ddir) + os.sep, 1): v for k, v in g["fingerprints"].items()}
+    g["phase"] = f"f5_{dst}"
+    g["closed"] = closed
+    p = c / (name or f"GATE_f5_{dst}.json")
+    p.write_text(json.dumps(C.to_dialect(g, C.CONVENE_KEYS["gate"], s.lang), ensure_ascii=False, indent=1),
+                 encoding="utf-8")
+    return p
+
+
+def set_closed(s: Swarm, c: Path, label: str, closed: bool) -> None:
+    p = s.gate_file(c, label)
+    g = s.gate_c(c, label)
+    g["closed"] = closed
+    p.write_text(json.dumps(C.to_dialect(g, C.CONVENE_KEYS["gate"], s.lang), ensure_ascii=False, indent=1),
+                 encoding="utf-8")
+
+
+def e12(s: Swarm, base: Path):
+    L = f"E12 [{s.lang}]"
+    arb = f"01-{C.ROLES['arbiter']}"
+    SD, SN, CL = s.N("00-sentinel"), s.N("SENTINEL.md"), s.N("CLOSURE.md")
+    c = s.classic(rules=2)
+    s.gate_ok(c, "f2")
+    assert s.run("select", c, "H-001", "H-002", "--radical", "H-003")[0] == 0
+    s.f3(c, "H-001")
+    s.f4(c, "H-001", correctness="proven")
+    s.gate_ok(c, "f4/H-001")
+    s.sentinel(c)
+    s.closure(c, closed=False, extra="H-002 and H-003 are open\n")
+    rc, out = s.gate(c, "f5")
+    g1 = s.gate_c(c, "f5")
+    check(f"{L}: the first G5 is approved «not closed» under the rules 2",
+          rc == 0 and g1.get("closed") is False and g1.get("rules") == 2, out)
+    gate1 = c / "GATE_f5.json"
+    raw1 = gate1.read_bytes()
+    bound = {k: Path(k).read_bytes() for k in g1["fingerprints"] if not k.endswith("/")}
+    f5_files = files(s.f5(c))
+
+    def first_holds(where):
+        same = (gate1.read_bytes() == raw1 and all(Path(k).is_file() and Path(k).read_bytes() == v
+                                                   for k, v in bound.items()) and files(s.f5(c)) == f5_files)
+        out = s.status(c)
+        check(f"{L}: {where}: GATE_f5.json, f5/{CL} and every file it binds byte-identical, the first G5 holds",
+              same and s.st("status_not_closed", phase="f5") in out, (changes(f5_files, files(s.f5(c))), out))
+
+    rc, out = s.gate(c, "f5")
+    check(f"{L}: a gate f5 that would write over the recorded non-closure is refused",
+          rc == 1 and gate1.read_bytes() == raw1, out)
+    rc, out = s.verify(c, "f5")
+    check(f"{L}: gate f5 --verify checks the first G5 again, as in 5.2", rc == 0, out)
+    b1 = base / f"e12_b1_{s.lang}"
+    shutil.copytree(c, b1, symlinks=True)
+    # --- fund and close-branch act; a second G5 «closed» in a new gate file
+    f52 = s.f5(c, 2)
+    rc, out = s.run("fund", c, "H-003")
+    check(f"{L}: fund acts on the radical after the «not closed» G5",
+          rc == 0 and (c / "f3" / "H-003" / "H-003.md").is_file() and (c / "f4" / "H-003").is_dir(), out)
+    task = f52 / arb / "TASK.md"
+    check(f"{L}: fund briefs the next closure's arbiter and sentinel beside it, in f5_2/",
+          task.is_file() and (f52 / SD / "TASK.md").is_file(), sorted(files(c)) if not task.is_file() else "")
+    first_holds("after fund")
+    before = task.read_bytes() if task.is_file() else b""
+    rc, out = s.run("close-branch", c, "H-002", "--reason", "no time", "--deciding-test", "the oracle on 10 cases")
+    check(f"{L}: close-branch --deciding-test declares H-002 unresolved after the «not closed» G5 and rewrites the "
+          f"next closure's brief", rc == 0 and (c / "f3" / "H-002" / s.N("EARLY_CLOSURE.json")).is_file()
+          and task.is_file() and task.read_bytes() != before, out)
+    first_holds("after close-branch --deciding-test")
+    s.f3(c, "H-003")
+    s.f4(c, "H-003", correctness="refuted")
+    s.gate_ok(c, "f4/H-003")
+    first_holds("after the G3 and G4 of the radical")
+    rc, out = s.verify(c, "f5")
+    check(f"{L}: without f5_2/{CL} the second G5 is refused, though f5/{CL} is there", rc == 1 and "f5_2" in out, out)
+    s.closure(c, closed=True, k=2)
+    rc, out = s.gate(c, "f5")
+    check(f"{L}: round 1's f5/{SD}/{SN} alone does not meet the second G5's sentinel condition",
+          rc == 1 and not (c / "GATE_f5_2.json").exists(), out)
+    sent2 = s.sentinel(c, k=2)
+    rc, out = s.gate(c, "f5")
+    g2 = s.gate_c(c, "f5_2")
+    check(f"{L}: the second G5 is approved «closed» into GATE_f5_2.json, its outcome from f5_2/{CL}",
+          rc == 0 and g2.get("closed") is True, out)
+    first_holds("after the second G5")
+    out = s.status(c)
+    check(f"{L}: status reports the newer G5 (f5_2 approved) beside the first",
+          s.st("status_approved", phase="f5_2") in out and s.st("status_not_closed", phase="f5") in out, out)
+    fp2 = g2.get("fingerprints", {})
+    check(f"{L}: the second G5 binds its closure, its briefs and its sentinel, all in f5_2/",
+          fp2 and all(k.startswith(str(f52) + os.sep) for k in fp2)
+          and {str(f52 / CL), str(sent2), str(task)} <= set(fp2), sorted(fp2))
+    rc, out = s.verify(c, "f5")
+    check(f"{L}: gate f5 --verify reads the latest G5", rc == 0 and "f5_2" in out, out)
+    for p, how in ((f52 / CL, "an edit of"), (f52 / CL, "the removal of"), (sent2, "one byte appended to"),
+                   (task, "one byte appended to")):
+        old = p.read_bytes()
+        if how == "the removal of":
+            p.unlink()
+        elif how == "an edit of":
+            p.write_bytes(old.replace(b"\n", b" edited\n", 1))
+        else:
+            p.write_bytes(old + b" ")
+        out = s.status(c)
+        check(f"{L}: {how} {p.relative_to(c)} after the second G5: status reports f5_2 no longer valid",
+              s.st("status_invalid", phase="f5_2") in out, out)
+        p.write_bytes(old)
+    check(f"{L}: restored, f5_2 approved again", s.st("status_approved", phase="f5_2") in s.status(c))
+    snap = files(c)
+    for cmd in (("close-branch", c, "H-001", "--reason", "x", "--deciding-test", "t"), ("fund", c, "H-003"),
+                ("repin", c, "H-001")):
+        rc, out = s.run(*cmd)
+        check(f"{L}: after the closed second G5, {cmd[0]} is refused by the lock and writes nothing",
+              rc == 1 and "f5_2" in out and files(c) == snap, out)
+    # --- the readers on a first gate file that cannot be read
+    for label in ("0 bytes", "a BOM", "a byte that is not UTF-8"):
+        restore(c, b1)
+        data = {"0 bytes": b"", "a BOM": b"\xef\xbb\xbf" + raw1,
+                "a byte that is not UTF-8": raw1.replace(b': "x"', b': "\xff"', 1)}[label]
+        assert data != raw1
+        gate1.write_bytes(data)
+        snap = files(c)
+        for cmd in (("fund", c, "H-003"), ("close-branch", c, "H-002", "--reason", "x", "--deciding-test", "t"),
+                    ("status", c)):
+            rc, out = s.run(*cmd)
+            check(f"{L}: GATE_f5.json with {label}: {cmd[0]} stops with exit 1 and writes nothing",
+                  rc == 1 and files(c) == snap and "Traceback" not in out, out)
+    # --- a second G5 «not closed», then the planted ordinals
+    restore(c, b1)
+    rc, out = s.run("close-branch", c, "H-003", "--reason", "no budget")
+    check(f"{L}: close-branch of the unfunded radical acts after the «not closed» G5",
+          rc == 0 and (c / "f3" / "H-003" / s.N("EARLY_CLOSURE.json")).is_file() and (f52 / arb / "TASK.md").is_file(),
+          out)
+    first_holds("after close-branch of the radical")
+    s.closure(c, closed=False, extra="H-002 is open\n", k=2)
+    s.sentinel(c, k=2)
+    rc, out = s.gate(c, "f5")
+    check(f"{L}: a second G5 «not closed» goes to GATE_f5_2.json",
+          rc == 0 and s.gate_c(c, "f5_2").get("closed") is False, out)
+    first_holds("after a second G5 «not closed»")
+    b2 = base / f"e12_b2_{s.lang}"
+    shutil.copytree(c, b2, symlinks=True)
+    act = ("close-branch", c, "H-002", "--reason", "x", "--deciding-test", "t")
+    # ordinals 2 and 10: the latest is 10, never the last sorted name (2) nor the newest mtime (GATE_f5.json)
+    g10 = plant_gate(s, c, 2, 10, True)
+    future, past = time.time() + 10 ** 6, T0
+    os.utime(gate1, (future, future))
+    os.utime(g10, (past, past))
+    snap = files(c)
+    rc, out = s.run(*act)
+    check(f"{L}: ordinals 2 (open) and 10 (closed), GATE_f5.json the newest: close-branch refused by GATE_f5_10.json",
+          rc == 1 and "f5_10" in out and files(c) == snap, out)
+    rc, out = s.run("fund", c, "H-003")
+    check(f"{L}: fund reads GATE_f5_10.json too", rc == 1 and "f5_10" in out and files(c) == snap, out)
+    out = s.status(c)
+    check(f"{L}: status reads the ordinals in order and reports f5_10",
+          s.st("status_approved", phase="f5_10") in out and s.st("status_not_closed", phase="f5_2") in out, out)
+    rc, out = s.verify(c, "f5")
+    check(f"{L}: gate f5 reads GATE_f5_10.json", "f5_10" in out, out)
+    set_closed(s, c, "f5_2", True)
+    set_closed(s, c, "f5_10", False)
+    rc, out = s.run(*act)
+    check(f"{L}: ordinals 2 (closed) and 10 (open): close-branch acts and briefs the closure f5_11/",
+          rc == 0 and (s.f5(c, 11) / arb / "TASK.md").is_file(), out)
+    check(f"{L}: status lists f5_11 still to approve", s.st("status_pending", phase="f5_11") in s.status(c))
+    for name in ("GATE_f5_\u0663.json", "GATE_f5_\uff13.json"):
+        restore(c, b2)
+        plant_gate(s, c, 2, 3, True, folder=False, name=name)
+        rc, out = s.run(*act)
+        check(f"{L}: {name} carries no ASCII ordinal: it does not shut the lock", rc == 0, out)
+    for label, how in (("a planted later gate «not closed» with stale fingerprints", "stale"),
+                       ("a later gate whose closure changed after it", "changed"),
+                       ("a 0-byte later gate file", "empty"), ("a later gate file with a BOM", "bom")):
+        restore(c, b2)
+        if how == "stale":
+            plant_gate(s, c, 2, 3, False, folder=False)
+        elif how == "changed":
+            plant_gate(s, c, 2, 3, False)
+            p = s.f5(c, 3) / CL
+            p.write_bytes(p.read_bytes() + b"x")
+        elif how == "empty":
+            (c / "GATE_f5_3.json").write_bytes(b"")
+        else:
+            g = c / "GATE_f5_2.json"
+            g.write_bytes(b"\xef\xbb\xbf" + g.read_bytes())
+        snap = files(c)
+        rc, out = s.run(*act)
+        check(f"{L}: {label}: close-branch refused with exit 1 and nothing written",
+              rc == 1 and files(c) == snap and "Traceback" not in out, out)
+    # --- the rules 1: a G5 records no «closed»; its closure says it
+    c1 = s.classic(rules=1)
+    s.gate_ok(c1, "f2")
+    assert s.run("select", c1, "H-001", "H-002")[0] == 0
+    s.f3(c1, "H-001", gate=False)
+    s.dossier(c1, "H-001")   # under the rules 1 G3 binds the dossier: it is written before G3
+    s.gate_ok(c1, "f3/H-001")
+    s.f4(c1, "H-001", correctness="proven")
+    s.gate_ok(c1, "f4/H-001")
+    s.closure(c1, closed=False, extra="H-002 is open\n")
+    rc, out = s.gate(c1, "f5")
+    g = s.gate_c(c1, "f5")
+    check(f"{L}: a G5 of the rules 1 «not closed» (no rules, no closed key)",
+          rc == 0 and "rules" not in g and "closed" not in g, (out, g))
+    keep1 = (c1 / "GATE_f5.json").read_bytes()
+    rc, out = s.run("close-branch", c1, "H-002", "--reason", "no time")
+    check(f"{L}: rules 1, closure «not closed»: close-branch acts on the branch left open",
+          rc == 0 and (c1 / "f3" / "H-002" / s.N("EARLY_CLOSURE.json")).is_file()
+          and (s.f5(c1, 2) / arb / "TASK.md").is_file(), out)
+    out = s.status(c1)
+    check(f"{L}: and the first G5 of the rules 1 still holds",
+          s.st("status_not_closed", phase="f5") in out and (c1 / "GATE_f5.json").read_bytes() == keep1, out)
+    c2 = s.classic(rules=1)
+    s.gate_ok(c2, "f2")
+    assert s.run("select", c2, "H-001", "H-002")[0] == 0
+    s.f3(c2, "H-001", gate=False)
+    s.dossier(c2, "H-001")   # under the rules 1 G3 binds the dossier: it is written before G3
+    s.gate_ok(c2, "f3/H-001")
+    s.f4(c2, "H-001", correctness="proven")
+    s.gate_ok(c2, "f4/H-001")
+    rc, out = s.run("close-branch", c2, "H-002", "--reason", "no time")
+    assert rc == 0, out
+    s.closure(c2, closed=True)
+    s.gate_ok(c2, "f5")
+    snap = files(c2)
+    rc, out = s.run("close-branch", c2, "H-001", "--reason", "x")
+    check(f"{L}: after a closed G5 of the rules 1 close-branch is refused by the lock", rc == 1 and "f5" in out
+          and files(c2) == snap, out)
+    if s.lang == "en":
+        for name, words in (("CHANGELOG.md", ("5.2 engine", "GATE_f5.json")),
+                            ("CHANGELOG.it.md", ("5.2", "GATE_f5.json"))):
+            t = (SOURCE / name).read_text(encoding="utf-8") if (SOURCE / name).is_file() else ""
+            sec = re.search(r"^## 5\.3\.0\b(.*?)(?=^## |\Z)", t, re.M | re.S)
+            heads = re.findall(r"^### .*$", sec.group(1), re.M) if sec else []
+            check(f"E12: {name} says what a 5.2 engine sees",
+                  any("5.2" in h for h in heads) and all(w in (sec.group(1) if sec else "") for w in words), heads)
+
+
+# ------------------------------------------------------------------------------------------------------------------
+# ENG-24: jury.py count . reads the previous juries beside the folder
+# ------------------------------------------------------------------------------------------------------------------
+
+JURORS = ["garante", "avversario", "logico", "debugger", "statistico"]
+SEAL_LINE = "sha256 of the bytes before this line: "
+
+
+def sealed_text(text: str) -> str:
+    body = text if text.endswith("\n") else text + "\n"
+    return body + SEAL_LINE + hashlib.sha256(body.encode("utf-8")).hexdigest() + "\n"
+
+
+def make_jury(base: Path, name: str, yes: int, previous=()) -> Path:
+    """A jury of the protocol G2 in the English dialect: one decision D1, option (a), `yes` jurors of five for it."""
+    c = base / name
+    c.mkdir(parents=True)
+    g = {"protocol": "G2", "lexicon": 5, "subject": name, "rapporteur": "formalista", "clerk": "arbitro",
+         "touches_code": True, "touches_numbers": True, "authority": "recommendation", "delegation": "test",
+         "classification": "ordinary", "jurors": [{"role": r, "fresh_on_subject": True} for r in JURORS]}
+    if previous:
+        g["previous"] = list(previous)
+    (c / "jury.json").write_text(json.dumps(g), encoding="utf-8")
+    seals = ["# reported seals", f"SEAL jury.json {hashlib.sha256((c / 'jury.json').read_bytes()).hexdigest()}"]
+    (c / "round_0").mkdir()
+    prop = sealed_text("# proposal\nOPTION D1 (a)\nOPTIONS D1 (a) | (b)\nOPERATIVE D1 one does (a)\n")
+    (c / "round_0" / "PROPOSAL.md").write_text(prop, encoding="utf-8")
+    seals.append(f"SEAL round_0/PROPOSAL.md {prop.rstrip().rsplit(' ', 1)[1]}")
+    for i, r in enumerate(JURORS):
+        v = "yes" if i < yes else "no"
+        body = f"VOTE D1 {v}\n" + ("CONDITION D1 none\n" if v == "yes" else "REVISION D1 remove clause 2\n") + \
+               "CLASS D1 ordinary\n"
+        t = sealed_text(body)
+        (c / "round_0" / f"VOTE_{r}.md").write_text(t, encoding="utf-8")
+        seals.append(f"SEAL round_0/VOTE_{r}.md {t.rstrip().rsplit(' ', 1)[1]}")
+    (c / "SEALS.md").write_text("\n".join(seals) + "\n", encoding="utf-8")
+    return c
+
+
+def eng24(s: Swarm, base: Path):
+    L = f"ENG-24 [{s.lang}]"
+    jury = s.swarm / "jury.py"
+    w = base / f"juries_{s.lang}"
+    first = make_jury(w, "first", yes=1)
+    rc, out = py(jury, "count", first, 0)
+    check(f"{L}: the previous jury is counted (D1 (a) rejected)",
+          rc == 0 and (first / "OUTCOME_round_0.json").is_file(), out)
+    second = make_jury(w, "second", yes=5, previous=["first"])
+    rc_abs, out_abs = py(jury, "count", second, 0)
+    check(f"{L}: with the absolute folder, the option already REJECTED in the previous jury is refused",
+          rc_abs != 0 and "REJECTED" in out_abs, out_abs)
+    for folder, cwd in ((".", second), ("..", second / "round_0"), ("second", w)):
+        rc, out = py(jury, "count", folder, 0, cwd=cwd)
+        check(f"{L}: count {folder} from {cwd.relative_to(w.parent)} reads the previous jury as the absolute folder "
+              f"does", rc == rc_abs and out == out_abs and "has no outcome" not in out, out)
+    ok = make_jury(w, "ok_prev", yes=5)
+    assert py(jury, "count", ok, 0)[0] == 0
+    third = make_jury(w, "third", yes=5, previous=["ok_prev"])
+    rc_abs, out_abs = py(jury, "count", third, 0)
+    text_abs = (third / "OUTCOME_round_0.json").read_bytes() if rc_abs == 0 else b""
+    (third / "OUTCOME_round_0.json").unlink(missing_ok=True)
+    rc, out = py(jury, "count", ".", 0, cwd=third)
+    check(f"{L}: count . with a previous jury that rejected nothing: counted, the same outcome as the absolute folder",
+          rc_abs == 0 and rc == 0 and out == out_abs and (third / "OUTCOME_round_0.json").read_bytes() == text_abs,
+          (out_abs, out))
+
+
+# ------------------------------------------------------------------------------------------------------------------
+# ENG-25: a deliverable that only quotes the placeholder is filled; a real placeholder is not
+# ------------------------------------------------------------------------------------------------------------------
+
+def eng25(s: Swarm, base: Path):
+    L = f"ENG-25 [{s.lang}]"
+    P = s.placeholder()
+    filled = {
+        "the placeholder quoted in a code span": f"DONE\nEvery `{P}` of the template was replaced.\n",
+        "the placeholder alone in a code span": f"DONE\n`{P}`\n",
+        "the placeholder in a fenced code block": f"DONE\n```\n{P}\n```\nthe block quotes the template\n",
+        "the placeholder in a ~~~ code block": f"DONE\n~~~text\n- Results: {P}\n~~~\n",
+        "the placeholder in a sentence": f"DONE\nA brief that still says {P} in a field is refused by G1.\n",
+        "a field whose value quotes the placeholder in a code span": f"DONE\n- Results: `{P}` stands for none\n",
+    }
+    unfilled = {
+        "the placeholder alone on a line": f"DONE\n{P}\n",
+        "the placeholder alone, indented": f"DONE\n   {P}   \n",
+        "the placeholder as the value of a field": f"DONE\n- Results: {P}\n",
+        "the placeholder as the value of a bold field": f"DONE\n**Results:** {P}\n",
+        "the placeholder as the value of a slice line": f"DONE\nSlice 1 of 14: {P}\n",
+        "the placeholder as a table cell": f"DONE\n| field | value |\n|---|---|\n| results | {P} |\n",
+        "the placeholder alone after a closed code block": f"DONE\n```\nx\n```\n{P}\n",
+    }
+    for rules in (2, 3):
+        c, _ = s.prepare("single")
+        s.set_rules(c, rules)
+        s.fill_contract(c)
+        s.gate_ok(c, "f0")
+        out_p = Path(next(iter(s.manifest(c)["f1"].values()))["folder"]) / s.N("DELIVERABLE.md")
+        for name, text in filled.items():
+            out_p.write_text(text, encoding="utf-8")
+            rc, out = s.verify(c, "f1")
+            check(f"{L} rules {rules}: {name}: filled, G1 holds", rc == 0, out)
+        for name, text in unfilled.items():
+            out_p.write_text(text, encoding="utf-8")
+            rc, out = s.verify(c, "f1")
+            check(f"{L} rules {rules}: {name}: still to fill in, G1 refused", rc == 1, out)
+    c, _ = s.prepare("single")
+    contract = c / s.N("CONTRACT.md")
+    template = contract.read_text(encoding="utf-8")
+    parts = template.split(P)
+    contract.write_text(parts[0] + f"filled; the template said `{P}` here" + "filled".join(parts[1:]), encoding="utf-8")
+    rc, out = s.verify(c, "f0")
+    check(f"{L}: a contract that quotes the placeholder in a code span: G0 holds", rc == 0, out)
+    contract.write_text(template.replace(P, "filled", 1), encoding="utf-8")
+    rc, out = s.verify(c, "f0")
+    check(f"{L}: a contract with its placeholders left: G0 refused", rc == 1, out)
+
+
+# ------------------------------------------------------------------------------------------------------------------
+# ENG-26: under the rules 3 a later gate sees an f0 changed after G1
+# ------------------------------------------------------------------------------------------------------------------
+
+def eng26(s: Swarm, base: Path):
+    L = f"ENG-26 [{s.lang}]"
+    c = s.classic(rules=3)
+    contract = c / s.N("CONTRACT.md")
+    keep = contract.read_bytes()
+    extra = c / "f0" / "notes.md"
+
+    def changed_f0(phase, *more):
+        out = []
+        contract.write_bytes(keep + b"changed after G1\n")
+        rc1, o1 = s.verify(c, phase, *more)
+        contract.write_bytes(keep)
+        extra.write_text("a new input\n", encoding="utf-8")
+        rc2, o2 = s.verify(c, phase, *more)
+        extra.unlink()
+        rc3, o3 = s.verify(c, phase, *more)
+        return (rc1, rc2, rc3), (o1, o2, o3)
+
+    rcs, outs = changed_f0("f2")
+    check(f"{L}: rules 3: G2 refused when the contract, or a file of f0/, changed after G1; restored it holds",
+          rcs == (1, 1, 0) and "f0" in outs[0] and "f0" in outs[1], outs)
+    s.gate_ok(c, "f2")
+    assert s.run("select", c, "H-001")[0] == 0
+    s.f3(c, "H-001", gate=False)
+    rcs, outs = changed_f0("f3/H-001")
+    check(f"{L}: rules 3: G3 refused when f0 changed after G1", rcs == (1, 1, 0), outs)
+    s.gate_ok(c, "f3/H-001")
+    s.f4_r3(c, "H-001", correctness="proven")
+    rcs, outs = changed_f0("f4/H-001")
+    check(f"{L}: rules 3: G4 refused when f0 changed after G1", rcs == (1, 1, 0), outs)
+    s.gate_ok(c, "f4/H-001")
+    s.closure(c, closed=True)
+    rcs, outs = changed_f0("f5")
+    check(f"{L}: rules 3: G5 refused when f0 changed after G1", rcs == (1, 1, 0), outs)
+    c2 = s.classic(rules=2)
+    contract = c2 / s.N("CONTRACT.md")
+    keep2 = contract.read_bytes()
+    contract.write_bytes(keep2 + b"changed after G1\n")
+    rc, out = s.verify(c2, "f2")
+    check(f"{L}: rules 2 unchanged: G2 checks only G1, as in 5.2", rc == 0, out)
+    rc, out = s.verify(c2, "f2", "--rules", "3")
+    check(f"{L}: the same gate with --rules 3 is refused", rc == 1 and "f0" in out, out)
+    contract.write_bytes(keep2)
+    c3, _ = s.prepare("fan-out", extra=("--n", 2, "--form", "slices"))
+    s.fill_contract(c3)
+    s.gate_ok(c3, "f0")
+    for v in s.manifest(c3)["f1"].values():
+        (Path(v["folder"]) / s.N("DELIVERABLE.md")).write_text("DONE\nmy slice\n", encoding="utf-8")
+    s.gate_ok(c3, "f1")
+    s.closure(c3, closed=True)
+    (c3 / "f0" / "notes.md").write_text("changed after G1\n", encoding="utf-8")
+    rc, out = s.verify(c3, "f5")
+    check(f"{L}: the fan-out of architetto's F2: with f0 changed after G1, gate f5 --verify is refused",
+          rc == 1 and "f0" in out, out)
+
+
+TESTS = (e1, e2, e3, e4, e5, e6, e7, e9, e10, e11, e12, eng24, eng25, eng26)
+
+
+def main():
+    only = set(sys.argv[1:])
+    with tempfile.TemporaryDirectory() as b:
+        base = Path(b)
+        swarms = {}
+        for lang in ("en", "it"):
+            s = Swarm(base, lang)
+            swarms[lang] = s
+            for t in TESTS:
+                if only and t.__name__ not in only:
+                    continue
+                try:
+                    t(s, base)
+                except Exception:  # noqa: BLE001
+                    check(f"{t.__name__} [{lang}] ran to the end", False, traceback.format_exc())
+        if not only or "e8" in only:
+            try:
+                e8(swarms, base)
+            except Exception:  # noqa: BLE001
+                check("e8 ran to the end", False, traceback.format_exc())
+    failed = [n for n, ok in results if not ok]
+    print(f"\n{len(results) - len(failed)}/{len(results)} checks passed")
+    sys.exit(1 if failed else 0)
+
+
+if __name__ == "__main__":
+    main()
 #==== swarmer.sh: file tests/test_jury.py ====
 #!/usr/bin/env python3
 """Test battery of the swarmer 5.0 jury (JURY.md, engine/jury.py): python3 -I -B tests/test_jury.py
@@ -20846,9 +23855,9 @@ def env(tests=True):
     return e
 
 
-def run(*arg, tests=True):
+def run(*arg, tests=True, cwd=None):
     p = subprocess.run([sys.executable, "-I", "-B", str(JURY), *map(str, arg)], capture_output=True, text=True,
-                       stdin=subprocess.DEVNULL, env=env(tests))
+                       stdin=subprocess.DEVNULL, env=env(tests), cwd=cwd)
     return p.returncode, p.stdout + p.stderr
 
 
@@ -21346,6 +24355,15 @@ def battery(base):
     rc, out = run("count", c4, 0)
     check("G2: a second TO_REPROPOSE becomes TO_USER, also in the written outcome",
           rc == 0 and outcome(c4, 0)["D1"]["state"] == "TO_USER", out)
+    # ENG-24: a relative folder («.», «..») is resolved before «previous» is read against its parent
+    rc, out = run("count", ".", 0, cwd=c4)
+    check("G2: count «.» from inside the jury reads «previous» beside it: the same TO_USER",
+          rc == 0 and outcome(c4, 0)["D1"]["state"] == "TO_USER", out)
+    rc, out = run("count", "..", 0, cwd=c4 / D.rnd(0))
+    check("G2: count «..» from a round folder: the same", rc == 0 and outcome(c4, 0)["D1"]["state"] == "TO_USER", out)
+    rc, out = run("count", ".", 0, cwd=c2)
+    check("G2: count «.» from inside a jury whose option is REJECTED in «previous»: refused for it, not for a "
+          "missing outcome", rc == 2 and "already REJECTED" in out and "has no outcome" not in out, out)
     rel = ["garante", "avversario", "logico", "debugger", "statistico", "rovesciatore", "creativo"]
     cp = jury(base, "g2_plenary", jurors=[{"role": r, "fresh_on_subject": True} for r in rel],
               protocol="G2", classification="plenary", authority="recommendation", relevance=D.f("RELEVANCE.md"))
@@ -22275,7 +25293,13 @@ def convening(base: Path, lang: str, sa: Path, sb: Path, same):
         (f2 / N("04-torneo", "04-tournament") / N("TORNEO.md", "TOURNAMENT.md")).write_text("H-001 ok\n")
         (f2 / N("05-selezione", "05-selection") / N("SELEZIONE.md", "SELECTION.md")).write_text(
             f"H-001 H-002\n{N('Controfirma', 'Countersign')}: arbitro\n")
+        # 5.3: the sentinel of f2 that prepare briefs delivers before G2 (gate rules 3)
+        sent = f2 / N("00-sentinella", "00-sentinel")
+        (sent / N("SENTINELLA.md", "SENTINEL.md")).write_text("checked\n")
     both("gate f2", ["gate", ca, "f2", "--notes", "x"], ["cancello", cb, "f2", "--note", "x"])
+    # 5.3: contradiction allocates the K# of the convening (CONTRADICTIONS.jsonl)
+    both("contradiction --question", ["contradiction", ca, ca / N("CONTRATTO.md", "CONTRACT.md"), "--question", "x?"],
+         ["contraddizione", cb, cb / N("CONTRATTO.md", "CONTRACT.md"), "--domanda", "x?"])
     both("select --radical --owner", ["select", ca, "H-001", "--radical", "H-002", "--owner", "architetto"],
          ["seleziona", cb, "H-001", "--radicale", "H-002", "--responsabile", "architetto"])
     check(f"M3 [{lang}]: select and seleziona write the same names", shape(ca) == shape(cb))
@@ -22284,6 +25308,10 @@ def convening(base: Path, lang: str, sa: Path, sb: Path, same):
     # gate rules 2: select records the radical, fund briefs it, a funded branch closes only with its deciding test
     both("fund", ["fund", ca, "H-002"], ["finanzia", cb, "H-002"])
     check(f"M3 [{lang}]: fund and finanzia write the same names", shape(ca) == shape(cb))
+    # 5.3: repin opens round 2 of the f4 of a funded branch (f4_2/H-001/)
+    both("repin --owner", ["repin", ca, "H-001", "--owner", "architetto"],
+         ["rifissa", cb, "H-001", "--responsabile", "architetto"])
+    check(f"M3 [{lang}]: repin and rifissa write the same names", shape(ca) == shape(cb))
     both("close-branch --reason of a funded branch, without the test", ["close-branch", ca, "H-002", "--reason", "x"],
          ["chiudi-ramo", cb, "H-002", "--motivo", "x"], expect=1)
     both("close-branch --reason --deciding-test", ["close-branch", ca, "H-002", "--reason", "no time",
@@ -22726,6 +25754,980 @@ def main():
         italian_words()
     failed = [n for n, ok in results if not ok]
     print(f"\n{len(results) - len(failed)}/{len(results)} checks passed")
+    sys.exit(1 if failed else 0)
+
+
+if __name__ == "__main__":
+    main()
+#==== swarmer.sh: file tests/test_robustness.py ====
+#!/usr/bin/env python3
+"""Test battery of the robustness of the gates and of the version (swarmer 5.3): python3 -I -B tests/test_robustness.py
+
+Uses the harness of tests/test_convene.py (an installation in English and one in Italian, the commands by subprocess,
+the Italian aliases in the Italian one) and the seal helpers of tests/test_rounds.py. The checks:
+- E2 (ENG-13): a file name that is not UTF-8 is bound by a gate, as a file of the phase and inside a workspace; the
+  gate file stays UTF-8 JSON and holds; `_tree`, `_bind` and `write_json` succeed on such a name; a write that fails
+  leaves the gate file byte-identical, never empty, and no temporary file beside it;
+- E8 (ENG-14): the version of swarmer is written once, in engine/generate.py: the swarm's VERSION, the manifest of a
+  new convening and `convene --help` state it; the wrappers and the docstrings of the engine state none; plugin.json,
+  engine/head.sh, swarmer.sh, the READMEs and the CHANGELOG agree with it;
+- ENG-25: a deliverable or a contract that only quotes the placeholder of an unfilled field (in a code span, in a
+  code block or in a sentence) is filled; the placeholder alone on a line or as the whole value of a field is not;
+- ENG-26: under the rules 3 every gate checks G0 and the gated amendments again, not only the gate just before it:
+  a contract, a file of f0/ or an amendment changed after their gates refuses every later gate; under the rules 2 a
+  later gate checks only the gate just before, as in 5.2.
+The file names that are not UTF-8 exist only inside the temporary folder of the battery, which removes them.
+Exits with 1 if a check fails.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import re
+import shutil
+import sys
+import tempfile
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(HERE))
+import test_convene as TC  # noqa: E402   the harness: Swarm, check, the engine modules
+import test_rounds as TR  # noqa: E402   the seals of a round of f4 in the order of the rules 3
+
+C, V, check = TC.C, TC.V, TC.check
+SOURCE = TC.SOURCE
+BAD = b"bad\xff.txt"   # a file name that is not UTF-8
+BAD_WORK = b"raw\xfe.md"
+
+
+def plant(folder: Path, name: bytes, data: bytes = b"x\n") -> Path:
+    """A file whose name is the bytes `name` (not UTF-8), and its path as the engine sees it (surrogateescape)."""
+    folder.mkdir(parents=True, exist_ok=True)
+    with open(os.path.join(os.fsencode(folder), name), "wb") as f:
+        f.write(data)
+    return folder / os.fsdecode(name)
+
+
+def remove(p: Path) -> None:
+    if os.path.lexists(os.fsencode(p)):
+        os.unlink(os.fsencode(p))
+
+
+def utf8_json(p: Path):
+    """The JSON of a file that is UTF-8, or None."""
+    try:
+        return json.loads(p.read_bytes().decode("utf-8"))
+    except (OSError, UnicodeDecodeError, ValueError):
+        return None
+
+
+def not_utf8_names(base: Path) -> list[bytes]:
+    out = []
+    for root, dirs, files in os.walk(os.fsencode(base)):
+        for x in dirs + files:
+            try:
+                x.decode("utf-8")
+            except UnicodeDecodeError:
+                out.append(os.path.join(root, x))
+    return out
+
+
+# --- E2: the file names that are not UTF-8 (ENG-13) ---
+
+def e2_names(s):
+    L = f"E2 [{s.lang}]"
+    c = s.classic(rules=3)   # G0 and G1 approved
+    gate0 = c / "GATE_f0.json"
+    bad = plant(c / "f0", BAD)
+    try:
+        rc, out = s.run("gate", c, "f0", "--notes", "a file name that is not UTF-8")
+        check(f"{L}: G0 approved again over a file of f0/ whose name is not UTF-8", rc == 0, out)
+        g = utf8_json(gate0)
+        check(f"{L}: the gate file is UTF-8 JSON, never left empty", gate0.stat().st_size > 0 and g is not None,
+              gate0.stat().st_size)
+        fp = C.to_canonical(g, C.CONVENE_KEYS["gate"]).get("fingerprints", {}) if isinstance(g, dict) else {}
+        check(f"{L}: it binds the file by its own name", fp.get(str(bad)) == hashlib.sha256(b"x\n").hexdigest(),
+              sorted(fp))
+        work = c / "f0" / s.N("work")
+        raw = plant(work, BAD_WORK)
+        rc, out = s.run("gate", c, "f0", "--notes", "and one in a workspace")
+        g = utf8_json(gate0)
+        fp = C.to_canonical(g, C.CONVENE_KEYS["gate"]).get("fingerprints", {}) if isinstance(g, dict) else {}
+        check(f"{L}: G0 approved again with a workspace holding a name that is not UTF-8, bound as one tree entry",
+              rc == 0 and str(work) + "/" in fp and str(raw) not in fp, (out, sorted(fp)))
+        rc, out = s.run("gate", c, "f0", "--notes", "x", "--verify")
+        check(f"{L}: --verify: G0 holds", rc == 0, out)
+        rc, out = s.run("gate", c, "f1", "--notes", "x", "--verify")
+        check(f"{L}: the next gate reads G0 as valid", rc == 0, out)
+        check(f"{L}: status: f0 approved", s.st("status_approved", phase="f0") in s.status(c), s.status(c))
+        with open(os.fsencode(raw), "ab") as f:
+            f.write(b"one more line\n")
+        check(f"{L}: a byte appended to the file inside the workspace invalidates G0",
+              s.st("status_invalid", phase="f0") in s.status(c), s.status(c))
+    finally:
+        for name in (BAD, BAD_WORK):
+            remove(c / "f0" / os.fsdecode(name))
+            remove(c / "f0" / s.N("work") / os.fsdecode(name))
+    check(f"{L}: no name that is not UTF-8 left in the convening", not not_utf8_names(c), not_utf8_names(c))
+
+
+def e2_unit(s, base: Path):
+    """`_tree`, `_bind`, `write_json` and `create_json` in memory, on a folder of the battery."""
+    L = f"E2 [{s.lang}]"
+    d = base / f"e2_{s.lang}"
+    d.mkdir()
+    try:
+        w = d / s.N("work")
+        p = plant(w, BAD, b"y\n")
+        try:
+            t = V._tree(w, set())
+        except Exception as e:   # noqa: BLE001   the defect is the exception itself
+            t = f"{type(e).__name__}: {e}"
+        line = BAD + b"\0" + hashlib.sha256(b"y\n").hexdigest().encode() + b"\n"
+        check(f"{L}: _tree binds the name by its own bytes", t == "tree:" + hashlib.sha256(line).hexdigest(), t)
+        out = {}
+        try:
+            V._bind(d, out, set())
+        except Exception as e:   # noqa: BLE001
+            out = {"error": f"{type(e).__name__}: {e}"}
+        check(f"{L}: _bind succeeds, the workspace as one tree entry", out == {str(w) + "/": t}, out)
+        conv = V.Convening(d, s.lang, {})
+        target = d / "GATE_f0.json"
+        target.write_bytes(b'{"phase": "f0"}')
+        old = target.read_bytes()
+        g = {"phase": "f0", "time": "2026-11-20T00:00:00+01:00", "notes": "n", "not_delivered": [],
+             "fingerprints": {str(p): "0" * 64, str(d / "plain.md"): "1" * 64}}
+        real = os.replace
+
+        def broken(a, b):
+            raise OSError("no space left on the device (simulated)")
+        os.replace = broken
+        try:
+            conv.write_json(target, g, "gate")
+            failed = "no error"
+        except Exception as e:   # noqa: BLE001
+            failed = e
+        finally:
+            os.replace = real
+        check(f"{L}: a write that fails leaves the gate file byte-identical, never empty",
+              isinstance(failed, OSError) and target.read_bytes() == old, (failed, target.read_bytes()[:40]))
+        left = sorted(x.name for x in d.iterdir() if x.is_file())
+        check(f"{L}: and no temporary file beside it", left == ["GATE_f0.json"], left)
+        try:
+            conv.write_json(target, g, "gate")
+            back = conv.read_json(target, "gate")
+        except Exception as e:   # noqa: BLE001
+            back = f"{type(e).__name__}: {e}"
+        check(f"{L}: write_json succeeds on a name that is not UTF-8, the file is UTF-8 and reads back the same",
+              back == g and utf8_json(target) is not None, back)
+        later = d / "GATE_f5_2.json"
+        try:
+            conv.create_json(later, g, "gate")
+            made = conv.read_json(later, "gate") == g and utf8_json(later) is not None
+        except Exception as e:   # noqa: BLE001
+            made = f"{type(e).__name__}: {e}"
+        check(f"{L}: create_json too (a later gate f5)", made is True, made)
+        before = later.read_bytes() if later.is_file() else b""
+        try:
+            conv.create_json(later, {**g, "notes": "again"}, "gate")
+            again = "no error"
+        except Exception as e:   # noqa: BLE001
+            again = e
+        check(f"{L}: create_json never writes over an existing file", isinstance(again, FileExistsError)
+              and later.read_bytes() == before, again)
+    finally:
+        shutil.rmtree(os.fsencode(d))
+    check(f"{L}: no name that is not UTF-8 left in the battery's folder", not not_utf8_names(base),
+          not_utf8_names(base))
+
+
+# --- E8: the version from one place (ENG-14) ---
+
+def e8_version(s):
+    L = f"E8 [{s.lang}]"
+    import generate as G
+    v = G.VERSION
+    words = (s.swarm / "VERSION").read_text(encoding="utf-8").split()
+    check(f"{L}: the swarm's VERSION states the version of engine/generate.py", words[:1] == [v], words)
+    c = s.classic()
+    check(f"{L}: the manifest of a new convening stamps that version", s.manifest(c).get("version") == v,
+          s.manifest(c).get("version"))
+    rc, out = s.run("--help")
+    check(f"{L}: convene --help states it", rc == 0 and f"swarmer {v}:" in out, out[:200])
+    stated = {}
+    for p in sorted(s.swarm.glob("*.py")):   # the wrappers, the alias stubs, the command of the 3.x
+        first = p.read_text(encoding="utf-8").split('"""')[1].split("\n\n")[0]
+        if re.search(r"swarmer \d+\.\d+", first):
+            stated[p.name] = first[:60]
+    check(f"{L}: no wrapper nor alias of the swarm folder states a version",
+          not stated and (s.swarm / "convene.py").is_file(), stated)
+
+
+def e8_sources():
+    """The places of the source tree that state the version agree with engine/generate.py, the only one that writes
+    it; the code reads it from there (or from the swarm's VERSION, which install writes from it)."""
+    L = "E8 [source]"
+    import generate as G
+    v = G.VERSION
+    check(f"{L}: the version is N.M, the form of the database and of the extensions' requirements",
+          re.fullmatch(r"\d+\.\d+", v), v)
+    lits = []
+    for p in sorted((SOURCE / "engine").glob("*.py")) + sorted((SOURCE / "wrappers").glob("*.py")):
+        for n, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+            if re.match(r"\s*VERSION\s*=\s*[\"']", line) and p.name != "generate.py":
+                lits.append(f"{p.name}:{n}")
+    check(f"{L}: no other module of the engine or wrapper writes a version", not lits, lits)
+    heads = []
+    for p in sorted((SOURCE / "engine").glob("*.py")) + sorted((SOURCE / "wrappers").glob("*.py")):
+        doc = p.read_text(encoding="utf-8").split('"""')[1] if '"""' in p.read_text(encoding="utf-8") else ""
+        first = doc.split("\n\n")[0]
+        if re.search(r"swarmer \d+\.\d+", first):
+            heads.append(f"{p.relative_to(SOURCE)}: {first[:60]}")
+    check(f"{L}: no docstring of the engine or of a wrapper states a version of swarmer as its own", not heads, heads)
+    plugin = json.loads((SOURCE / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))["version"]
+    check(f"{L}: plugin.json (the Claude Code plugin and the Agensi package follow it) is {v}.<patch>",
+          re.fullmatch(rf"{re.escape(v)}\.\d+", plugin), plugin)
+    for rel in ("engine/head.sh", "swarmer.sh", "sciame.sh"):
+        second = (SOURCE / rel).read_text(encoding="utf-8").splitlines()[1]
+        check(f"{L}: {rel} states version {v}", second.endswith(f", version {v}"), second)
+    for rel, words in (("docs/en/README.md", f"(version {v})"), ("docs/it/README.md", f"(versione {v})")):
+        first = (SOURCE / rel).read_text(encoding="utf-8").splitlines()[0]
+        check(f"{L}: {rel} states {words} in its title", first.endswith(words), first)
+    for rel, words in (("README.md", f"Version {v} adds"), ("README.it.md", f"La versione {v} aggiunge")):
+        text = " ".join((SOURCE / rel).read_text(encoding="utf-8").split())
+        check(f"{L}: {rel} says what {v} adds", words in text)
+    for rel in ("CHANGELOG.md", "CHANGELOG.it.md"):
+        heads = re.findall(r"^## (\S+)", (SOURCE / rel).read_text(encoding="utf-8"), re.M)
+        check(f"{L}: {rel} opens with the entry of plugin.json's version", heads[:1] == [plugin], heads[:3])
+
+
+# --- ENG-25: a quoted placeholder is not an unfilled field ---
+
+def e25_placeholder(s):
+    L = f"ENG-25 [{s.lang}]"
+    ph = C.CONVENE_LINES["to_fill_in"][s.lang]
+    other = C.CONVENE_LINES["to_fill_in"]["it" if s.lang == "en" else "en"]
+    d = s.root / "e25"
+    d.mkdir(exist_ok=True)
+    quoted = {
+        "in a code span": f"The engine writes `{ph}` in every field it leaves to the coordinator.\n",
+        "in a code span alone on its line": f"The placeholder:\n\n`{ph}`\n",
+        "in a double code span": f"``{ph}`` is the placeholder.\n",
+        "in a fenced code block": f"The template:\n\n```\n## Question\n\n{ph}\n```\n",
+        "in a tilde code block": f"~~~text\n{ph}\n~~~\n",
+        "in a sentence": f"A field left as {ph} is refused by the gate.\n",
+        "of the other language, in a field": f"- Results: the Italian template says `{other}`\n",
+        "as part of a field's value": f"- Results: {ph} was replaced by the measurement\n",
+        "with a period, as part of a field's value": f"- Goal: {ph}. Then the measurement\n",
+        "in an indented code block": f"The template writes:\n\n    {ph}\n",
+        "in an indented code block at the start": f"    {ph}\n",
+        "in a tab-indented code block": f"The template writes:\n\n\t{ph}\n",
+        "in an indented code block after a heading": f"## Example\n    {ph}\n",
+        "in an indented code block inside a list item": f"- Example:\n\n      {ph}\n",
+    }
+    unfilled = {
+        "alone on a line": f"{ph}\n",
+        "alone on a line, indented": f"Done.\n\n   {ph}   \n",
+        "alone in a list item": f"- {ph}\n",
+        "as the whole value of a field": f"- Results: {ph}\n",
+        "as the whole value of a bold field": f"- **Results:** {ph}\n",
+        "as the value of the slice line of a brief": f"Slice 1 of 14: {ph}\n",
+        "as a table cell": f"| Results | {ph} |\n",
+        "of the other language, alone on a line": f"{other}\n",
+        "after a closed code block": f"```\nx\n```\n\n{ph}\n",
+        "as a field's value, followed by a period": f"- Goal: {ph}.\n",
+        "alone on a line, followed by a period": f"{ph}.\n",
+        "as a table cell, followed by a period": f"| Goal | {ph}. |\n",
+        "indented by 4 under a list item (its content, not code)": f"- Results:\n\n    {ph}\n",
+        "indented by 4 continuing a field (not code)": f"Results:\n    {ph}\n",
+        "after an indented code block": f"    code\n\n{ph}\n",
+    }
+    for k, text in quoted.items():
+        p = d / "q.md"
+        p.write_text(text, encoding="utf-8")
+        check(f"{L}: a deliverable that quotes the placeholder {k} is filled", V.full(p), text)
+    for k, text in unfilled.items():
+        p = d / "u.md"
+        p.write_text(text, encoding="utf-8")
+        check(f"{L}: one with the placeholder {k} is not", not V.full(p), text)
+    # through the gates: f2 (a deliverable) and f0 (a contract section)
+    c = s.classic()
+    cards = c / "f2" / s.N("01-translation") / s.N("CARDS.md")
+    cards.write_text(f"cards\n\nAn empty field of the card reads `{ph}`.\n", encoding="utf-8")
+    rc, out = s.run("gate", c, "f2", "--notes", "x", "--verify")
+    check(f"{L}: gate f2 holds with cards that quote the placeholder in a code span", rc == 0, out)
+    cards.write_text(f"cards\n- H-001: {ph}\n", encoding="utf-8")
+    rc, out = s.run("gate", c, "f2", "--notes", "x", "--verify")
+    check(f"{L}: refused with a card left with the placeholder as a field's value",
+          rc == 1 and s.N("CARDS.md") in out, out)
+    contract = c / s.N("CONTRACT.md")
+    text = contract.read_text(encoding="utf-8")
+    contract.write_text(text.replace("filled", f"filled; the engine writes `{ph}` in a field to fill in", 1),
+                        encoding="utf-8")
+    rc, out = s.run("gate", c, "f0", "--notes", "x", "--verify")
+    check(f"{L}: the conditions of G0 hold with a contract that quotes the placeholder", rc == 0, out)
+    contract.write_text(text.replace("filled", ph, 1), encoding="utf-8")
+    rc, out = s.run("gate", c, "f0", "--notes", "x", "--verify")
+    check(f"{L}: refused with a section left as the placeholder", rc == 1 and s.N("CONTRACT.md") in out, out)
+    contract.write_text(text.replace("filled", ph + ".", 1), encoding="utf-8")
+    rc, out = s.run("gate", c, "f0", "--notes", "x", "--verify")
+    check(f"{L}: refused with a section left as the placeholder and a period", rc == 1 and s.N("CONTRACT.md") in out,
+          out)
+    contract.write_text(text, encoding="utf-8")
+
+
+# --- ENG-26: every gate checks G0 and the gated amendments again under the rules 3 ---
+
+def e26_chain(s):
+    L = f"ENG-26 [{s.lang}]"
+    refused = "the gate f0 is not approved or no longer valid"
+    for rules in (3, 2):
+        c = s.classic(rules=rules)   # G0, G1 approved; f2 ready
+        contract = c / s.N("CONTRACT.md")
+        orig = contract.read_bytes()
+        contract.write_bytes(orig + b"\nchanged after G1\n")
+        rc, out = s.run("gate", c, "f2", "--notes", "x", "--verify")
+        if rules == 3:
+            check(f"{L}: rules 3: the contract changed after G1: G2 refused", rc == 1 and refused in out, out)
+        else:
+            check(f"{L}: rules 2: the contract changed after G1: G2 checks only G1, as in 5.2", rc == 0, out)
+        contract.write_bytes(orig)
+        extra = c / "f0" / "notes.md"
+        extra.write_text("added after G1\n", encoding="utf-8")
+        rc, out = s.run("gate", c, "f2", "--notes", "x", "--verify")
+        if rules == 3:
+            check(f"{L}: rules 3: a file added to f0/ after G1: G2 refused", rc == 1 and refused in out, out)
+            rc, out = s.run("gate", c, "f2", "--notes", "x", "--verify", "--rules", "2")
+            check(f"{L}: --rules 2 does not lower the rules of the convening: still refused",
+                  rc == 1 and refused in out, out)
+        else:
+            check(f"{L}: rules 2: a file added to f0/ after G1: G2 holds, as in 5.2", rc == 0, out)
+            rc, out = s.run("gate", c, "f2", "--notes", "x", "--verify", "--rules", "3")
+            check(f"{L}: rules 2, a gate run with --rules 3: refused", rc == 1 and refused in out, out)
+        extra.unlink()
+        rc, out = s.run("gate", c, "f2", "--notes", "x", "--verify")
+        check(f"{L}: rules {rules}: f0 restored: G2 holds", rc == 0, out)
+    # rules 3, down the chain: G3, G4 and G5 of a branch, then the amendments
+    c = s.classic(rules=3)
+    s.gate_f2(c)
+    rc, out = s.run("select", c, "H-001")
+    assert rc == 0, out
+    s.f3(c, "H-001")
+    b = c / "f4" / "H-001"
+    outs = TR.deliver(s, b)
+    s.dossier(c, "H-001")
+    TR.write_seals(s, c, TR.seal_rows(s, c) + TR.output_rows(s, outs))
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x")
+    assert rc == 0, out
+    s.closure(c, closed=False, extra="H-001 refuted\n")
+    rc, out = s.run("gate", c, "f5", "--notes", "x", "--verify")
+    check(f"{L}: rules 3: G5 holds on an intact chain", rc == 0, out)
+    contract = c / s.N("CONTRACT.md")
+    orig = contract.read_bytes()
+    contract.write_bytes(orig + b"\nchanged after G4\n")
+    for label in ("f3/H-001", "f4/H-001", "f5"):
+        rc, out = s.run("gate", c, label, "--notes", "x", "--verify")
+        check(f"{L}: rules 3: the contract changed after G4: gate {label} refused", rc == 1 and refused in out, out)
+    contract.write_bytes(orig)
+    rc, out = s.run("gate", c, "f5", "--notes", "x", "--verify")
+    check(f"{L}: rules 3: the contract restored: G5 holds again", rc == 0, out)
+    a1, a2 = c / s.N("AMENDMENT_1.md"), c / s.N("AMENDMENT_2.md")
+    a1.write_text(s.line("Amends: Constraints\n", "Modifica: Vincoli\n") + "git allowed\n", encoding="utf-8")
+    s.run("seal", c, a1)
+    rc, out = s.run("gate", c, "A1", "--notes", "x")
+    check(f"{L}: rules 3: gate A1 approved", rc == 0, out)
+    a2.write_text(s.line("Amends: Inputs\n", "Modifica: Ingressi\n") + "one more source\n", encoding="utf-8")
+    s.run("seal", c, a2)
+    rc, out = s.run("gate", c, "A2", "--notes", "x", "--verify")
+    check(f"{L}: rules 3: gate A2 holds while A1 holds", rc == 0, out)
+    a1.write_text(a1.read_text(encoding="utf-8") + "and more\n", encoding="utf-8")
+    rc, out = s.run("gate", c, "A2", "--notes", "x", "--verify")
+    check(f"{L}: rules 3: {a1.name} changed after its gate: gate A2 refused", rc == 1 and a1.name in out, out)
+
+
+def e26_rules2_amendment(s):
+    """Under the rules 2 an amendment gate checks only G0, as in 5.2."""
+    L = f"ENG-26 [{s.lang}]"
+    c = s.classic(rules=2)
+    a1, a2 = c / s.N("AMENDMENT_1.md"), c / s.N("AMENDMENT_2.md")
+    a1.write_text(s.line("Amends: Constraints\n", "Modifica: Vincoli\n") + "git allowed\n", encoding="utf-8")
+    s.run("seal", c, a1)
+    s.run("gate", c, "A1", "--notes", "x")
+    a2.write_text(s.line("Amends: Inputs\n", "Modifica: Ingressi\n") + "one more source\n", encoding="utf-8")
+    s.run("seal", c, a2)
+    a1.write_text(a1.read_text(encoding="utf-8") + "and more\n", encoding="utf-8")
+    rc, out = s.run("gate", c, "A2", "--notes", "x", "--verify")
+    check(f"{L}: rules 2: {a1.name} changed after its gate: gate A2 checks only G0, as in 5.2", rc == 0, out)
+
+
+def main():
+    with tempfile.TemporaryDirectory() as b:
+        base = Path(b)
+        e8_sources()
+        for lang in ("en", "it"):
+            s = TC.Swarm(base, lang)
+            e2_names(s)
+            e2_unit(s, base)
+            e8_version(s)
+            e25_placeholder(s)
+            e26_chain(s)
+            e26_rules2_amendment(s)
+        left = not_utf8_names(base)
+    check("no name that is not UTF-8 left after the battery", not left, left)
+    failed = [n for n, ok in TC.results if not ok]
+    print(f"\n{len(TC.results) - len(failed)}/{len(TC.results)} checks passed")
+    sys.exit(1 if failed else 0)
+
+
+if __name__ == "__main__":
+    main()
+#==== swarmer.sh: file tests/test_rounds.py ====
+#!/usr/bin/env python3
+"""Test battery of the order of f4, the rounds of a branch and of the closure (gate rules 3, swarmer 5.3):
+python3 -I -B tests/test_rounds.py
+
+Uses the harness of tests/test_convene.py (an installation in English and one in Italian, the commands by subprocess,
+the Italian aliases in the Italian one). The checks are the acceptance tests of the 5.3 core patch:
+- E1 (ENG-19, COORD-1): under the rules 3 the predictions born in f4 are ordered by the seal times of SEALS.jsonl,
+  never by an mtime: those of the counterchecks before COUNTERCHECKS.md, those of the roles that work after the
+  counterchecks before their own output; every block of a PREDICTIONS.md has its seal; the briefs name the category;
+- E7 (ENG-21, COORD-2): under the rules 3 G4 refuses a REVISION.md not sealed after COUNTERCHECKS.md and DEFECTS.md;
+- E4 (ENG-18, ENG-22): `repin` opens round 2 of a branch in f4_2/<H#>/, never touching a round-1 file nor the f3
+  dossier, and its G4 counts only the round's own files; a second `select` is refused;
+- E12: after a G5 «not closed» `fund` and `close-branch` act, and a second G5 goes to GATE_f5_2.json with its own
+  closure folder f5_2/, while GATE_f5.json and every file it binds stay byte-identical; the latest G5 is the one of
+  the highest ordinal; the lock opens only on a latest G5 that holds and records a non-closure.
+Exits with 1 if a check fails.
+"""
+from __future__ import annotations
+
+import datetime
+import hashlib
+import json
+import os
+import re
+import shutil
+import sys
+import tempfile
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(HERE))
+import test_convene as TC  # noqa: E402   the harness: Swarm, check, the engine modules
+
+C, V, check = TC.C, TC.V, TC.check
+ARB = C.ROLES["arbiter"]
+NAMES = {"00": "REVISION.md", "01": "COUNTERCHECKS.md", "02": "DEFECTS.md", "08": "HIDDEN_ASSUMPTIONS.md",
+         "09": "VERDICT.md"}
+SLOT = {"01": 10, "02": 20, "08": 40, "00": 50, "09": 60}   # the minute each output is sealed at (the others 30)
+VALUES = {"proven": "dimostrata", "verified": "verificata", "refuted": "smentita"}
+FUTURE = datetime.datetime.now().astimezone().replace(microsecond=0) + datetime.timedelta(days=1)
+PAST = FUTURE - datetime.timedelta(days=30)
+
+
+def at(minute: int, base=FUTURE) -> str:
+    return (base + datetime.timedelta(minutes=minute)).isoformat()
+
+
+def row(s, p: Path, time: str, data: bytes | None = None) -> dict:
+    data = p.read_bytes() if data is None else data
+    return C.to_dialect({"time": time, "file": str(p), "sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)},
+                        C.CONVENE_KEYS["seal"], s.lang)
+
+
+def seal_rows(s, c: Path) -> list[dict]:
+    p = c / s.N("SEALS.jsonl")
+    return [json.loads(x) for x in p.read_text(encoding="utf-8").splitlines()] if p.exists() else []
+
+
+def write_seals(s, c: Path, rows) -> None:
+    (c / s.N("SEALS.jsonl")).write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+
+
+def deliver(s, folder: Path, correctness="refuted", audit=True) -> dict[str, Path]:
+    """The deliverable of every briefed NN-<role> folder of a round of f4, by the two digits of the folder."""
+    out = {}
+    for d in sorted(folder.iterdir()):
+        if not d.is_dir() or not re.match(r"\d\d-", d.name) or (d.name.startswith("08-") and not audit):
+            continue
+        name = NAMES.get(d.name[:2], "MEASUREMENTS.md")
+        text = "done\n"
+        if name == "VERDICT.md":
+            text = s.line(f"Correctness: {correctness}", f"Correttezza: {VALUES[correctness]}") + "\n"
+        p = d / s.N(name)
+        p.write_text(text, encoding="utf-8")
+        out[d.name] = p
+    return out
+
+
+def output_rows(s, outs: dict[str, Path], base=FUTURE) -> list[dict]:
+    """The seals of the outputs, in the order of f4: counterchecks, defects, measurements, V2, revision, verdict."""
+    return [row(s, p, at(SLOT.get(k[:2], 30), base)) for k, p in sorted(outs.items())]
+
+
+def round_dossier(p: Path, h: str) -> None:
+    p.write_text(f"# {h}\n\n- ID: {h}\n- Short title: t\n- Results:\n  - r1\n  - r2\n", encoding="utf-8")
+
+
+def tree(c: Path) -> dict[str, bytes]:
+    """Every file of the convening, with its bytes."""
+    return {str(p): p.read_bytes() for p in sorted(c.rglob("*")) if p.is_file()}
+
+
+def changed(before: dict[str, bytes], after: dict[str, bytes]) -> list[str]:
+    return sorted(k for k in set(before) | set(after) if before.get(k) != after.get(k))
+
+
+def holds(c: Path, label: str) -> bool:
+    """Whether the gate `label` still holds, recomputed in memory under its own rules."""
+    V._FP.clear()
+    return V.valid(V.Convening.load(c), label)
+
+
+def mission_head(s, key: str) -> str:
+    """The text of a mission up to its first placeholder: what every brief that carries it contains."""
+    return s.t["missions"].get(key, f"<no mission {key}>").split("{")[0].strip()
+
+
+# --- E1: the order of the predictions by the seals (ENG-19), the category in the briefs (COORD-1) ---
+
+def e1_seal_order(s):
+    L = f"E1 [{s.lang}]"
+    P = s.N("PREDICTIONS.md")
+    c = s.classic(rules=3)
+    s.gate_f2(c)
+    rc, out = s.run("select", c, "H-001")
+    assert rc == 0, out
+    s.f3(c, "H-001")
+    b = c / "f4" / "H-001"
+    tasks = {d.name[:2]: (d / "TASK.md").read_text(encoding="utf-8") for d in b.iterdir() if d.is_dir()}
+    after, before = mission_head(s, "predictions_after"), mission_head(s, "predictions_before")
+    check(f"{L}: under the rules 3 every f4 brief after the counterchecks names the post-countercheck category",
+          all(after in t for k, t in tasks.items() if k != "01") and after not in tasks["01"],
+          {k: after in t for k, t in tasks.items()})
+    check(f"{L}: the counterchecks' brief names the predictions before COUNTERCHECKS.md",
+          before in tasks["01"] and all(before not in t for k, t in tasks.items() if k != "01"))
+    check(f"{L}: the owner's brief says that the revision is sealed after the counterchecks and the defects",
+          mission_head(s, "revision_order") in tasks["00"], tasks["00"])
+    outs = deliver(s, b)
+    s.dossier(c, "H-001")
+    base = seal_rows(s, c)
+    rows = base + output_rows(s, outs)
+
+    def verify(*extra, drop=()):
+        write_seals(s, c, [r for r in rows if r not in drop] + list(extra))
+        return s.run("gate", c, "f4/H-001", "--notes", "x", "--verify")
+
+    rc, out = verify()
+    check(f"{L}: the outputs sealed in the order of f4, no prediction: G4 holds", rc == 0, out)
+    dbg = b / "02-debugger" / P
+    dbg.write_text("the cause is in the cache\n", encoding="utf-8")
+    rc, out = verify(row(s, dbg, at(15)))
+    check(f"{L}: a debugger prediction sealed after COUNTERCHECKS.md and before its DEFECTS.md: G4 holds", rc == 0, out)
+    rc, out = verify(row(s, dbg, at(25)))
+    check(f"{L}: one sealed after its DEFECTS.md: refused",
+          rc == 1 and "which it must precede" in out and s.N("DEFECTS.md") in out, out)
+    rc, out = verify(row(s, dbg, at(20)))
+    check(f"{L}: one sealed in the same second as its DEFECTS.md: refused (no order shown)",
+          rc == 1 and "which it must precede" in out, out)
+    defects_row = next(r for r in rows if r["file"] == str(outs["02-debugger"]))
+    rc, out = verify(row(s, dbg, at(15)), drop=[defects_row])
+    check(f"{L}: DEFECTS.md never sealed: the order cannot be read, refused",
+          rc == 1 and "is not sealed" in out and s.N("DEFECTS.md") in out, out)
+    data = dbg.read_bytes()
+    dbg.write_bytes(data + b"a second prediction\n")
+    rc, out = verify(row(s, dbg, at(15), data))
+    check(f"{L}: a prediction block appended after the seal without its own seal: refused",
+          rc == 1 and "no seal of its own" in out, out)
+    rc, out = verify(row(s, dbg, at(15), data), row(s, dbg, at(18)))
+    check(f"{L}: the appended block with its own seal before DEFECTS.md: G4 holds", rc == 0, out)
+    rc, out = verify(row(s, dbg, at(15), data), row(s, dbg, at(26)))
+    check(f"{L}: the appended block sealed after DEFECTS.md: refused", rc == 1 and "which it must precede" in out, out)
+    dbg.write_bytes(b"another text\n")
+    rc, out = verify(row(s, dbg, at(15), data))
+    check(f"{L}: a PREDICTIONS.md rewritten after its seal: refused", rc == 1 and "not only at the end" in out, out)
+    dbg.unlink()
+    owner = next(b.glob("00-*"))
+    own = owner / P
+    own.write_text("the revision keeps the invariant\n", encoding="utf-8")
+    rc, out = verify(row(s, own, at(45)))
+    check(f"{L}: the owner's prediction sealed after the counterchecks, before its REVISION.md: G4 holds", rc == 0, out)
+    rc, out = verify(row(s, own, at(55)))
+    check(f"{L}: the owner's prediction sealed after its own REVISION.md: refused",
+          rc == 1 and "which it must precede" in out and s.N("REVISION.md") in out, out)
+    own.unlink()
+    adv = next(b.glob("01-*")) / P
+    adv.write_text("the attack breaks the edge\n", encoding="utf-8")
+    rc, out = verify(row(s, adv, at(5)))
+    check(f"{L}: the counterchecks' prediction sealed before COUNTERCHECKS.md: G4 holds", rc == 0, out)
+    checks = outs[next(k for k in outs if k.startswith("01-"))]
+    checks_row = next(r for r in rows if r["file"] == str(checks))
+    rc, out = verify(row(s, checks, at(10, PAST)), row(s, adv, at(12, PAST)), drop=[checks_row])
+    check(f"{L}: a late seal after COUNTERCHECKS.md: refused", rc == 1 and "which it must precede" in out, out)
+    os.utime(checks)   # its mtime is now, later than every seal of the case
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x", "--verify")
+    check(f"{L}: a late seal followed by a touch of COUNTERCHECKS.md stays refused (seals, not mtimes)",
+          rc == 1 and "which it must precede" in out, out)
+    adv.unlink()
+    write_seals(s, c, rows)
+    # Under the rules 2 the briefs ask no role that works after the counterchecks for a PREDICTIONS.md it could not
+    # seal (G4 of the rules 2 orders every one before the counterchecks).
+    c2 = s.classic(rules=2)
+    s.gate_f2(c2)
+    s.run("select", c2, "H-001")
+    old = mission_head(s, "predictions_after_old")
+    tasks = {d.name[:2]: (d / "TASK.md").read_text(encoding="utf-8") for d in (c2 / "f4" / "H-001").iterdir()}
+    check(f"{L}: under the rules 2 the briefs after the counterchecks ask for the predictions in the output instead",
+          all(old in t and after not in t for k, t in tasks.items() if k != "01") and old not in tasks["01"],
+          {k: old in t for k, t in tasks.items()})
+
+
+# --- E7: the revision after the counterchecks and the defects (ENG-21, COORD-2) ---
+
+def e7_revision_order(s):
+    L = f"E7 [{s.lang}]"
+    c = s.classic(rules=3)
+    s.gate_f2(c)
+    s.run("select", c, "H-001")
+    s.f3(c, "H-001")
+    b = c / "f4" / "H-001"
+    outs = deliver(s, b)
+    s.dossier(c, "H-001")
+    rows = seal_rows(s, c) + output_rows(s, outs)
+    rev = outs[next(k for k in outs if k.startswith("00-"))]
+    rev_row = next(r for r in rows if r["file"] == str(rev))
+    others = [r for r in rows if r is not rev_row]
+    for minute, what in ((5, "before COUNTERCHECKS.md"), (15, "between COUNTERCHECKS.md and DEFECTS.md"),
+                         (20, "in the same second as DEFECTS.md")):
+        write_seals(s, c, others + [row(s, rev, at(minute))])
+        rc, out = s.run("gate", c, "f4/H-001", "--notes", "x", "--verify")
+        check(f"{L}: REVISION.md sealed {what}: refused", rc == 1 and "the revision answers" in out, out)
+    write_seals(s, c, others)
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x", "--verify")
+    check(f"{L}: REVISION.md never sealed: refused", rc == 1 and "is not sealed" in out and s.N("REVISION.md") in out,
+          out)
+    write_seals(s, c, rows)
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x")
+    check(f"{L}: REVISION.md sealed after both: G4 approved under the rules 3",
+          rc == 0 and s.gate_json(c, "f4/H-001")[1].get("rules") == 3, out)
+    c2 = s.classic(rules=2)
+    s.gate_f2(c2)
+    s.run("select", c2, "H-001")
+    s.f3(c2, "H-001")
+    outs = deliver(s, c2 / "f4" / "H-001")
+    s.dossier(c2, "H-001")
+    rev = outs[next(k for k in outs if k.startswith("00-"))]
+    write_seals(s, c2, seal_rows(s, c2) + [row(s, rev, at(5))])
+    rc, out = s.run("gate", c2, "f4/H-001", "--notes", "x", "--verify")
+    check(f"{L}: under the rules 2 the same order is not checked (a gate keeps the rules it is run under)", rc == 0,
+          out)
+
+
+# --- E4: repin and a second select (ENG-18, ENG-22) ---
+
+def e4_repin(s):
+    L = f"E4 [{s.lang}]"
+    P = s.N("PREDICTIONS.md")
+    c = s.classic()   # the rules 2, as the convening of the repair round
+    s.gate_f2(c)
+    rc, out = s.run("select", c, "H-001")
+    assert rc == 0, out
+    s.f3(c, "H-001")
+    b1 = c / "f4" / "H-001"
+    s.f4(c, "H-001", correctness="refuted")
+    for d in ("02-debugger", f"08-{C.ROLES['inverter']}", f"09-{ARB}"):
+        (b1 / d / P).write_text("late\n", encoding="utf-8")
+    own1 = next(b1.glob("00-*")) / P
+    own1.write_text("the owner's, after its revision\n", encoding="utf-8")
+    s.run("seal", c, own1)
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x", "--verify")
+    check(f"{L}: round 1 with its late predictions fails G4", rc == 1 and "not sealed" in out, out)
+    dossier = c / "f3" / "H-001" / "H-001.md"
+    snap = tree(c)
+    for args in (("H-001",), ("H-002",), ("H-001", "H-002")):
+        rc, out = s.run("select", c, *args)
+        check(f"{L}: a second select ({' '.join(args)}) is refused and writes nothing",
+              rc == 1 and "select runs once" in out and not changed(snap, tree(c)), (out, changed(snap, tree(c))))
+    rc, out = s.run("repin", c, "H-002")
+    check(f"{L}: repin of an H# that is not a branch: refused", rc == 1 and not changed(snap, tree(c)), out)
+    rc, out = s.run("repin", c, "H-001")
+    b2 = c / "f4_2" / "H-001"
+    briefs = sorted(d.name for d in b2.iterdir() if d.is_dir()) if b2.is_dir() else []
+    check(f"{L}: repin opens round 2 in f4_2/H-001 with every f4 brief",
+          rc == 0 and [x[:2] for x in briefs] == [x[:2] for x in sorted(d.name for d in b1.iterdir() if d.is_dir())]
+          and all((b2 / x / "TASK.md").is_file() for x in briefs), (out, briefs))
+    card = (s.swarm / C.FILE_NAMES.get(s.lang, {}).get("HYPOTHESIS_CARD.md", "HYPOTHESIS_CARD.md")).read_text(
+        encoding="utf-8").replace("H-000", "H-001")
+    check(f"{L}: the round has its own dossier, from the card", (b2 / "H-001.md").is_file()
+          and (b2 / "H-001.md").read_text(encoding="utf-8") == card)
+    diff = changed(snap, tree(c))
+    allowed = {str(c / "f5" / f"01-{ARB}" / "TASK.md"), str(c / "f5" / s.N("00-sentinel") / "TASK.md")}
+    check(f"{L}: repin changes no round-1 file, no seal, no gate and not the f3 dossier (only new files, and the "
+          f"brief of the closure)", all(k in allowed or k.startswith(str(c / "f4_2")) for k in diff)
+          and all(k in tree(c) for k in snap) and snap[str(dossier)] == dossier.read_bytes(), diff)
+    task = (b2 / "02-debugger" / "TASK.md").read_text(encoding="utf-8") if b2.is_dir() else ""
+    check(f"{L}: the round-2 briefs name the round and the previous round as an input, and the rules-3 category",
+          mission_head(s, "f4_round") in task and f"`{b1}`" in task and mission_head(s, "predictions_after") in task,
+          task)
+    check(f"{L}: the round-2 arbiter completes the round's dossier",
+          b2.is_dir() and str(b2 / "H-001.md") in (b2 / f"09-{ARB}" / "TASK.md").read_text(encoding="utf-8"))
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x", "--verify")
+    check(f"{L}: the G4 of round 2 runs only under the rules 3", rc == 1 and "--rules 3" in out, out)
+    if not b2.is_dir():
+        return
+    outs = deliver(s, b2, correctness="proven")
+    round_dossier(b2 / "H-001.md", "H-001")
+    preds = {"01": (5, "the re-attack breaks nothing"), "02": (15, "no new anomaly"), "00": (45, "pin unchanged")}
+    extra = []
+    for d in briefs:
+        if d[:2] in preds:
+            p = b2 / d / P
+            p.write_text(preds[d[:2]][1] + "\n", encoding="utf-8")
+            extra.append(row(s, p, at(preds[d[:2]][0])))
+    rows = seal_rows(s, c) + extra + output_rows(s, outs)
+    write_seals(s, c, rows)
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "round 2", "--rules", "3")
+    g = json.loads((c / "GATE_f4_2_H-001.json").read_text(encoding="utf-8")) if rc == 0 else {}
+    check(f"{L}: a clean round 2 passes G4 with the late round-1 files in place, into GATE_f4_2_H-001.json",
+          rc == 0 and C.to_canonical(g, C.CONVENE_KEYS["gate"]).get("rules") == 3 and own1.is_file()
+          and not (c / "GATE_f4_H-001.json").exists(), out)
+    fp = C.to_canonical(g, C.CONVENE_KEYS["gate"]).get("fingerprints", {}) if g else {}
+    check(f"{L}: the G4 of round 2 binds only the round's own files", fp and all(k.startswith(str(b2)) for k in fp),
+          sorted(fp)[:5])
+    now, seals_p = tree(c), str(c / s.N("SEALS.jsonl"))
+    kept = [k for k in snap if k.startswith((str(b1), str(c / "f3"))) or Path(k).name.startswith("GATE_")]
+    check(f"{L}: after round 2 and its G4, every round-1 file, every f3 file and every earlier gate are byte-identical, "
+          f"and SEALS.jsonl was only appended to", all(now.get(k) == snap[k] for k in kept)
+          and now[seals_p].startswith(snap[seals_p]), [k for k in kept if now.get(k) != snap[k]])
+    out = s.status(c)
+    check(f"{L}: status shows round 2 approved and round 1 still to approve",
+          s.st("status_approved", phase="f4_2/H-001") in out and s.st("status_pending", phase="f4/H-001") in out, out)
+    late = b2 / f"09-{ARB}" / P
+    late.write_text("proven on the domain\n", encoding="utf-8")
+    write_seals(s, c, rows + [row(s, late, at(65))])
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x", "--verify", "--rules", "3")
+    check(f"{L}: a round-2 prediction sealed after its own output fails",
+          rc == 1 and "which it must precede" in out and s.N("VERDICT.md") in out, out)
+    late.unlink()
+    write_seals(s, c, rows)
+    s.closure(c)
+    rc, out = s.run("gate", c, "f5", "--notes", "x")
+    check(f"{L}: G5 reads the G4 of the branch's latest round: closed on the proven round 2",
+          rc == 0 and s.gate_json(c, "f5")[1].get("closed") is True, out)
+    rc, out = s.run("repin", c, "H-001")
+    check(f"{L}: repin after a closed G5: refused", rc == 1 and "f5" in out and not (c / "f4_3").exists(), out)
+
+
+# --- E12: the second closure after a G5 «not closed» ---
+
+def g5_files(s, c: Path) -> dict[str, bytes]:
+    """GATE_f5.json and every file under f5/: what the first G5 binds or is."""
+    out = {str(p): p.read_bytes() for p in sorted((c / "f5").rglob("*")) if p.is_file()}
+    out[str(c / "GATE_f5.json")] = (c / "GATE_f5.json").read_bytes()
+    return out
+
+
+def e12_second_closure(s):
+    L = f"E12 [{s.lang}]"
+    c = s.classic()   # the rules 2, as propolis-design
+    s.gate_f2(c)
+    rc, out = s.run("select", c, "H-001", "H-003", "--radical", "H-002")
+    assert rc == 0, out
+    for h, v in (("H-001", "proven"), ("H-003", "refuted")):
+        s.f3(c, h)
+        s.f4(c, h, correctness=v)
+        rc, out = s.run("gate", c, f"f4/{h}", "--notes", "x")
+        assert rc == 0, out
+    s.sentinel(c)
+    s.closure(c, closed=False, extra="H-002 never funded\n")
+    rc, out = s.run("gate", c, "f5", "--notes", "x")
+    assert rc == 0, out
+    first = g5_files(s, c)
+    f52 = c / "f5_2"
+    rc, out = s.run("gate", c, "f5", "--notes", "x", "--verify")
+    check(f"{L}: before the next closure is briefed, gate f5 --verify checks the G5 «not closed» again, as 5.2 did",
+          rc == 0 and s.st("gate_holds", phase="f5") in out, out)
+    rc, out = s.run("gate", c, "f5", "--notes", "again")
+    check(f"{L}: and a gate f5 that would write over its record is refused",
+          rc == 1 and "never written over" in out and not changed(first, g5_files(s, c)), out)
+    check(f"{L}: status shows no next closure before it is briefed", "f5_2" not in s.status(c))
+    rc, out = s.run("fund", c, "H-002")
+    check(f"{L}: after a G5 «not closed» fund acts on the radical", rc == 0 and (c / "f4" / "H-002").is_dir(), out)
+    check(f"{L}: fund leaves GATE_f5.json and every file under f5/ byte-identical, and the first G5 holds",
+          not changed(first, g5_files(s, c)) and holds(c, "f5"), changed(first, g5_files(s, c)))
+    task = f52 / f"01-{ARB}" / "TASK.md"
+    text = task.read_text(encoding="utf-8") if task.is_file() else ""
+    out_line = next((x for x in text.splitlines() if x.startswith("- **" + s.t["convene"]["output"])), "")
+    check(f"{L}: the briefs of the new closure and of its sentinel go in f5_2/, and name f5_2/{s.N('CLOSURE.md')}",
+          f"`{f52 / s.N('CLOSURE.md')}`" in out_line and (f52 / s.N("00-sentinel") / "TASK.md").is_file(), text)
+    rc, out = s.run("close-branch", c, "H-002", "--reason", "no time", "--deciding-test", "the oracle")
+    check(f"{L}: close-branch acts after the G5 «not closed»; the first G5 holds",
+          rc == 0 and not changed(first, g5_files(s, c)) and holds(c, "f5"), out)
+    ec = c / "f3" / "H-002" / s.N("EARLY_CLOSURE.json")
+    if not ec.is_file():
+        return
+    raw = json.loads(ec.read_text(encoding="utf-8"))
+    raw.pop(s.line("deciding_test", "prova_decisiva"))
+    ec.write_text(json.dumps(raw, ensure_ascii=False), encoding="utf-8")
+    task.unlink()
+    rc, out = s.run("close-branch", c, "H-002", "--reason", "x", "--deciding-test", "the oracle on 10 cases")
+    check(f"{L}: --deciding-test on a branch declared unresolved rewrites the new closure's brief; the first G5 holds",
+          rc == 0 and task.is_file() and not changed(first, g5_files(s, c)) and holds(c, "f5"), out)
+    closure2 = f52 / s.N("CLOSURE.md")
+    closure2.write_text(s.line("Outcome: closed", "Esito: chiuso") + "\n", encoding="utf-8")
+    rc, out = s.run("gate", c, "f5", "--notes", "x", "--verify")
+    check(f"{L}: round 1's sentinel alone does not meet the second G5", rc == 1 and "sentinel" in out, out)
+    sentinel2 = f52 / s.N("00-sentinel") / s.N("SENTINEL.md")
+    sentinel2.write_text("checked again\n", encoding="utf-8")
+    rc, out = s.run("gate", c, "f5", "--notes", "round 2")
+    g2 = c / "GATE_f5_2.json"
+    raw = json.loads(g2.read_text(encoding="utf-8")) if g2.is_file() else {}
+    check(f"{L}: the second G5 is approved «closed» into GATE_f5_2.json",
+          rc == 0 and raw.get(s.line("closed", "chiuso")) is True, (out, raw))
+    fp = C.to_canonical(raw, C.CONVENE_KEYS["gate"]).get("fingerprints", {}) if raw else {}
+    check(f"{L}: it binds its closure and every file beside it, under f5_2/",
+          fp and all(k.startswith(str(f52)) for k in fp) and str(closure2) in fp and str(sentinel2) in fp, sorted(fp))
+    check(f"{L}: GATE_f5.json and every file under f5/ stay byte-identical, and the first G5 holds",
+          not changed(first, g5_files(s, c)) and holds(c, "f5"), changed(first, g5_files(s, c)))
+    out = s.status(c)
+    check(f"{L}: status reports the newer G5 approved, and the first one as the non-closure it records",
+          s.st("status_approved", phase="f5_2") in out and s.st("status_not_closed", phase="f5") in out, out)
+    for args in (("fund", c, "H-002"), ("close-branch", c, "H-001", "--reason", "x", "--deciding-test", "t")):
+        rc, out = s.run(*args)
+        check(f"{L}: {args[0]} after the closed second G5: refused", rc == 1 and "f5_2" in out, out)
+    for q, how in ((sentinel2, "append"), (closure2, "edit"), (closure2, "remove")):
+        old = q.read_bytes()
+        if how == "remove":
+            q.unlink()
+        else:
+            q.write_bytes(old + b" " if how == "append" else old.replace(b"\n", b" (edited)\n"))
+        out = s.status(c)
+        check(f"{L}: {how} of {q.relative_to(c)} after the second G5: status reports it invalid",
+              s.st("status_invalid", phase="f5_2") in out, out)
+        q.write_bytes(old)
+    check(f"{L}: restored, the second G5 holds again", s.st("status_approved", phase="f5_2") in s.status(c))
+
+
+def plant(s, c: Path, k: int, closed: bool, stale=False) -> None:
+    """A later G5 of ordinal k, written by hand: its closure folder f5_<k>/ and its gate file, holding (its
+    fingerprints recomputed) or stale."""
+    d = c / f"f5_{k}"
+    d.mkdir(exist_ok=True)
+    (d / s.N("CLOSURE.md")).write_text(
+        s.line("Outcome: closed", "Esito: chiuso") if closed else s.line("Outcome: not closed", "Esito: non chiuso"),
+        encoding="utf-8")
+    V._FP.clear()
+    fp = V.fingerprints(V.Convening.load(c), f"f5_{k}", 2)
+    if stale:
+        fp = {x: "0" * 64 for x in fp}
+    g = {"phase": f"f5_{k}", "time": V.now(), "notes": "planted", "not_delivered": [], "fingerprints": fp, "rules": 2,
+         "closed": closed}
+    (c / f"GATE_f5_{k}.json").write_text(json.dumps(C.to_dialect(g, C.CONVENE_KEYS["gate"], s.lang)),
+                                         encoding="utf-8")
+
+
+def e12_ordinals(s):
+    L = f"E12 [{s.lang}]"
+    c = s.classic()
+    s.gate_f2(c)
+    s.run("select", c, "H-001", "--radical", "H-002")
+    s.f3(c, "H-001")
+    s.f4(c, "H-001", correctness="proven")
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x")
+    assert rc == 0, out
+    s.closure(c, closed=False, extra="H-002 never funded\n")
+    rc, out = s.run("gate", c, "f5", "--notes", "x")
+    assert rc == 0, out
+    newest = FUTURE.timestamp()
+    acts = (("fund", c, "H-002"), ("close-branch", c, "H-002", "--reason", "no budget"))
+
+    def refused(what, name):
+        before = tree(c)
+        for args in acts:
+            rc, out = s.run(*args)
+            check(f"{L}: {what}: {args[0]} refused, exit 1, nothing written",
+                  rc == 1 and name in out and not changed(before, tree(c)), (out, changed(before, tree(c))))
+
+    plant(s, c, 2, closed=False)
+    plant(s, c, 10, closed=True)
+    os.utime(c / "GATE_f5.json", (newest, newest))
+    refused("the ordinals 2 (not closed) and 10 (closed), GATE_f5.json the newest mtime", "f5_10")
+    out = s.status(c)
+    check(f"{L}: status reads the G5s by ordinal",
+          s.st("status_approved", phase="f5_10") in out and s.st("status_not_closed", phase="f5_2") in out, out)
+    plant(s, c, 20, closed=False, stale=True)
+    refused("a later G5 «not closed» with stale fingerprints", "GATE_f5_20.json")
+    (c / "GATE_f5_20.json").write_bytes(b"")
+    refused("a 0-byte later gate file", "GATE_f5_20.json")
+    rc, out = s.run("gate", c, "f5", "--notes", "x")
+    check(f"{L}: gate f5 never writes over an existing gate file",
+          rc == 1 and (c / "GATE_f5_20.json").read_bytes() == b"", out)
+    for k in (2, 10, 20):
+        (c / f"GATE_f5_{k}.json").unlink()
+        shutil.rmtree(c / f"f5_{k}")
+    gate1 = c / "GATE_f5.json"
+    good = gate1.read_bytes()
+    for what, data in (("a 0-byte GATE_f5.json", b""), ("a GATE_f5.json with a BOM", b"\xef\xbb\xbf" + good),
+                       ("a GATE_f5.json with a byte that is not UTF-8", good.replace(b'"x"', b'"x\xff"', 1))):
+        gate1.write_bytes(data)
+        refused(what, "GATE_f5.json")
+    gate1.write_bytes(good)
+    for name in ("GATE_f5_02.json", "GATE_f5_1.json"):
+        (c / name).write_text("{}", encoding="utf-8")
+        refused(f"an ambiguous ordinal ({name})", name)
+        (c / name).unlink()
+    (c / "GATE_f5_٣.json").write_text("{}", encoding="utf-8")   # U+0663 is no ASCII digit: not a gate of f5
+    plant(s, c, 2, closed=True)
+    plant(s, c, 10, closed=False)
+    os.utime(gate1, (newest, newest))
+    first = g5_files(s, c)
+    rc, out = s.run("close-branch", c, "H-002", "--reason", "no budget")
+    check(f"{L}: the latest G5 by ordinal (10) holds and is «not closed»: close-branch acts, its brief in f5_11/",
+          rc == 0 and (c / "f5_11" / f"01-{ARB}" / "TASK.md").is_file() and not changed(first, g5_files(s, c)), out)
+    (c / "GATE_f5_٣.json").unlink()
+
+
+def e12_rules1(s):
+    L = f"E12 [{s.lang}]"
+    c = s.classic(rules=1)
+    s.gate_f2(c)
+    s.run("select", c, "H-001", "--radical", "H-002")
+    s.f3(c, "H-001")
+    s.f4(c, "H-001", line=False)
+    s.run("gate", c, "f3/H-001", "--notes", "re-gated after the dossier")
+    rc, out = s.run("gate", c, "f4/H-001", "--notes", "x")
+    assert rc == 0, out
+    s.closure(c, closed=False, extra="H-002\n")
+    rc, out = s.run("gate", c, "f5", "--notes", "x")
+    assert rc == 0, out
+    first = g5_files(s, c)
+    rc, out = s.run("close-branch", c, "H-002", "--reason", "measured inside H-001")
+    check(f"{L}: rules 1: after a G5 whose closure says «not closed», close-branch acts on the open branch",
+          rc == 0 and (c / "f5_2" / f"01-{ARB}" / "TASK.md").is_file(), out)
+    check(f"{L}: rules 1: and the first G5 still holds", not changed(first, g5_files(s, c)) and holds(c, "f5"),
+          changed(first, g5_files(s, c)))
+    (c / "f5_2" / s.N("CLOSURE.md")).write_text(s.line("Outcome: closed", "Esito: chiuso") + "\n", encoding="utf-8")
+    rc, out = s.run("gate", c, "f5", "--notes", "x")
+    raw = json.loads((c / "GATE_f5_2.json").read_text(encoding="utf-8")) if rc == 0 else {}
+    check(f"{L}: rules 1: the second G5 is approved into GATE_f5_2.json with the keys of 5.0 only",
+          rc == 0 and raw and not ({"rules", "regole", "closed", "chiuso"} & set(raw)), (out, raw))
+    for args in (("close-branch", c, "H-001", "--reason", "x"), ("fund", c, "H-002")):
+        rc, out = s.run(*args)
+        check(f"{L}: rules 1: {args[0]} after a closed G5 of the rules 1: refused", rc == 1 and "f5" in out, out)
+
+
+def main():
+    with tempfile.TemporaryDirectory() as b:
+        base = Path(b)
+        for lang in ("en", "it"):
+            s = TC.Swarm(base, lang)
+            for t in (e1_seal_order, e7_revision_order, e4_repin, e12_second_closure, e12_ordinals, e12_rules1):
+                t(s)
+    failed = [n for n, ok in TC.results if not ok]
+    print(f"\n{len(TC.results) - len(failed)}/{len(TC.results)} checks passed")
     sys.exit(1 if failed else 0)
 
 

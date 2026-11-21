@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#: SWARMER, A UNIVERSAL AGENT SWARM FOR CODING AGENTS, version 5.2
+#: SWARMER, A UNIVERSAL AGENT SWARM FOR CODING AGENTS, version 5.3
 #: (Claude Code, Codex, Antigravity, Gemini CLI, and every tool that reads AGENTS.md and Agent Skills)
 #:
 #: One file: the swarm's documents, its database of professionals and its engine, plus the commands to install

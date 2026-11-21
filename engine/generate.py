@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The generator of swarmer 5.2: from the database, the documents of the language and the local overrides it
+"""The generator of swarmer: from the database, the documents of the language and the local overrides it
 generates, in the project root, the catalog, the agents, the skills and the documents in the chosen language, for
 every active target (the coding agents that read them: Claude Code, Codex, Antigravity, Gemini CLI, and the open
 standard AGENTS.md + Agent Skills that many other tools read).
@@ -36,7 +36,11 @@ import extensions as E  # noqa: E402
 import paths as S  # noqa: E402
 import professionals as P  # noqa: E402
 
-VERSION = "5.2"
+# The version of swarmer, written here only (ENG-14): the swarm's VERSION, the catalog, the manifest of a convening
+# and `convene --help` read it from here; plugin.json (N.M.patch, the package) and the documents agree with it, as
+# tests/test_robustness.py checks. N.M: the form of a database entry's «since version» and of an extension's
+# requirement.
+VERSION = "5.3"
 STRATEGIES = P.STRATEGIES
 # The costly strategies start only on an explicit request of the user.
 ONLY_USER = {"full", "plenary"}

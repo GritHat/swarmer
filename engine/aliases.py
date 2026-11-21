@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""swarmer 5.0: the localized names of the command line (B).
+"""swarmer: the localized names of the command line (B).
 
 The canonical names of commands, options and values are English. Every language declares its aliases in
 `i18n/<l>.json`: `"commands": {"install": ["<alias>"], …}`, `"options": {"--folder": ["--<alias>"], …}`,

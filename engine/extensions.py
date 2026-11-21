@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""swarmer 5.2: the extensions of the swarm.
+"""swarmer: the extensions of the swarm (since 5.2).
 
 An extension lives in `<swarm>/extensions/<name>/` (the repository has the same layout):
 - `extension.json`: name, version, requires (swarmer and other extensions), commands (command → entry module),

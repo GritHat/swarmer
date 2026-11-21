@@ -1,7 +1,10 @@
 # Swarm convenings: eight strategies
 
-**Status.** Version 5.2 (swarmer): the rules 2 of the gates (§«The rules of the gates»), with every gate approved
-before still valid. Version 5.0 of 16 November 2026: the strategies and rules of 4.0, with English names for
+**Status.** Version 5.3 (swarmer): the rules 3 of the gates, which read the order of f4 from the seals, and the
+rounds of a branch and of the closure (§«The rules of the gates», §«Branches, workspaces and the closure»); the
+sentinels of f2, f3 and f4 briefed by the engine (§«The sentinel»), one registry of the K# of a convening, and a
+canary per arm of a race. Version 5.2:
+the rules 2 of the gates, with every gate approved before still valid. Version 5.0 of 16 November 2026: the strategies and rules of 4.0, with English names for
 commands, files and protocol lines (§«What changes»). Version 4.0 added to the four strategies of 3.1 (single,
 classic, full, auto):
 - the **jury**, which decides a proposal by vote;
@@ -85,7 +88,10 @@ attempts at the same task are needed to choose one.
 2. **N** is the total number of agents, not how many run together: at most five at a time. Each agent's role
    comes from the profile, or is the one named; in a race between different roles or models, each arm is declared beforehand.
 3. **The briefs** follow "The brief, in every strategy", with the slice or the arm of the race. Each agent that
-   writes has its own folder, `.swarmer/<convening>/agent-<n>/`, or a branch or working copy of its own.
+   writes has its own folder, `.swarmer/<convening>/agent-<n>/`, or a branch or working copy of its own. In a race
+   (and in a mixed fan-out) each arm's brief starts with a canary of its own, which only the lane map knows: G1 refuses
+   a deliverable that does not start with its canary or holds another arm's, and wants the snapshot of the reads
+   (`snapshot C`) taken as soon as the arms have delivered, before reading them.
 4. **The collection.** Read only the final outcomes:
    - in slices, every slice must have an outcome; those without an outcome are uncovered and you say so;
    - in a race you apply the declared rule, never a different choice afterwards.
@@ -158,6 +164,21 @@ Class k starts only after the outcome of class k−1. The order of the tasks:
 
 A failure stops the branch and preserves its counterexample.
 
+**The predictions of f4** go in the `PREDICTIONS.md` of the role's folder, sealed (`seal C FILE`) before the test
+they decide. They are of two kinds, and under the rules 3 G4 orders each by the seal times of `SEALS.jsonl`, never by
+a file's mtime, which a copy or a touch moves:
+- **before the counterchecks:** those of the adversary's folder (`01-`), sealed before `COUNTERCHECKS.md` is first
+  sealed;
+- **after the counterchecks:** those of every role that works after them (the owner's revision, the debugger, the
+  measurements, V2, the arbiter), each sealed before that role's own output (`REVISION.md`, `DEFECTS.md`,
+  `MEASUREMENTS.md`, `HIDDEN_ASSUMPTIONS.md`, `VERDICT.md`) is first sealed.
+
+Every block added to a `PREDICTIONS.md` later has its own seal before that output, and the outcomes go in the output,
+not in `PREDICTIONS.md`. The outputs that the predictions and the revision are ordered against are sealed too, and two
+seals in the same second show no order. Under the rules 1 and 2 G4 wants every `PREDICTIONS.md` born in f4 sealed
+before the counterchecks, so the briefs of the roles that work after them ask for their predictions at the top of
+their output instead, with the time.
+
 **f5, verdicts and closure.**
 - For each H#, the dossier with the status per property: correctness, completeness, effectiveness, cost.
 - Every foundational result passes four verifications:
@@ -176,7 +197,8 @@ high-leverage decisions.
 **Always.**
 - An anomaly goes to the debugger before being used.
 - A K# contradiction goes to the two roles that hold it and to the adversary, with a binary question and at most two
-  passes.
+  passes. Its number comes from the convening's registry: `contradiction C FILE… --question TEXT` allocates the next
+  K#, so two branches never give one number to two contradictions.
 - At most five agents at a time.
 - Once the first third of the quota is spent, you move to the verdict with what there is.
 <!-- /strategy:classic -->
@@ -427,17 +449,25 @@ approval makes the gate invalid. A gate is not approved because the files exist.
 | G0 | complete contract: question, criterion, inputs, constraints, quota, profile |
 | GA (per amendment) | after G0, the amendment sealed and, under the rules 2, with the line «Amends: <fields of the contract>» (under the rules 1 its absence is a warning); it binds the amendment alone, so the contract and G0 stay as they are |
 | G1 | deliverables from all the lanes (or "not delivered" after two stops), no canary of one lane in the other, the snapshot of the reads taken before reading |
-| G2 | authors' signatures before the triage seal, seal before the tournament, selection only among the triage's H#, the arbiter's countersignature |
+| G2 | authors' signatures before the triage seal, seal before the tournament, selection only among the triage's H#, the arbiter's countersignature; under the rules 3, the deliverable of the sentinel of f2 (or its "not delivered"), which G2 binds |
 | G3 (per H#) | solution, verification, measurement plan and predictions frozen; the thresholds reachable and with a test that can decide them; the dossier excluded (it is bound at G4) |
-| G4 (per H#) | counter-tests before any cost; classes in order; predictions sealed before their tests; anomalies explained or declared; dossier complete and bound; under the rules 2, the line «Correctness: …» in the verdict, a deliverable from every role with a brief (the statistician too) or its "not delivered", and V2 (`HIDDEN_ASSUMPTIONS.md`) in the folder of a role outside the f3 team when correctness is proven or verified; the line only in the arbiter's verdict |
-| G5 | the arbiter's closure conditions and the four verifications of the foundational results. «Outcome: closed» needs at least one H# proven (Correctness proven or verified in the arbiter's verdict) and every branch with a G4 or an early closure (under the rules 2 a radical never funded too: closed as "not funded"); «Outcome: not closed» is approved as a recorded non-closure that names the open branches, and the convening stays not closed. Under the rules 2, also the sentinel (or «Declared missing: sentinel: <reason>») and the deciding test of every branch declared unresolved |
+| G4 (per H#) | counter-tests before any cost; classes in order; predictions sealed before their tests; anomalies explained or declared; dossier complete and bound; under the rules 2, the line «Correctness: …» in the verdict, a deliverable from every role with a brief (the statistician too) or its "not delivered", and V2 (`HIDDEN_ASSUMPTIONS.md`) in the folder of a role outside the f3 team when correctness is proven or verified; the line only in the arbiter's verdict; under the rules 3, the order of f4 read from the seals: each prediction before what it must precede (§«f4» above) and `REVISION.md` sealed after `COUNTERCHECKS.md` and `DEFECTS.md` |
+| G5 | the arbiter's closure conditions and the four verifications of the foundational results. «Outcome: closed» needs at least one H# proven (Correctness proven or verified in the arbiter's verdict) and every branch with a G4 or an early closure (under the rules 2 a radical never funded too: closed as "not funded"); «Outcome: not closed» is approved as a recorded non-closure that names the open branches, and the convening stays not closed. Under the rules 2, also the sentinel (or «Declared missing: sentinel: <reason>») and the deciding test of every branch declared unresolved. Under the rules 3, also the sentinels of f3 and f4 where they were briefed (the same line declares one missing), whose folders the first G5 binds, and every K# of `CONTRADICTIONS.jsonl` named in the closure, resolved or open. After a recorded non-closure that holds, the next closure (`f5_2/CLOSURE.md`, …) has a G5 of its own (§«Branches, workspaces and the closure») |
 
 **The rules of the gates.** The conditions and the files a gate binds have a version, the `gate_rules` key of the
-manifest: a new convening is born with the rules 2, and a missing key means 1 (the convenings of 4.0 and of 5.0).
+manifest: a new convening is born with the rules 3, and a missing key means 1 (the convenings of 4.0 and of 5.0).
+The manifest's `version` is not a format version: it records the swarmer that prepared the convening (5.0 to 5.2
+wrote 5.0 there), and no engine reads it.
 Each gate records its rules and is always recomputed under them, so an approved gate never becomes invalid because
-the engine was upgraded. `gate C PHASE --rules 2` applies the rules 2 to one new gate of an older convening. The
-relaxations (a field continued on the next lines, the copies inside a workspace) hold under every rule; the stricter
-conditions only under the rules 2, with one exception: «Outcome: closed» needs an H# proven under every rule. Under the
+the engine was upgraded. `gate C PHASE --rules 2` (or `--rules 3`) applies those rules to one new gate of an older
+convening. The rules 3 add to the rules 2 the order of f4 read from the seals (§«f4» above), the rounds (the G4 of
+a round opened by `repin` runs only under the rules 3, `--rules 3` in an older convening, and binds and counts only
+the round's own files) and the chain to the contract: every gate checks G0 again, not only the gate just before it, so
+a contract or a file of `f0/` changed after G1 stops every later gate, and an amendment's gate checks the other gated
+amendments again; and the sentinels of f2, f3 and f4 (§«The sentinel») and the K# named in the closure (§«Dossiers and
+briefs»). `--rules` only raises the rules of a gate, never below those of the convening. The relaxations (a
+field continued on the next lines, the copies inside a workspace, a placeholder `<to fill in>` only quoted in a code
+span, a code block or a sentence) hold under every rule; the stricter conditions only under the rules 2 and higher, with one exception: «Outcome: closed» needs an H# proven under every rule. Under the
 rules 1 a valid G4 whose verdict has no Correctness line still counts as proven, with a warning; under the rules 2 it
 does not, and the way out is to add the line and gate that G4 again with `--rules 2`. An amendment written without
 the line «Amends:» passes its gate under the rules 1, with a warning, so that the later gates of an older convening
@@ -470,17 +500,33 @@ gate notices it. The crossroads extension handles this, not the engine.
 
 ### The sentinel
 
-In classics with at least two branches, in f2, f3 and f4 a role that was not convened works, drawn at random. It has twenty minutes in
-read-only mode and delivers:
+In classics and fulls, in f2, f3 and f4 a role that was not convened works, drawn at random (in f3 and f4 with at
+least two branches). It has twenty minutes in read-only mode and delivers:
 - a shared assumption, put to the test with an external check;
-- the figures and identifiers of the dossier, recounted from the files.
+- the figures and identifiers of the phase, recounted from the files.
 
 A K# of its own enters only with a file. It serves to find what no profile would have convened.
 
-`select` (and `fund`) writes its brief in `f5/00-sentinel/TASK.md`, for a role drawn with the convening's seed among
-those in no lane and in no team; it delivers `f5/00-sentinel/SENTINEL.md`, and only there: f5 is bound by G5 alone, so
+Under the rules 3 the engine briefs each of them, and the brief records how its role was drawn:
+- **f2.** `prepare` writes `f2/00-sentinel/TASK.md`: the branches are not known before the selection, and the cards
+  and the triage are what every branch inherits. It delivers `f2/00-sentinel/SENTINEL.md` before G2, which binds it
+  with the rest of f2 and is refused without it, unless `--not-delivered <role>`.
+- **f3 and f4.** With at least two funded branches, `select` (or `fund`) writes `f3/00-sentinel/TASK.md` and
+  `f4/00-sentinel/TASK.md`, once and before any G5. G3 and G4 warn while theirs is missing, since a branch does not wait
+  for a sentinel of the whole convening; the first G5 is refused without them, unless `CLOSURE.md` has the line
+  «Declared missing: sentinel: <reason>», and binds their folders.
+- **The draw.** With the convening's seed, among the free roles (named by no brief of the convening and not convened
+  by its profile) that are fit for the question, with a keyword of their own in it as `roles --question` finds them;
+  among all the free roles when none is fit. Each sentinel is a different role, and `fund` and `repin` refuse a
+  sentinel as an owner.
+
+`select` (and `fund`) also writes the brief of the closure's sentinel in `f5/00-sentinel/TASK.md`, for a role drawn
+with the convening's seed among those in no lane and in no team (under the rules 3, by the draw above); it delivers `f5/00-sentinel/SENTINEL.md`, and only there: f5 is bound by G5 alone, so
 the sentinel invalidates no earlier gate. Under the rules 2, G4 warns while it is missing and G5 refuses without it, unless
 `CLOSURE.md` has the line «Declared missing: sentinel: <reason>». A branch never funded does not count among the two.
+A later closure has its sentinel beside it, `f5_2/00-sentinel/SENTINEL.md`: the one of an earlier closure does not
+count, and the role drawn is none of the earlier sentinels. A round opened by `repin` has no sentinel of its own: the
+next closure's reads it. Under the rules 1 and 2 the engine briefs the closure's sentinel alone, as in 5.2.
 
 ### Anomalies: the debugger
 
@@ -545,20 +591,39 @@ afterwards read the gated amendments.
 
 - **The radical branch.** Under the rules 2 `select` records the radical H# without briefing it, and
   `fund C H-00x` gives it its dossier and its briefs. A radical never funded is closed with `close-branch` as "not
-  funded", with no test; under the rules 2, G5 does not close while it is neither funded nor closed. After G5
-  neither `fund` nor `close-branch` runs.
+  funded", with no test; under the rules 2, G5 does not close while it is neither funded nor closed. After a G5 that
+  closes, or that no longer holds, neither `fund`, `close-branch` nor `repin` runs; after a G5 «not closed» that holds
+  they act, and brief the next closure (below).
 - **The early closure** of a funded branch is "declared unresolved" and, under the rules 2, needs
   `--deciding-test TEXT`, the test that would decide it, and the folders of the branch that hold only their untouched
   brief are removed (under the rules 1 they stay, as in 5.0). A closure declared unresolved without its test (5.0)
   gets it with `close-branch C H-00x --reason … --deciding-test TEXT`.
 - **The owner's revision.** In f4 the owner of the branch has a brief in `f4/<H#>/00-<owner>/`, and delivers
-  `REVISION.md` after the counterchecks and the defects.
+  `REVISION.md` after the counterchecks and the defects. Under the rules 3 G4 checks that order by the seals:
+  `COUNTERCHECKS.md` and `DEFECTS.md` are sealed before `REVISION.md`.
+- **One selection.** `select` runs once: a second one is refused, since it would write the empty card over a
+  completed dossier and the briefs over the branches' work.
+- **A new round of a branch.** `repin C H-00x` opens round 2 of the f4 of a branch on a revised pin (then 3, …), in
+  `f4_2/<H#>/`: every brief of f4 again, the previous round among the inputs, and a dossier of its own,
+  `f4_2/<H#>/<H#>.md`, from the card. No file of round 1, nor `f3/<H#>/<H#>.md`, nor a seal or a gate changes.
+  `gate C f4/H-00x` is then the G4 of the branch's latest round, `GATE_f4_2_<H#>.json`, under the rules 3: it binds
+  and counts only the round's own files, and the branch's state (G5, `status`) is that of its latest round.
 - **The workspace.** A role keeps its scratch files, copies and corpora in a `work/` folder inside its own folder: the
   gates bind it as one entry, and its files are not read as the branch's own.
 - **The closure.** The arbiter's brief, `f5/01-arbitro/TASK.md`, names as its output `f5/CLOSURE.md`, the file G5
   reads. Its inputs are the contract with its gated amendments, the selection, the dossier, the revision and the verdict
-  of every branch (or its early closure), the sentinel and the gates; the revision and the sentinel where they were
-  briefed. `select`, `fund` and `close-branch` rewrite it.
+  of every branch (or its early closure), the sentinels and the gates; the revision and the sentinels where they were
+  briefed. It says what G5 checks of a non-closure and names the branches it checks it on: every funded branch not
+  closed early and a radical neither funded nor closed, each unless its G4 holds by then. `select`, `fund`,
+  `close-branch` and `repin` rewrite it.
+- **A later closure.** After a G5 that holds and records «Outcome: not closed», `fund`, `close-branch` and `repin` act
+  again and write the briefs of the next closure beside the first, in `f5_2/` (then `f5_3/`, …), never in `f5/`,
+  which the first G5 binds. Once that folder exists, `gate C f5` checks `f5_2/CLOSURE.md` and its sentinel
+  `f5_2/00-sentinel/SENTINEL.md`, binds every file of `f5_2/`, and writes `GATE_f5_2.json`, created exclusively:
+  `GATE_f5.json` and every file it binds stay byte-identical. Until then `gate C f5 --verify` checks the first G5
+  again, and a gate f5 that would write is refused: the record of a non-closure is never written over. The latest G5
+  is the one of the highest ordinal in its file name (ASCII digits, read as an integer), never the newest mtime; a
+  gate file that cannot be read, or two names for one ordinal, stop every reader.
 
 ## The full strategy in detail
 
@@ -621,11 +686,36 @@ afterwards read the gated amendments.
   - the minimal test, the threshold and the time;
   - the maximum test class;
   - the prohibitions and the recipient.
-- Provisional IDs carry the role's prefix (`creativo-2`); the final H#, F# and K# are assigned by the arbiter.
+- Provisional IDs carry the role's prefix (`creativo-2`); the final H#, F# and K# are assigned by the arbiter, the
+  numbers of the K# from the convening's registry: `contradiction C FILE… --question TEXT` writes the next one, with the
+  question and the files of its two sides, in `CONTRADICTIONS.jsonl`, which `status` lists; under the rules 3 G5 wants
+  every K# of it named in the closure, and G4 warns on a K# cited and never allocated.
 - The answer to the user begins with a line "Swarm: <strategy>. Roles: <roles>.". Then comes the result, with
   the status of what it claims, the open items and at most three decisions that are theirs to make.
 
 ## What changes
+
+**The rules 3 of the gates (5.3).**
+- **The order of f4** is read from the seal times of `SEALS.jsonl`: the predictions before the counterchecks before
+  `COUNTERCHECKS.md`, those of the roles that work after them before their own output, every block appended with its
+  own seal; `REVISION.md` after `COUNTERCHECKS.md` and `DEFECTS.md`. The briefs of f4 name the kind of each role's
+  predictions.
+- **The rounds.** `repin` opens a new round of the f4 of a branch in `f4_<n>/<H#>/`; after a G5 «not closed» the next
+  closure goes in `f5_<n>/`, with its gate `GATE_f5_<n>.json`. Neither touches a file of an earlier round.
+- **One selection:** a second `select` is refused.
+- **The chain to the contract.** Every gate checks G0 again, and an amendment's gate the other gated amendments, not
+  only the gate just before it.
+- **The sentinels of f2, f3 and f4** are briefed by the engine (`prepare`, `select`, `fund`), drawn among the free
+  roles fit for the question, with the draw in the brief; G2 wants the one of f2, the first G5 those of f3 and f4, and
+  binds them.
+- **The K#** of a convening come from one registry, `CONTRADICTIONS.jsonl` (`contradiction C FILE… --question TEXT`);
+  G5 wants each named in the closure.
+- **Under every rule:** every f3 brief asks for the line «decides: yes|no» that G3 wants; the closure brief names the
+  branches a non-closure must name; a race (and a mixed fan-out) has a canary per arm, checked by G1.
+- **Compatibility.** A new convening is born with the rules 3; every gate approved before keeps its rules. The rounds
+  are read from the folders and the gate files, and the manifest keeps the keys of 5.2: an engine of 5.2 still loads
+  a convening of 5.3, sees round 1 of each branch and `GATE_f5.json` alone, so it reports a convening closed again by
+  a later closure as «not closed» and keeps `fund` and `close-branch` refused.
 
 **The rules 2 of the gates.**
 - **Versioned gates.** `gate_rules` in the manifest, `--rules` on one gate; every gate is recomputed under its own

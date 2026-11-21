@@ -226,6 +226,12 @@
   "close-branch": [
    "chiudi-ramo"
   ],
+  "repin": [
+   "rifissa"
+  ],
+  "contradiction": [
+   "contraddizione"
+  ],
   "status": [
    "stato"
   ],
@@ -444,8 +450,14 @@
   "translations": "traduzioni"
  },
  "missions": {
-  "closure": "La chiusura: almeno una H# provata (Correttezza dimostrata o verificata nel suo verdetto), nessuna contraddizione aperta su una conclusione adottata, previsioni risolte o dichiarate non risolte con la prova che le deciderebbe, le quattro verifiche dei risultati fondanti. Scrivi anche {closure_file} con la riga «Esito: chiuso» o «Esito: non chiuso», e al più tre decisioni per l'utente. «Esito: non chiuso» è una non chiusura registrata: nomina ogni ramo senza verdetto. Se la sentinella non ha lavorato, scrivi la riga «Dichiarato mancante: sentinella: <motivo>».",
+  "closure": "La chiusura: almeno una H# provata (Correttezza dimostrata o verificata nel suo verdetto), nessuna contraddizione aperta su una conclusione adottata, previsioni risolte o dichiarate non risolte con la prova che le deciderebbe, le quattro verifiche dei risultati fondanti. Scrivi anche {closure_file} con la riga «Esito: chiuso» o «Esito: non chiuso», e al più tre decisioni per l'utente. «Esito: non chiuso» è una non chiusura registrata: {open} Se la sentinella non ha lavorato, scrivi la riga «Dichiarato mancante: sentinella: <motivo>».",
+  "closure_open": "nomina ogni ramo senza un G4 valido del suo ultimo giro né una chiusura anticipata, e una radicale mai finanziata né chiusa, come controlla il G5: qui {branches}, ciascuno a meno che allora il suo G4 regga.",
+  "closure_radical": "la radicale {h}, mai finanziata",
+  "closure_none": "nessuno",
+  "k_registry": "Le K# di questa convocazione le assegna il coordinatore, per tutta la convocazione, con contraddizione C FILE… --domanda TESTO, in {registry}: cita quelle; una contraddizione senza la sua K# è provvisoria, con la sigla del tuo ruolo (ruolo-1), finché non è assegnata.",
+  "k_closure": "Con le regole 3 dei cancelli il G5 vuole ogni K# di {registry} nominata in {closure_file}, risolta o aperta.",
   "owner_solution": "Sei il responsabile di {h}. Scrivi la soluzione: passi, invarianti, costo, «dipende da», «invalidata se cambia». Le previsioni con la soglia in PREVISIONI.md, con la riga «decide: sì» o «decide: no».",
+  "f3_predictions": "Una tua previsione va in PREVISIONI.md nella tua cartella, con la sua soglia, prima della prova che decide, e con la riga «decide: sì» o «decide: no»: il G3 vuole quella riga in ogni PREVISIONI.md della f3.",
   "proof": "Scrivi la prova o la verifica di {h}, dopo SOLUZIONE.md del responsabile: che cosa la rende corretta, con quali ipotesi, e come la si controlla.",
   "measurement_plan": "Il piano delle misure di {h}: che cosa si misura, con quale soglia, prima delle prove. Se non servono misure, scrivilo con il perché.",
   "attack": "L'attacco a {h}: i casi che dovrebbero romperla, con le previsioni prima.",
@@ -464,9 +476,20 @@
   "single": "Esegui la richiesta nel tuo ruolo, per intero, e rileggiti con le tue «domande che si pone sempre» prima di consegnare.",
   "fan_out_slice": "Sei un agente di un ventaglio, con una fetta del lavoro: la tua è scritta qui sotto dal coordinatore. Fai solo la tua fetta, per intero, e verifica il criterio di fatto prima di consegnare.",
   "race": "Sei un braccio di una gara: altri agenti hanno la tua stessa consegna, e il coordinatore sceglierà con la regola dichiarata nel contratto. Lavora da solo, per intero, e verifica il criterio di fatto prima di consegnare.",
-  "owner_revision": "Sei il responsabile di {h}. Dopo le controprove e i difetti, scrivi la revisione: che cosa cambia nella soluzione e perché, ogni cambio con la controprova o il difetto a cui risponde; che cosa non cambia, con il motivo. Una previsione nata ora va in PREVISIONI.md e la sigilla il coordinatore prima della sua prova.",
+  "owner_revision": "Sei il responsabile di {h}. Dopo le controprove e i difetti, scrivi la revisione: che cosa cambia nella soluzione e perché, ogni cambio con la controprova o il difetto a cui risponde; che cosa non cambia, con il motivo.",
+  "f4_round": "Questo è il giro {k} della f4 di {h}, aperto da rifissa su un pin rivisto: il giro precedente, {previous}, è un ingresso e resta com'è, e tutto ciò che è di questo giro va in {folder}; il suo cancello G4 segue le regole 3 dei cancelli e conta solo i file di questo giro.",
+  "predictions_before": "Con le regole 3 dei cancelli le tue previsioni vengono prima delle controprove: vanno in PREVISIONI.md nella tua cartella, che il coordinatore sigilla, con ogni blocco aggiunto dopo, prima che {output} sia sigillato la prima volta; gli esiti vanno in {output}, non in PREVISIONI.md.",
+  "predictions_after": "Lavori dopo le controprove: una tua previsione va in PREVISIONI.md nella tua cartella, una previsione successiva alle controprove, che le regole 3 dei cancelli ordinano con i sigilli rispetto alla tua uscita: il coordinatore la sigilla, con ogni blocco aggiunto dopo, prima che {output} sia sigillato la prima volta; gli esiti vanno in {output}, non in PREVISIONI.md.",
+  "predictions_after_old": "Lavori dopo le controprove: con le regole {rules} dei cancelli di questa convocazione G4 vuole ogni PREVISIONI.md nata in f4 sigillata prima delle controprove, quindi non scriverne una; scrivi ogni previsione in cima a {output}, con l'ora da date -Is, prima della prova che la decide.",
+  "revision_order": "Le regole 3 dei cancelli controllano quest'ordine con i sigilli: CONTROPROVE.md e DIFETTI.md sono sigillati prima di REVISIONE.md, quindi scrivi la revisione quando li hai entrambi.",
   "hidden_assumption_audit": "L'audit delle ipotesi nascoste (V2) di {h}: non hai preso parte né alla costruzione né alla rilettura. Elenca le condizioni necessarie non dichiarate dei suoi risultati fondanti: versioni, rappresentazioni dei dati, codifiche, cache e stato, ordine delle chiamate, bordi, domini vuoti, limiti operativi, differenze fra la teoria e il comportamento del sistema. Per ciascuna: dove è assunta, se regge, e il controllo che lo dice. Un audit negativo elenca le condizioni controllate.",
-  "sentinel": "Sei la sentinella: un ruolo non convocato, in sola lettura, venti minuti. Metti alla prova un presupposto condiviso dai rami con un controllo esterno, e riconta dai file le cifre e gli identificativi dei dossier. Una K# tua entra solo con un file. Non scrivere nulla fuori dalla tua cartella."
+  "sentinel": "Sei la sentinella: un ruolo non convocato, in sola lettura, venti minuti. Metti alla prova un presupposto condiviso dai rami con un controllo esterno, e riconta dai file le cifre e gli identificativi dei dossier. Una K# tua entra solo con un file. Non scrivere nulla fuori dalla tua cartella.",
+  "sentinel_f2": "Sei la sentinella della f2: un ruolo non convocato, in sola lettura, venti minuti. Metti alla prova un presupposto condiviso dalle schede con un controllo esterno, e riconta dai file le cifre e gli identificativi delle schede, del triage e del torneo. Consegna SENTINELLA.md nella tua cartella prima del G2, che la lega. Una K# tua entra solo con un file. Non scrivere nulla fuori dalla tua cartella.",
+  "sentinel_f3": "Sei la sentinella della f3: un ruolo non convocato, in sola lettura, venti minuti. Metti alla prova un presupposto condiviso dalle soluzioni dei rami con un controllo esterno, e riconta dai file le cifre e gli identificativi delle loro soluzioni, verifiche, piani delle misure e previsioni. Consegna SENTINELLA.md nella tua cartella: la lega il G5. Una K# tua entra solo con un file. Non scrivere nulla fuori dalla tua cartella.",
+  "sentinel_f4": "Sei la sentinella della f4: un ruolo non convocato, in sola lettura, venti minuti. Metti alla prova un presupposto condiviso dai rami con un controllo esterno, e riconta dai file le cifre e gli identificativi delle loro controprove, misure e dossier. Consegna SENTINELLA.md nella tua cartella: la lega il G5. Una K# tua entra solo con un file. Non scrivere nulla fuori dalla tua cartella.",
+  "sentinel_draw": "Come sei stata estratta: con il seme {seed} della convocazione, tra i {n} ruoli liberi adatti alla domanda, quelli con una loro parola chiave in essa ({pool}); le tue: {words}. Un ruolo è libero se nessuna consegna di questa convocazione lo nomina e il suo profilo non lo convoca.",
+  "sentinel_draw_unfit": "Come sei stata estratta: con il seme {seed} della convocazione, tra tutti i {n} ruoli liberi, perché nessuno ha una sua parola chiave nella domanda. Un ruolo è libero se nessuna consegna di questa convocazione lo nomina e il suo profilo non lo convoca.",
+  "sentinel_draw_none": "Come sei stata estratta: nessun ruolo dello sciame è libero (ciascuno è nominato da una consegna di questa convocazione o convocato dal suo profilo), quindi la sentinella è {role}, per difetto."
  },
  "convene": {
   "agent": "Agente",
@@ -526,9 +549,12 @@
   "gate_warning": "  avviso: {text}",
   "branch_not_funded": "{h} chiusa: non finanziata (il ramo radicale non ha mai avuto consegne)",
   "branch_funded": "{h} finanziata: il suo dossier e le sue consegne sono scritti",
+  "repinned": "{h}: giro {k} della f4 aperto in {path}, con le sue consegne e il suo dossier; i giri precedenti restano com'erano, e il suo G4 segue le regole 3 dei cancelli (cancello C f4/{h} --regole 3)",
+  "contradiction_allocated": "{id} assegnata in {path}: {question}",
   "radical_recorded": "Radicale {h} registrata, non finanziata: finanzia C {h} le dà le consegne, chiudi-ramo C {h} --motivo … la chiude",
   "status_not_closed": "  {phase}: approvato, NON CHIUSO (una non chiusura registrata)",
   "status_not_funded": "  {phase}: radicale non finanziata (finanzia C {h}, oppure chiudi-ramo C {h})",
+  "status_contradictions": "  K#: {ids} ({path})",
   "deciding_test_added": "{h}: la prova che la deciderebbe è registrata nella sua chiusura anticipata",
   "status_clash": "  ATTENZIONE: {text}"
  }

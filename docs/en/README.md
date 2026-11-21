@@ -1,4 +1,4 @@
-# swarmer: the universal agent swarm for coding agents (version 5.2)
+# swarmer: the universal agent swarm for coding agents (version 5.3)
 
 A swarm of specialist professionals and sub-professionals, which a coordinator convenes for a request with
 one of eight strategies. The coordinator is the session of the coding agent open in the project (Claude Code, Codex,
@@ -158,3 +158,8 @@ byte, the same skills (with the new section on delegating in each tool). Other t
 **From 5.1.** The update to 5.2 enables no extension (`bash swarmer/swarmer.sh extensions --add crossroads` when you
 want it) and leaves every gate already approved valid: a convening started before keeps the rules 1 of its gates, a
 new one is born with the rules 2 (`PIPELINE.md`, §«The rules of the gates»).
+
+**From 5.2.** The update to 5.3 leaves every gate already approved valid: a convening keeps the rules of its gates, a
+new one is born with the rules 3, which read the order of f4 from the seals, and `gate C PHASE --rules 3` applies them
+to one new gate of an older convening. `repin` opens a new round of a branch, and after a G5 «not closed» the next
+closure goes in `f5_2/` (`PIPELINE.md`, §«Branches, workspaces and the closure»; `CHANGELOG.md`).

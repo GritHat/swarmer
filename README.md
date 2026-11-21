@@ -6,10 +6,12 @@
 tool that reads `AGENTS.md` and Agent Skills — that a coordinator convenes for one request, with one of eight
 strategies. The roles are **professionals** (general skills) and **sub-professionals** (their
 specialisations), kept in one database, in English and optionally in the other languages of the skill. The whole skill — documents, database
-and engine — fits in a single file, `swarmer.sh`, using only bash and the Python standard library. Version 5.2 adds
-optional extensions, the first of which is crossroads (the decisions of a project as a graph, and the way back to an
-upstream fork), and stricter gates for the convenings; 5.1 made it universal (5.0 was for Claude Code only, and the
-successor of `sciame` 4.0, which it updates in place).
+and engine — fits in a single file, `swarmer.sh`, using only bash and the Python standard library. Version 5.3 adds
+the gate rules 3, which read the order of a branch's checks from the seals and tie every gate to the contract, new
+rounds of a branch and of the closure, the sentinels of every phase briefed by the engine and one numbering of the
+contradictions of a convening; 5.2 added optional extensions, the first of which is crossroads (the
+decisions of a project as a graph, and the way back to an upstream fork), and stricter gates for the convenings; 5.1
+made it universal (5.0 was for Claude Code only, and the successor of `sciame` 4.0, which it updates in place).
 
 ## Install
 
@@ -120,6 +122,13 @@ never the project's files: configuration, local cards, expert register, forbidde
 their names, and every jury outcome already voted is recounted byte for byte. An Italian 4.0 stays Italian, with the
 same `sciame-*` agents and skills; an English 4.0 moves to `swarmer-*` and English names, with `sciame.sh`,
 `convoca.py` and `giuria.py` kept as aliases. An interrupted update resumes with the same command.
+
+## Updating from swarmer 5.2
+
+The same `update` leaves every gate already approved valid: a convening keeps the rules of its gates, a new one is born
+with the rules 3, which read the order of f4 from the seals, and `gate C PHASE --rules 3` applies them to one new gate
+of an older convening. `repin` opens a new round of a branch, and after a G5 «not closed» the next closure goes in
+`f5_2/`. What changes, and what an engine of 5.2 sees of a convening of 5.3: [CHANGELOG.md](CHANGELOG.md).
 
 ## Updating from swarmer 5.1
 

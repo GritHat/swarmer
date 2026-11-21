@@ -128,18 +128,24 @@ class Swarm:
         return C.to_canonical(json.loads(p.read_text(encoding="utf-8")), C.MANIFEST_SCHEMA)
 
     # --- a classic convening, written by hand up to G2 ---
-    def classic(self, profile="data", rules=2, triage=("H-001", "H-002", "H-003")) -> Path:
+    def classic(self, profile="data", rules=2, triage=("H-001", "H-002", "H-003"), question="q",
+                sentinel=True) -> Path:
         self.n += 1
         dest = self.root / f"conv{self.n}"
-        rc, out = self.run("prepare", "--name", "k", "--strategy", "classic", "--profile", profile, "--question", "q",
-                           "--seed", "3", "--dest", dest)
+        rc, out = self.run("prepare", "--name", "k", "--strategy", "classic", "--profile", profile, "--question",
+                           question, "--seed", "3", "--dest", dest)
         assert rc == 0, out
         c = next(p for p in dest.iterdir() if not p.name.startswith("."))
-        if rules == 1:   # a convening born before the rules 2: no gate_rules key
-            p = c / self.N("MANIFEST.json")
-            m = json.loads(p.read_text(encoding="utf-8"))
-            m.pop("regole_cancelli" if self.it else "gate_rules")
-            p.write_text(json.dumps(m, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        # The rules the convening is born with: 1 (before the rules 2, no gate_rules key), 2 (5.2) or 3 (5.3), so
+        # that the checks of each rule keep testing that rule whatever rules a new convening is born with.
+        p = c / self.N("MANIFEST.json")
+        m = json.loads(p.read_text(encoding="utf-8"))
+        key = "regole_cancelli" if self.it else "gate_rules"
+        if rules == 1:
+            m.pop(key)
+        else:
+            m[key] = rules
+        p.write_text(json.dumps(m, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
         contract = c / self.N("CONTRACT.md")
         contract.write_text(contract.read_text(encoding="utf-8").replace(self.line("<to fill in>", "<da compilare>"),
                                                                          "filled"), encoding="utf-8")
@@ -165,6 +171,11 @@ class Swarm:
         (f2 / self.N("04-tournament") / self.N("TOURNAMENT.md")).write_text("ok\n", encoding="utf-8")
         (f2 / self.N("05-selection") / self.N("SELECTION.md")).write_text(
             " ".join(triage) + f"\n{C.CONVENE_LINES['countersign'][self.lang]}\n", encoding="utf-8")
+        # 5.3: the sentinel of f2 that prepare briefs delivers before G2, which binds it (`sentinel` False leaves it
+        # undelivered, for the checks of that rule).
+        d = f2 / self.N("00-sentinel")
+        if sentinel and (d / "TASK.md").is_file():
+            (d / self.N("SENTINEL.md")).write_text("checked\n", encoding="utf-8")
         return c
 
     def gate_f2(self, c):
@@ -204,6 +215,11 @@ class Swarm:
         self.dossier(c, h)
 
     def sentinel(self, c: Path):
+        # 5.3: the sentinels of f3 and f4 that select briefs under the rules 3 deliver too.
+        for ph in ("f3", "f4"):
+            d = c / ph / self.N("00-sentinel")
+            if (d / "TASK.md").is_file():
+                (d / self.N("SENTINEL.md")).write_text("checked\n", encoding="utf-8")
         d = c / "f5" / self.N("00-sentinel")
         d.mkdir(parents=True, exist_ok=True)
         (d / self.N("SENTINEL.md")).write_text("checked\n", encoding="utf-8")
@@ -510,7 +526,9 @@ def t9_closure_brief(s: Swarm):
         c / "f3" / "H-001" / "H-001.md"]
     check(f"{L}: the inputs include the verdicts, the revision of the owner, the dossiers and the sentinel",
           all(f"`{p}`" in text for p in want), [str(p) for p in want if f"`{p}`" not in text])
-    check(f"{L}: the unfunded radical is not among the inputs", "H-002" not in text)
+    inputs = [x for x in text.splitlines() if x.startswith("  - `")]
+    check(f"{L}: the unfunded radical is not among the inputs (5.3: the closure brief names it as a branch to name)",
+          inputs and not any("H-002" in x for x in inputs), inputs)
     s.run("fund", c, "H-002")
     text = task.read_text(encoding="utf-8")
     check(f"{L}: after fund the radical's verdict and dossier are listed",
@@ -637,12 +655,21 @@ def t13_review_g5(s: Swarm):
     s.gate_f2(c)
     s.run("select", c, "H-001", "--radical", "H-002")
     for where in (c / "f2", c / "f3" / "H-001", c / "f4" / "H-001"):
+        # 5.3: prepare briefs the sentinel of f2 in f2/00-sentinel/, which G2 binds: it is left as it was found.
         d = where / s.N("00-sentinel")
-        d.mkdir(parents=True)
-        (d / s.N("SENTINEL.md")).write_text("checked\n", encoding="utf-8")
-        check(f"{L}: a sentinel in {where.relative_to(c)} does not count (only f5)",
+        existed = d.exists()
+        d.mkdir(parents=True, exist_ok=True)
+        p = d / s.N("SENTINEL.md")
+        old = p.read_bytes() if p.exists() else None
+        p.write_text("checked\n", encoding="utf-8")
+        check(f"{L}: a sentinel in {where.relative_to(c)} does not count for the closure (only f5)",
               not V.sentinel_found(V.Convening.load(c)))
-        shutil.rmtree(d)
+        if not existed:
+            shutil.rmtree(d)
+        elif old is None:
+            p.unlink()
+        else:
+            p.write_bytes(old)
     s.f3(c, "H-001")
     s.f4(c, "H-001", correctness="proven")
     rc, out = s.run("gate", c, "f4/H-001", "--notes", "x")
@@ -669,7 +696,8 @@ def t14_review_old(s: Swarm):
     """Review of the upgrade path: a convening of the rules 1 with an amendment without «Amends», a radical declared
     unresolved without a test, G4 and G5 under --rules 2, the keys of 5.0 in its gates, status."""
     L = f"T14 [{s.lang}]"
-    c = s.classic(rules=1)
+    c = s.classic(rules=1, sentinel=False)
+    shutil.rmtree(c / "f2" / s.N("00-sentinel"))   # 5.3: as prepare of 5.0 wrote it, before G2: no sentinel of f2
     a1 = c / s.N("AMENDMENT_A1.md")
     a1.write_text("git allowed in a throwaway repository\n", encoding="utf-8")
     s.run("seal", c, a1)

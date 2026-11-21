@@ -1,7 +1,10 @@
 # Le convocazioni dello sciame: otto strategie
 
-**Stato.** Versione 5.2 (swarmer): le regole 2 dei cancelli (§«Le regole dei cancelli»), con ogni cancello
-approvato prima ancora valido. Versione 5.0 del 16 novembre 2026: le strategie e le regole sono quelle della 4.0, con
+**Stato.** Versione 5.3 (swarmer): le regole 3 dei cancelli, che leggono l'ordine di f4 dai sigilli, e i giri di un
+ramo e della chiusura (§«Le regole dei cancelli», §«I rami, gli spazi di lavoro e la chiusura»); le sentinelle di f2,
+f3 e f4 con la consegna scritta dal motore (§«La sentinella»), un registro solo delle K# di una convocazione, e un
+canarino per braccio di una gara. Versione 5.2: le
+regole 2 dei cancelli, con ogni cancello approvato prima ancora valido. Versione 5.0 del 16 novembre 2026: le strategie e le regole sono quelle della 4.0, con
 i nomi inglesi accanto agli italiani (§«Che cosa cambia»). La 4.0 aggiunse alle quattro strategie della 3.1 (singolo, classica, completa, auto)
 aggiunge:
 - la **giuria**, che decide una proposta con un voto;
@@ -85,7 +88,10 @@ indipendenti dello stesso compito per sceglierne uno.
 2. **N** è il numero totale di agenti, non quanti girano insieme: al più cinque alla volta. Il ruolo di ogni agente
    viene dal profilo, o è quello nominato; in una gara fra ruoli o modelli diversi, ogni braccio è dichiarato prima.
 3. **Le consegne** seguono «La consegna, in ogni strategia», con la fetta o il braccio della gara. Ogni agente che
-   scrive ha la sua cartella, `.sciame/<convocazione>/agente-<n>/`, oppure un ramo o una copia di lavoro sua.
+   scrive ha la sua cartella, `.sciame/<convocazione>/agente-<n>/`, oppure un ramo o una copia di lavoro sua. In una
+   gara (e in un ventaglio misto) la consegna di ogni braccio comincia con un canarino suo, che conosce solo la mappa
+   delle corsie: il G1 rifiuta una consegna che non comincia con il suo canarino o contiene quello di un altro braccio,
+   e vuole la fotografia delle letture (`fotografa C`) presa appena i bracci hanno consegnato, prima di leggerli.
 4. **La raccolta.** Leggi solo gli esiti finali:
    - nelle fette, ogni fetta deve avere un esito; quelle senza esito sono scoperte e lo dici;
    - nella gara applichi la regola dichiarata, mai un'altra scelta dopo.
@@ -158,6 +164,21 @@ La classe k parte solo dopo l'esito della k−1. L'ordine dei compiti:
 
 Un fallimento ferma il ramo e ne conserva il controesempio.
 
+**Le previsioni di f4** vanno nel `PREVISIONI.md` della cartella del ruolo, sigillate (`sigilla C FILE`) prima della
+prova che decidono. Sono di due tipi, e con le regole 3 il G4 ordina ciascuna con le ore dei sigilli di
+`SIGILLI.jsonl`, mai con l'mtime di un file, che una copia o un touch spostano:
+- **prima delle controprove:** quelle della cartella dell'avversario (`01-`), sigillate prima che `CONTROPROVE.md` sia
+  sigillato la prima volta;
+- **dopo le controprove:** quelle di ogni ruolo che lavora dopo di esse (la revisione del responsabile, il debugger, le
+  misure, V2, l'arbitro), ciascuna sigillata prima che l'uscita di quel ruolo (`REVISIONE.md`, `DIFETTI.md`,
+  `MISURE.md`, `ASSUNZIONI_NASCOSTE.md`, `VERDETTO.md`) sia sigillata la prima volta.
+
+Ogni blocco aggiunto dopo a un `PREVISIONI.md` ha il suo sigillo prima di quell'uscita, e gli esiti vanno nell'uscita,
+non in `PREVISIONI.md`. Anche le uscite rispetto a cui si ordinano le previsioni e la revisione sono sigillate, e due
+sigilli nello stesso secondo non mostrano un ordine. Con le regole 1 e 2 il G4 vuole ogni `PREVISIONI.md` nata in f4
+sigillata prima delle controprove, quindi le consegne dei ruoli che lavorano dopo di esse chiedono le loro previsioni
+in cima alla loro uscita, con l'ora.
+
 **f5, verdetti e chiusura.**
 - Per ogni H#, il dossier con lo stato per proprietà: correttezza, completezza, efficacia, costo.
 - Ogni risultato fondante passa quattro verifiche:
@@ -176,7 +197,8 @@ alta leva.
 **Sempre.**
 - Un'anomalia va al debugger prima di essere usata.
 - Una contraddizione K# va ai due ruoli che la sostengono e all'avversario, con una domanda binaria e al più due
-  passaggi.
+  passaggi. Il suo numero viene dal registro della convocazione: `contraddizione C FILE… --domanda TESTO` assegna la
+  K# successiva, così due rami non danno mai un numero solo a due contraddizioni.
 - Al più cinque agenti alla volta.
 - Speso il primo terzo della quota, passi al verdetto con ciò che c'è.
 <!-- /strategy:classic -->
@@ -427,18 +449,26 @@ l'approvazione rende il cancello non valido. Un cancello non si approva perché 
 | G0 | contratto completo: domanda, criterio, ingressi, vincoli, quota, profilo |
 | GA (per emendamento) | dopo il G0, l'emendamento sigillato e, con le regole 2, con la riga «Modifica: <campi del contratto>» (con le regole 1 la sua assenza è un avviso); lega solo l'emendamento, così il contratto e il G0 restano come sono |
 | G1 | consegne di tutte le corsie (o «non consegnato» dopo due arresti), nessun canarino di una corsia nell'altra, la foto delle letture fatta prima di leggere |
-| G2 | firme degli autori prima del sigillo del triage, sigillo prima del torneo, selezione solo fra gli H# del triage, controfirma dell'arbitro |
+| G2 | firme degli autori prima del sigillo del triage, sigillo prima del torneo, selezione solo fra gli H# del triage, controfirma dell'arbitro; con le regole 3, la consegna della sentinella di f2 (o il suo «non consegnato»), che il G2 lega |
 | G3 (per H#) | soluzione, verifica, piano delle misure e previsioni congelati; le soglie raggiungibili e con una prova che le possa decidere; il dossier escluso (lo lega il G4) |
-| G4 (per H#) | controprove prima di ogni costo; classi in ordine; previsioni sigillate prima delle loro prove; le anomalie spiegate o dichiarate; dossier completo e legato; con le regole 2, la riga «Correttezza: …» nel verdetto, una consegna da ogni ruolo con una consegna da svolgere (anche lo statistico) o il suo «non consegnato», e V2 (`ASSUNZIONI_NASCOSTE.md`) nella cartella di un ruolo fuori dalla squadra di f3 quando la correttezza è dimostrata o verificata; la riga solo nel verdetto dell'arbitro |
-| G5 | le condizioni di chiusura dell'arbitro e le quattro verifiche dei risultati fondanti. «Esito: chiuso» vuole almeno una H# provata (Correttezza dimostrata o verificata nel verdetto dell'arbitro) e ogni ramo con un G4 o una chiusura anticipata (con le regole 2 anche una radicale mai finanziata: chiusa come «non finanziato»); «Esito: non chiuso» si approva come non chiusura registrata che nomina i rami aperti, e la convocazione resta non chiusa. Con le regole 2, anche la sentinella (o «Dichiarato mancante: sentinella: <motivo>») e la prova decisiva di ogni ramo dichiarato non risolto |
+| G4 (per H#) | controprove prima di ogni costo; classi in ordine; previsioni sigillate prima delle loro prove; le anomalie spiegate o dichiarate; dossier completo e legato; con le regole 2, la riga «Correttezza: …» nel verdetto, una consegna da ogni ruolo con una consegna da svolgere (anche lo statistico) o il suo «non consegnato», e V2 (`ASSUNZIONI_NASCOSTE.md`) nella cartella di un ruolo fuori dalla squadra di f3 quando la correttezza è dimostrata o verificata; la riga solo nel verdetto dell'arbitro; con le regole 3, l'ordine di f4 letto dai sigilli: ogni previsione prima di ciò che deve precedere (§«f4» sopra) e `REVISIONE.md` sigillata dopo `CONTROPROVE.md` e `DIFETTI.md` |
+| G5 | le condizioni di chiusura dell'arbitro e le quattro verifiche dei risultati fondanti. «Esito: chiuso» vuole almeno una H# provata (Correttezza dimostrata o verificata nel verdetto dell'arbitro) e ogni ramo con un G4 o una chiusura anticipata (con le regole 2 anche una radicale mai finanziata: chiusa come «non finanziato»); «Esito: non chiuso» si approva come non chiusura registrata che nomina i rami aperti, e la convocazione resta non chiusa. Con le regole 2, anche la sentinella (o «Dichiarato mancante: sentinella: <motivo>») e la prova decisiva di ogni ramo dichiarato non risolto. Con le regole 3, anche le sentinelle di f3 e f4 dove hanno avuto una consegna (la stessa riga ne dichiara una mancante), le cui cartelle lega il primo G5, e ogni K# di `CONTRADDIZIONI.jsonl` nominata nella chiusura, risolta o aperta. Dopo una non chiusura registrata che regge, la chiusura successiva (`f5_2/CHIUSURA.md`, …) ha un G5 suo (§«I rami, gli spazi di lavoro e la chiusura») |
 
 **Le regole dei cancelli.** Le condizioni e i file che un cancello lega hanno una versione, la chiave
-`regole_cancelli` del manifesto: una convocazione nuova nasce con le regole 2, e una chiave assente vale 1 (le
-convocazioni della 4.0 e della 5.0). Ogni cancello registra le sue regole e si ricalcola sempre con quelle, così un
-cancello approvato non diventa mai non valido perché si è aggiornato il motore. `cancello C FASE --regole 2` applica le
-regole 2 a un cancello nuovo di una convocazione più vecchia. Gli allentamenti (un campo che continua sulle righe
-dopo, le copie dentro uno spazio di lavoro) valgono con ogni regola; le condizioni più strette solo con le regole 2,
-con un'eccezione: «Esito: chiuso» vuole una H# provata con ogni regola. Con le regole 1 un G4 valido il cui verdetto
+`regole_cancelli` del manifesto: una convocazione nuova nasce con le regole 3, e una chiave assente vale 1 (le
+convocazioni della 4.0 e della 5.0). La `versione` del manifesto non è una versione del formato: registra lo sciame
+che ha preparato la convocazione (dalla 5.0 alla 5.2 vi si scriveva 5.0), e nessun motore la legge. Ogni cancello registra le sue regole e si ricalcola sempre con quelle, così un
+cancello approvato non diventa mai non valido perché si è aggiornato il motore. `cancello C FASE --regole 2` (o
+`--regole 3`) applica quelle regole a un cancello nuovo di una convocazione più vecchia. Le regole 3 aggiungono alle
+regole 2 l'ordine di f4 letto dai sigilli (§«f4» sopra), i giri (il G4 di un giro aperto da `rifissa` segue solo le
+regole 3, `--regole 3` in una convocazione più vecchia, e lega e conta solo i file del giro) e la catena fino al
+contratto: ogni cancello ricontrolla G0, non solo il cancello subito prima, così un contratto o un file di `f0/`
+cambiato dopo G1 ferma ogni cancello successivo, e il cancello di un emendamento ricontrolla gli altri emendamenti
+approvati; e le sentinelle di f2, f3 e f4 (§«La sentinella») e le K# nominate nella chiusura (§«Dossier e consegne»).
+`--regole` alza soltanto le regole di un cancello, mai sotto quelle della convocazione. Gli allentamenti (un
+campo che continua sulle righe dopo, le copie dentro uno spazio di lavoro, un segnaposto `<da compilare>` soltanto
+citato in un frammento di codice, in un blocco di codice o in una frase) valgono con ogni regola; le condizioni più
+strette solo con le regole 2 e successive, con un'eccezione: «Esito: chiuso» vuole una H# provata con ogni regola. Con le regole 1 un G4 valido il cui verdetto
 non ha la riga Correttezza conta ancora come provato, con un avviso; con le regole 2 no, e la via d'uscita è
 aggiungere la riga e approvare di nuovo quel G4 con `--regole 2`. Un emendamento scritto senza la riga «Modifica:»
 passa il suo cancello con le regole 1, con un avviso, così i cancelli successivi di una convocazione più vecchia si
@@ -471,19 +501,37 @@ e nessun cancello se ne accorge. Lo tratta l'estensione crossroads, non il motor
 
 ### La sentinella
 
-Nelle classiche con almeno due rami, in f2, f3 e f4 lavora un ruolo non convocato, estratto a caso. Ha venti minuti in
-sola lettura e consegna:
+Nelle classiche e nelle complete, in f2, f3 e f4 lavora un ruolo non convocato, estratto a caso (in f3 e f4 con almeno
+due rami). Ha venti minuti in sola lettura e consegna:
 - un presupposto condiviso, messo alla prova con un controllo esterno;
-- le cifre e gli identificativi del dossier, ricontati dai file.
+- le cifre e gli identificativi della fase, ricontati dai file.
 
 Un suo K# entra solo con un file. Serve a trovare ciò che nessun profilo avrebbe convocato.
 
-`seleziona` (e `finanzia`) scrive la sua consegna in `f5/00-sentinella/TASK.md`, per un ruolo estratto con il seme
-della convocazione fra quelli che non sono in nessuna corsia e in nessuna squadra; consegna
+Con le regole 3 il motore scrive la consegna di ciascuna, e la consegna registra come è stato estratto il suo ruolo:
+- **f2.** `prepara` scrive `f2/00-sentinella/TASK.md`: i rami non si conoscono prima della selezione, e le schede e il
+  triage sono ciò che ogni ramo eredita. Consegna `f2/00-sentinella/SENTINELLA.md` prima del G2, che la lega con il
+  resto di f2 e senza di lei si rifiuta, salvo `--non-consegnati <ruolo>`.
+- **f3 e f4.** Con almeno due rami finanziati, `seleziona` (o `finanzia`) scrive `f3/00-sentinella/TASK.md` e
+  `f4/00-sentinella/TASK.md`, una volta e prima di ogni G5. Il G3 e il G4 avvisano finché manca la loro, perché un ramo
+  non aspetta una sentinella di tutta la convocazione; il primo G5 si rifiuta senza di loro, salvo che `CHIUSURA.md`
+  abbia la riga «Dichiarato mancante: sentinella: <motivo>», e ne lega le cartelle.
+- **L'estrazione.** Con il seme della convocazione, fra i ruoli liberi (che nessuna consegna della convocazione nomina
+  e che il suo profilo non convoca) adatti alla domanda, con una loro parola chiave in essa come la trova `ruoli
+  --domanda`; fra tutti i ruoli liberi quando nessuno è adatto. Ogni sentinella è un ruolo diverso, e `finanzia` e
+  `rifissa` rifiutano una sentinella come responsabile.
+
+`seleziona` (e `finanzia`) scrive anche la consegna della sentinella della chiusura in `f5/00-sentinella/TASK.md`, per
+un ruolo estratto con il seme della convocazione fra quelli che non sono in nessuna corsia e in nessuna squadra (con le
+regole 3, con l'estrazione qui sopra); consegna
 `f5/00-sentinella/SENTINELLA.md`, e solo lì: la fase f5 la lega solo il G5, così la sentinella non invalida nessun cancello
 precedente. Con le
 regole 2, il G4 avvisa finché manca e il G5 rifiuta senza di lei, salvo che `CHIUSURA.md` abbia la riga «Dichiarato
-mancante: sentinella: <motivo>». Un ramo mai finanziato non conta fra i due.
+mancante: sentinella: <motivo>». Un ramo mai finanziato non conta fra i due. Una chiusura successiva ha la sua
+sentinella accanto, `f5_2/00-sentinella/SENTINELLA.md`: quella di una chiusura precedente non conta, e il ruolo
+estratto non è nessuna delle sentinelle precedenti. Un giro aperto da `rifissa` non ha una sentinella sua: lo legge
+quella della chiusura successiva. Con le regole 1 e 2 il motore scrive solo la consegna della sentinella della
+chiusura, come nella 5.2.
 
 ### Le anomalie: il debugger
 
@@ -549,21 +597,40 @@ non c'è più; le consegne scritte dopo leggono gli emendamenti approvati.
 
 - **Il ramo radicale.** Con le regole 2 `seleziona` registra la H# radicale senza darle consegne, e
   `finanzia C H-00x` le dà il dossier e le consegne. Una radicale mai finanziata si chiude con `chiudi-ramo` come «non
-  finanziato», senza prova; con le regole 2 il G5 non chiude finché non è né finanziata né chiusa. Dopo il G5 non
-  girano né `finanzia` né `chiudi-ramo`.
+  finanziato», senza prova; con le regole 2 il G5 non chiude finché non è né finanziata né chiusa. Dopo un G5 che
+  chiude, o che non regge più, non girano né `finanzia`, né `chiudi-ramo`, né `rifissa`; dopo un G5 «non chiuso» che
+  regge agiscono, e danno le consegne della chiusura successiva (sotto).
 - **La chiusura anticipata** di un ramo finanziato è «non risolto dichiarato» e, con le regole 2, vuole
   `--prova-decisiva TESTO`, la prova che lo deciderebbe, e le cartelle del ramo che hanno solo la loro consegna intatta
   si tolgono (con le regole 1 restano, come nella 5.0). Una chiusura dichiarata non risolta senza la sua prova (5.0) la
   riceve con `chiudi-ramo C H-00x --motivo … --prova-decisiva TESTO`.
 - **La revisione del responsabile.** In f4 il responsabile del ramo ha una consegna in `f4/<H#>/00-<responsabile>/`, e
-  consegna `REVISIONE.md` dopo le controprove e i difetti.
+  consegna `REVISIONE.md` dopo le controprove e i difetti. Con le regole 3 il G4 controlla quell'ordine con i sigilli:
+  `CONTROPROVE.md` e `DIFETTI.md` sono sigillati prima di `REVISIONE.md`.
+- **Una selezione sola.** `seleziona` gira una volta: una seconda si rifiuta, perché scriverebbe la scheda vuota su un
+  dossier completato e le consegne sul lavoro dei rami.
+- **Un giro nuovo di un ramo.** `rifissa C H-00x` apre il giro 2 della f4 di un ramo su un pin rivisto (poi 3, …), in
+  `f4_2/<H#>/`: di nuovo ogni consegna di f4, il giro precedente fra gli ingressi, e un dossier suo,
+  `f4_2/<H#>/<H#>.md`, dalla scheda. Non cambia nessun file del giro 1, né `f3/<H#>/<H#>.md`, né un sigillo o un
+  cancello. `cancello C f4/H-00x` è allora il G4 dell'ultimo giro del ramo, `GATE_f4_2_<H#>.json`, con le regole 3: lega
+  e conta solo i file del giro, e lo stato del ramo (G5, `stato`) è quello del suo ultimo giro.
 - **Lo spazio di lavoro.** Un ruolo tiene i file di prova, le copie e i corpus in una cartella `lavoro/` dentro la sua
   cartella: i cancelli la legano come una voce sola, e i suoi file non si leggono come quelli del ramo.
 - **La chiusura.** La consegna dell'arbitro, `f5/01-arbitro/TASK.md`, nomina come uscita `f5/CHIUSURA.md`, il file che
   legge il G5. I suoi ingressi sono il contratto con i suoi emendamenti approvati, la selezione, il dossier, la revisione e
-  il verdetto di ogni ramo (o la sua chiusura anticipata), la sentinella e i cancelli; la revisione e la sentinella dove
-  hanno avuto una consegna. `seleziona`, `finanzia` e
-  `chiudi-ramo` la riscrivono.
+  il verdetto di ogni ramo (o la sua chiusura anticipata), le sentinelle e i cancelli; la revisione e le sentinelle dove
+  hanno avuto una consegna. Dice che cosa controlla il G5 di una non chiusura e nomina i rami su cui lo controlla: ogni
+  ramo finanziato non chiuso in anticipo e una radicale né finanziata né chiusa, ciascuno a meno che allora il suo G4
+  regga. `seleziona`, `finanzia` e `chiudi-ramo` la riscrivono, e così `rifissa`.
+- **Una chiusura successiva.** Dopo un G5 che regge e registra «Esito: non chiuso», `finanzia`, `chiudi-ramo` e
+  `rifissa` agiscono di nuovo e scrivono le consegne della chiusura successiva accanto alla prima, in `f5_2/` (poi
+  `f5_3/`, …), mai in `f5/`, che il primo G5 lega. Quando quella cartella esiste, `cancello C f5` controlla
+  `f5_2/CHIUSURA.md` e la sua sentinella `f5_2/00-sentinella/SENTINELLA.md`, lega ogni file di `f5_2/`, e scrive
+  `GATE_f5_2.json`, creato in esclusiva: `GATE_f5.json` e ogni file che lega restano identici byte per byte. Fino ad
+  allora `cancello C f5 --verifica` controlla di nuovo il primo G5, e un cancello f5 che scriverebbe si rifiuta: la
+  registrazione di una non chiusura non si sovrascrive mai. L'ultimo G5 è quello con l'ordinale più alto nel nome del
+  file (cifre ASCII, lette come intero), mai l'mtime più recente; un file di cancello che non si legge, o due nomi per
+  un ordinale, fermano ogni lettore.
 
 ## La strategia completa nei dettagli
 
@@ -626,11 +693,37 @@ non c'è più; le consegne scritte dopo leggono gli emendamenti approvati.
   - la prova minima, la soglia e il tempo;
   - la classe massima di prova;
   - i divieti e il destinatario.
-- Gli ID provvisori portano il prefisso del ruolo (`creativo-2`); gli H#, F# e K# definitivi li assegna l'arbitro.
+- Gli ID provvisori portano il prefisso del ruolo (`creativo-2`); gli H#, F# e K# definitivi li assegna l'arbitro, i
+  numeri delle K# dal registro della convocazione: `contraddizione C FILE… --domanda TESTO` scrive la successiva, con
+  la domanda e i file dei suoi due lati, in `CONTRADDIZIONI.jsonl`, che `stato` elenca; con le regole 3 il G5 vuole
+  ogni sua K# nominata nella chiusura, e il G4 avvisa di una K# citata e mai assegnata.
 - La risposta all'utente comincia con una riga «Sciame: <strategia>. Ruoli: <ruoli>.». Poi viene il risultato, con
   gli stati di ciò che afferma, gli aperti e al più tre decisioni che spettano a lui.
 
 ## Che cosa cambia
+
+**Le regole 3 dei cancelli (5.3).**
+- **L'ordine di f4** si legge dalle ore dei sigilli di `SIGILLI.jsonl`: le previsioni prima delle controprove prima di
+  `CONTROPROVE.md`, quelle dei ruoli che lavorano dopo di esse prima della loro uscita, ogni blocco aggiunto con il suo
+  sigillo; `REVISIONE.md` dopo `CONTROPROVE.md` e `DIFETTI.md`. Le consegne di f4 nominano il tipo delle previsioni di
+  ogni ruolo.
+- **I giri.** `rifissa` apre un giro nuovo della f4 di un ramo in `f4_<n>/<H#>/`; dopo un G5 «non chiuso» la chiusura
+  successiva va in `f5_<n>/`, con il suo cancello `GATE_f5_<n>.json`. Nessuno dei due tocca un file di un giro precedente.
+- **Una selezione sola:** una seconda `seleziona` si rifiuta.
+- **La catena fino al contratto.** Ogni cancello ricontrolla G0, e il cancello di un emendamento gli altri emendamenti
+  approvati, non solo il cancello subito prima.
+- **Le sentinelle di f2, f3 e f4** hanno la consegna scritta dal motore (`prepara`, `seleziona`, `finanzia`), estratte
+  fra i ruoli liberi adatti alla domanda, con l'estrazione nella consegna; il G2 vuole quella di f2, il primo G5 quelle
+  di f3 e f4, e le lega.
+- **Le K#** di una convocazione vengono da un registro solo, `CONTRADDIZIONI.jsonl` (`contraddizione C FILE…
+  --domanda TESTO`); il G5 vuole ciascuna nominata nella chiusura.
+- **Con ogni regola:** ogni consegna di f3 chiede la riga «decide: sì|no» che il G3 vuole; la consegna della chiusura
+  nomina i rami che una non chiusura deve nominare; una gara (e un ventaglio misto) ha un canarino per braccio, che il
+  G1 controlla.
+- **Compatibilità.** Una convocazione nuova nasce con le regole 3; ogni cancello approvato prima tiene le sue regole. I
+  giri si leggono dalle cartelle e dai file dei cancelli, e il manifesto tiene le chiavi della 5.2: un motore 5.2 carica
+  ancora una convocazione della 5.3, vede il giro 1 di ogni ramo e solo `GATE_f5.json`, quindi dà «non chiusa» una
+  convocazione chiusa di nuovo da una chiusura successiva e tiene rifiutati `finanzia` e `chiudi-ramo`.
 
 **Le regole 2 dei cancelli.**
 - **Cancelli con la versione.** `regole_cancelli` nel manifesto, `--regole` su un cancello; ogni cancello si ricalcola

@@ -594,7 +594,13 @@ def convening(base: Path, lang: str, sa: Path, sb: Path, same):
         (f2 / N("04-torneo", "04-tournament") / N("TORNEO.md", "TOURNAMENT.md")).write_text("H-001 ok\n")
         (f2 / N("05-selezione", "05-selection") / N("SELEZIONE.md", "SELECTION.md")).write_text(
             f"H-001 H-002\n{N('Controfirma', 'Countersign')}: arbitro\n")
+        # 5.3: the sentinel of f2 that prepare briefs delivers before G2 (gate rules 3)
+        sent = f2 / N("00-sentinella", "00-sentinel")
+        (sent / N("SENTINELLA.md", "SENTINEL.md")).write_text("checked\n")
     both("gate f2", ["gate", ca, "f2", "--notes", "x"], ["cancello", cb, "f2", "--note", "x"])
+    # 5.3: contradiction allocates the K# of the convening (CONTRADICTIONS.jsonl)
+    both("contradiction --question", ["contradiction", ca, ca / N("CONTRATTO.md", "CONTRACT.md"), "--question", "x?"],
+         ["contraddizione", cb, cb / N("CONTRATTO.md", "CONTRACT.md"), "--domanda", "x?"])
     both("select --radical --owner", ["select", ca, "H-001", "--radical", "H-002", "--owner", "architetto"],
          ["seleziona", cb, "H-001", "--radicale", "H-002", "--responsabile", "architetto"])
     check(f"M3 [{lang}]: select and seleziona write the same names", shape(ca) == shape(cb))
@@ -603,6 +609,10 @@ def convening(base: Path, lang: str, sa: Path, sb: Path, same):
     # gate rules 2: select records the radical, fund briefs it, a funded branch closes only with its deciding test
     both("fund", ["fund", ca, "H-002"], ["finanzia", cb, "H-002"])
     check(f"M3 [{lang}]: fund and finanzia write the same names", shape(ca) == shape(cb))
+    # 5.3: repin opens round 2 of the f4 of a funded branch (f4_2/H-001/)
+    both("repin --owner", ["repin", ca, "H-001", "--owner", "architetto"],
+         ["rifissa", cb, "H-001", "--responsabile", "architetto"])
+    check(f"M3 [{lang}]: repin and rifissa write the same names", shape(ca) == shape(cb))
     both("close-branch --reason of a funded branch, without the test", ["close-branch", ca, "H-002", "--reason", "x"],
          ["chiudi-ramo", cb, "H-002", "--motivo", "x"], expect=1)
     both("close-branch --reason --deciding-test", ["close-branch", ca, "H-002", "--reason", "no time",
