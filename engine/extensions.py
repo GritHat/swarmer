@@ -27,8 +27,8 @@ import compat as C  # noqa: E402
 FOLDER = "extensions"
 KEYS = {"name", "version", "requires", "commands", "documents", "skills", "coordinator", "state", "provides"}
 NAME = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
-VERSION_RE = re.compile(r"^\d+\.\d+$")
-REQ = re.compile(r"^>=\s*(\d+\.\d+)$")
+VERSION_RE = re.compile(r"^\d+\.\d+$", re.ASCII)
+REQ = re.compile(r"^>=\s*([0-9]+\.[0-9]+)$")
 FILE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]*(?:/[A-Za-z0-9_][A-Za-z0-9_.-]*)*$")
 _MODULES: dict = {}
 # the commands of the core (`verify` checks this list against the parser of swarmer.py): an extension command may not

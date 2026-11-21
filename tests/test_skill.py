@@ -77,6 +77,49 @@ def tree(root: Path) -> dict[str, str]:
             for p in sorted(root.rglob("*")) if p.is_file()}
 
 
+def repo_copy(dst: Path, src: Path = SOURCE) -> None:
+    """A copy of the repository as a ZIP of it holds it: in a git checkout, the files git tracks or would track (never
+    an ignored one, such as the .claude/ an installation writes at the root of the checkout); without git, the tree
+    without COPY_IGNORE."""
+    q = None
+    if (src / ".git").exists() and shutil.which("git"):
+        q = subprocess.run(["git", "-C", str(src), "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+                           capture_output=True, stdin=subprocess.DEVNULL)
+    if q is None or q.returncode != 0:
+        shutil.copytree(src, dst, ignore=COPY_IGNORE)
+        return
+    dst.mkdir(parents=True)
+    for rel in sorted(set(os.fsdecode(x) for x in q.stdout.split(b"\0") if x)):
+        s, d = src / rel, dst / rel
+        if not (s.is_file() or s.is_symlink()) or "__pycache__" in Path(rel).parts:
+            continue
+        d.parent.mkdir(parents=True, exist_ok=True)
+        if s.is_symlink():
+            d.symlink_to(os.readlink(s))
+        else:
+            shutil.copy2(s, d)
+
+
+def repo_copy_check(base: Path) -> None:
+    """repo_copy on a toy checkout: the ignored .claude/ and _work/ stay out, a tracked and an untracked file go in."""
+    r = base / "toy-checkout"
+    (r / ".claude" / "agents").mkdir(parents=True)
+    (r / ".claude" / "agents" / "mine.md").write_text("private\n")
+    (r / "_work").mkdir()
+    (r / "_work" / "x.txt").write_text("x\n")
+    (r / ".gitignore").write_text("/.claude/\n_work/\n")
+    (r / "tracked.txt").write_text("t\n")
+    env = dict(clean_env(), GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL="/dev/null")
+    for a in (["init", "-q"], ["add", "tracked.txt", ".gitignore"]):
+        subprocess.run(["git", "-C", str(r), *a], check=True, env=env, capture_output=True)
+    (r / "untracked.txt").write_text("u\n")
+    c = base / "toy-copy"
+    repo_copy(c, r)
+    got = sorted(p.relative_to(c).as_posix() for p in c.rglob("*") if p.is_file())
+    check("repo_copy copies what git tracks or would track, never an ignored file (.claude/, _work/)",
+          got == [".gitignore", "tracked.txt", "untracked.txt"], got)
+
+
 def aligned(out):
     return any(t["cli_aligned"].split("{profiles}")[1].strip() in out for t in (EN, IT))
 
@@ -347,7 +390,7 @@ def battery(base: Path):
           "skill/convene.py" in sk and "swarmer/convene.py" not in sk)
     # G3: a copy of the repository without .git is not an installed copy
     copy = base / "repo-main"
-    shutil.copytree(SOURCE, copy, ignore=COPY_IGNORE)
+    repo_copy(copy)
     work = base / "g3"
     work.mkdir()
     q = bash(copy / "swarmer.sh", "install", cwd=work)
@@ -369,7 +412,7 @@ def battery(base: Path):
         check(f"G5: --folder «{c}» is refused", rc == 1, out)
     # G6: a marker of swarmer.sh inside a document stops build; awk refuses «..»
     r = base / "g6"
-    shutil.copytree(SOURCE, r, ignore=COPY_IGNORE)
+    repo_copy(r)
     doc = r / "docs" / "en" / "HYPOTHESIS_CARD.md"
     doc.write_text(doc.read_text() + "#==== swarmer.sh: file ../../OUTSIDE ====\n")
     rc, out = py(r / "engine" / "swarmer.py", "--swarm", r, "build", "--output", base / "g6.sh")
@@ -433,7 +476,7 @@ def battery(base: Path):
     check("G13: check without claude exits with 0 if everything is aligned", rc == 0, out)
     # G22, G24, G25, G26: verify on the repository (in a copy)
     rep = base / "rep"
-    shutil.copytree(SOURCE, rep, ignore=COPY_IGNORE)
+    repo_copy(rep)
     (rep / "engine" / "jury.py").write_text((rep / "engine" / "jury.py").read_text() + "\n# retouch\n")
     rc, out = py(rep / "engine" / "swarmer.py", "--swarm", rep, "verify")
     check("G22: verify sees a swarmer.sh not up to date", rc == 1 and "is not up to date" in out, out)
@@ -465,7 +508,7 @@ def battery(base: Path):
 
     # 11. the checks of the second pass
     rep = base / "rep2"
-    shutil.copytree(SOURCE, rep, ignore=COPY_IGNORE)
+    repo_copy(rep)
     odd = rep / "docs" / "en" / "name with space.md"
     odd.write_text("x\n")
     rc, out = py(rep / "engine" / "swarmer.py", "--swarm", rep, "build", "--output", base / "n1.sh")
@@ -511,7 +554,7 @@ def battery(base: Path):
 
     # 12. the checks of the third pass
     rep = base / "rep3"
-    shutil.copytree(SOURCE, rep, ignore=COPY_IGNORE)
+    repo_copy(rep)
     outside_dir = base / "outside3"
     outside_dir.mkdir()
     (rep / "link").symlink_to(outside_dir)
@@ -542,7 +585,7 @@ def battery(base: Path):
     r = base / "x4"
     rc, _ = install(r)
     broken = base / "broken_rep"
-    shutil.copytree(SOURCE, broken, ignore=COPY_IGNORE)
+    repo_copy(broken)
     (broken / "engine" / "head.sh").unlink()
     cfg = r / ".swarmer" / "config.json"
     cfg.parent.mkdir(exist_ok=True)
@@ -561,7 +604,7 @@ def battery(base: Path):
     doc = r / "swarmer" / "docs" / "en" / "HYPOTHESIS_CARD.md"
     doc.write_text(doc.read_text() + "\nline of the project x6\n")
     newsrc = base / "source_x6"
-    shutil.copytree(SOURCE, newsrc, ignore=COPY_IGNORE)
+    repo_copy(newsrc)
     d6 = newsrc / "docs" / "en" / "HYPOTHESIS_CARD.md"
     d6.write_text(d6.read_text() + "\nnew factory line\n")
     py(newsrc / "engine" / "swarmer.py", "--swarm", newsrc, "build", "--output", newsrc / "swarmer.sh")
@@ -595,7 +638,7 @@ def battery(base: Path):
     rc, out = swarmer(r / "swarmer", "approve", f, env=env4)
     check("Y2: a forbidden entry split by a newline is refused", rc == 1, out)
     rep = base / "rep4"
-    shutil.copytree(SOURCE, rep, ignore=COPY_IGNORE)
+    repo_copy(rep)
     (rep / ".venv" / "bin").mkdir(parents=True)
     (rep / ".venv" / "bin" / "python").symlink_to(sys.executable)
     with open(rep / ".gitignore", "a") as g:
@@ -654,7 +697,7 @@ def battery(base: Path):
     forb5.write_text("nfake\nalphafake-betafake\nsecretfake\n")
     env5 = clean_env(SWARMER_FORBIDDEN=str(forb5))
     rep = base / "rep5"
-    shutil.copytree(SOURCE, rep, ignore=COPY_IGNORE)
+    repo_copy(rep)
     doc = rep / "docs" / "en" / "W1.md"
     doc.write_text("path C:\\nfake\n")
     rc, out = py(rep / "engine" / "swarmer.py", "--swarm", rep, "verify", env=env5)
@@ -683,7 +726,7 @@ def battery(base: Path):
 
     # 15. the checks of the sixth pass
     rep = base / "rep6"
-    shutil.copytree(SOURCE, rep, ignore=COPY_IGNORE)
+    repo_copy(rep)
     with open(rep / ".gitignore", "a") as g:
         g.write("HYPOTHESIS_CARD.md\n")
     subprocess.run(["git", "init", "-q", str(rep)], check=True)
@@ -702,7 +745,7 @@ def battery(base: Path):
     forb6.write_text("secretfake\n")
     env6 = clean_env(SWARMER_FORBIDDEN=str(forb6))
     rep = base / "rep7"
-    shutil.copytree(SOURCE, rep, ignore=COPY_IGNORE)
+    repo_copy(rep)
     (rep / "extra").mkdir()
     (rep / "extra" / "data.txt").write_text("secretfake\n")
     with open(rep / ".gitignore", "a") as g:
@@ -722,6 +765,7 @@ def battery(base: Path):
 def main():
     with tempfile.TemporaryDirectory() as base:
         battery(Path(base))
+        repo_copy_check(Path(base))
     failed = [n for n, ok in results if not ok]
     print(f"\n{len(results) - len(failed)}/{len(results)} checks passed")
     sys.exit(1 if failed else 0)

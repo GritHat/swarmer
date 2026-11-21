@@ -23,6 +23,34 @@ class Error(Exception):
     """The base error of the engine: every module raises it, or a subclass of it."""
 
 
+# The id regexes read ASCII digits only (5.3.1). Where the 5.3.0 form of one of them (\d Unicode) reads a text that the
+# strict form does not, that text writes an id, a number or a version in non-ASCII digits: its reader refuses it with
+# an error, and never skips it, so that no check that refused such a text in 5.3.0 now passes in silence (5.3.1,
+# third repair round).
+NON_ASCII_DIGIT = re.compile(r"[^\D0-9]")
+NUMBER = re.compile(r"\d+", re.ASCII)
+_WIDE: dict = {}
+
+
+def wide(rx: re.Pattern) -> re.Pattern:
+    """The 5.3.0 form of a strict regex: [0-9] read as any Unicode digit, and no re.ASCII. A detector, never a reader."""
+    w = _WIDE.get(rx)
+    if w is None:
+        w = _WIDE[rx] = re.compile(rx.pattern.replace("[0-9]", r"\d"), rx.flags & ~re.ASCII)
+    return w
+
+
+def refuse_wide(rx: re.Pattern, text: str, where: str, how: str = "match") -> None:
+    """Error if the 5.3.0 form of `rx` reads in `text` (with `how`: match, fullmatch, or search for every match) a
+    number with a non-ASCII digit."""
+    w = wide(rx)
+    hits = w.finditer(text) if how == "search" else [getattr(w, how)(text)]
+    bad = next((m.group(0) for m in hits if m and NON_ASCII_DIGIT.search(m.group(0))), None)
+    if bad is not None:
+        raise Error(f"{where}: «{bad.strip()[:60]}» is written with non-ASCII digits: the engine reads the digits 0-9 "
+                    "only (5.3.1)")
+
+
 LANGUAGES = ("en", "it")   # en is canonical
 
 # --- environment variables (F): the new name, then the old one ---
@@ -242,12 +270,12 @@ SEAL_LINE_RE = re.compile(r"^(?:sha256 dei byte che precedono questa riga|sha256
 SEAL_LINE_RE_L4 = re.compile(r"^sha256 dei byte che precedono questa riga: ([0-9a-f]{64})\s*$")
 # The round token: giro_<r> (4.0, it) and round_<r> (en); both are accepted in every dialect of L5.
 ROUND_PREFIX = {"en": "round_", "it": "giro_"}
-ROUND_TOKEN_RE = re.compile(r"^(?:giro|round)_(\d+)$")
+ROUND_TOKEN_RE = re.compile(r"^(?:giro|round)_(\d+)$", re.ASCII)
 # The lexicon L4: exactly the expressions of the 4.0 (Italian words only).
 L4 = {
     "values": {"TEST-OUTCOME": "(passa|fallisce)", "VOTE": "(si|sì|no)", "CLASS": "(leggera|ordinaria|plenaria)"},
-    "seal": re.compile(r"^SIGILLO ((?:giro_\d+/)?[A-Za-z0-9_.-]+\.(?:md|json)) ([0-9a-f]{64})\s*$"),
-    "verified": re.compile(r"^INCOMPATIBILE-VERIFICATO (giro_\d+) (D[0-9A-Za-z_.-]+)\s*$"),
+    "seal": re.compile(r"^SIGILLO ((?:giro_[0-9]+/)?[A-Za-z0-9_.-]+\.(?:md|json)) ([0-9a-f]{64})\s*$"),
+    "verified": re.compile(r"^INCOMPATIBILE-VERIFICATO (giro_[0-9]+) (D[0-9A-Za-z_.-]+)\s*$"),
     "delegated": r"^DELEGATA (D[0-9A-Za-z_.-]+)\s*$",
     "relevant": r"^PERTINENTE ([a-z][a-z0-9-]*)\s*$",
     "proxy": r"^DELEGA ([a-z][a-z0-9-]*) ([a-z][a-z0-9-]*)\s*$",
@@ -408,8 +436,10 @@ def _table_convert(table, value, dst: str):
 def _key_map(schema: Schema, path: tuple, key: str, dst: str) -> str:
     for en, it in schema.keymaps.get(path, ()):
         src_p, dst_p = (it, en) if dst == "en" else (en, it)
-        if key.startswith(src_p) and re.fullmatch(r"\d+", key[len(src_p):] or "x"):
-            return dst_p + key[len(src_p):]
+        if key.startswith(src_p):
+            refuse_wide(NUMBER, key[len(src_p):], f"the key «{key}»", "fullmatch")
+            if NUMBER.fullmatch(key[len(src_p):]):
+                return dst_p + key[len(src_p):]
     return key
 
 
@@ -599,7 +629,8 @@ CONVENE_FILES = {
     "REVISION.md": "REVISIONE.md", "work": "lavoro", "status.md": "stato.md",
     "CONTRADICTIONS.jsonl": "CONTRADDIZIONI.jsonl",
 }
-# Names with a variable part: (canonical regex, canonical template, Italian regex, Italian template).
+# Names with a variable part: (canonical regex, canonical template, Italian regex, Italian template). Every reader
+# matches them with re.ASCII, as every id regex of the engine: agent-\u0663 is not agent-3 (5.3.1).
 CONVENE_PATTERNS = [
     (r"agent-(\d+)", "agent-{0}", r"agente-(\d+)", "agente-{0}"),
     (r"\.(.+)\.lanes", ".{0}.lanes", r"\.(.+)\.corsie", ".{0}.corsie"),
@@ -623,9 +654,10 @@ def _name_in(name: str, lang: str, table: dict, patterns: list) -> str:
     if name in table:
         return table[name]
     for crx, _ct, _irx, itp in patterns:
-        m = re.fullmatch(crx, name)
+        m = re.fullmatch(crx, name, re.ASCII)
         if m:
             return itp.format(*m.groups())
+        refuse_wide(re.compile(crx, re.ASCII), name, "the name", "fullmatch")
     return name
 
 
@@ -634,9 +666,10 @@ def _name_canonical(name: str, table: dict, patterns: list) -> str:
     if name in rev:
         return rev[name]
     for _crx, ctp, irx, _it in patterns:
-        m = re.fullmatch(irx, name)
+        m = re.fullmatch(irx, name, re.ASCII)
         if m:
             return ctp.format(*m.groups())
+        refuse_wide(re.compile(irx, re.ASCII), name, "the name", "fullmatch")
     return name
 
 

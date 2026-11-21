@@ -52,6 +52,7 @@ import jury as J  # noqa: E402
 import paths as S  # noqa: E402
 
 LONG = "--long" in sys.argv
+A22_ROUNDS = 5   # the timed rounds of B11 A22 per size, interleaved; each size counts its fastest (5.3.1)
 results = []
 TD, TC, TR = "Crossroads-Decision", "Crossroads-Concern", "Crossroads-Reverts"
 T0 = "2026-11-17T08:00:00+01:00"
@@ -386,7 +387,33 @@ def group_extensions(base):
           "crossroads" in ns["swarmer"]["commands"] and "extensions" in ns["swarmer"]["commands"]
           and "derive" in ns["crossroads"]["commands"] and "--since" in ns["crossroads changes"]["options"])
     group_toy(base)
+    group_toy_installed(base)
     return p
+
+
+# The state files of an installed swarm (ROOT, FACTORY.json and their 4.0 names): a toy copied with them would be an
+# installed swarm of the project that holds the suite, with none of its extensions enabled (5.3.1).
+TOY_IGNORE = (".git", "__pycache__", "tests", "swarmer.sh", "sciame.sh", "ROOT", "FACTORY.json",
+              C.STATE_NAMES["ROOT"], C.STATE_NAMES["FACTORY.json"])
+
+
+def toy_copy(src, dst):
+    shutil.copytree(src, dst, ignore=shutil.ignore_patterns(*TOY_IGNORE))
+
+
+def group_toy_installed(base):
+    """The toy copy of an installed swarm, with ROOT and FACTORY.json, is not an installed swarm."""
+    import swarmer as SW
+    src = base / "installed-copy"
+    shutil.copytree(SOURCE, src, ignore=shutil.ignore_patterns(".git", "__pycache__", "tests"))
+    (src / "ROOT").write_text("..\n", encoding="utf-8")
+    (src / "FACTORY.json").write_text("{}\n", encoding="utf-8")
+    dst = base / "installed-toy"
+    toy_copy(src, dst)
+    check("toy extension: the toy copied from an installed swarm (ROOT, FACTORY.json) is not installed",
+          SW.installed(src) and not SW.installed(dst), (SW.installed(src), SW.installed(dst)))
+    shutil.rmtree(src)
+    shutil.rmtree(dst)
 
 
 def group_toy(base):
@@ -396,7 +423,9 @@ def group_toy(base):
     import aliases as AL
     import swarmer as SW
     sw = base / "toyswarm"
-    shutil.copytree(SOURCE, sw, ignore=shutil.ignore_patterns(".git", "__pycache__", "tests", "swarmer.sh", "sciame.sh"))
+    toy_copy(SOURCE, sw)
+    check("toy extension: the toy is a copy of the swarm, not an installed one, even from an installed suite",
+          not SW.installed(sw), sorted(x.name for x in sw.iterdir()))
     t = sw / "extensions" / "context"
     (t / "engine").mkdir(parents=True)
     (t / "engine" / "context.py").write_text(
@@ -1434,22 +1463,25 @@ def group_b(base):
           all(f"\n{x}/\n" in "\n" + gi for x in ("view", "log", "stage")), gi)
     rc, o, e = cx(r, "changes", "--since", "SNAPSHOT_" + first)
     check("B11: changes --since a kept snapshot lists the added records", rc == 0 and o.count("added ") >= 1, o[:300])
-    times = {}
-    for n in (500, 1000, 2000):
-        rr = new_repo(base, f"b11s{n}")
-        gen_records(rr, n)
-        best = None
-        for _ in range(2):
+    # A22's rule against the machine's load (5.3.1): each size is timed A22_ROUNDS times, the rounds interleaved
+    # (500, 1000, 2000, 500, …) so that a burst of load falls on every size alike, and each size counts its fastest
+    # wall-clock time. A load only adds time, so the minimum is the estimate least moved by it. The quantity (wall-clock
+    # time of derive and check) and the sealed threshold 2.5 are unchanged; 5.3.0 took the fastest of 2 runs in a row.
+    sizes, times, repos = (500, 1000, 2000), {}, {}
+    for n in sizes:
+        repos[n] = new_repo(base, f"b11s{n}")
+        gen_records(repos[n], n)
+    for _ in range(A22_ROUNDS):
+        for n in sizes:
             t = time.perf_counter()
-            st = X.Store({"swarm": SOURCE, "root": rr})
+            st = X.Store({"swarm": SOURCE, "root": repos[n]})
             gg, recs = X.derive(st)
             X.check(gg, st)
             dt_ = time.perf_counter() - t
-            best = dt_ if best is None else min(best, dt_)
-        times[n] = best
+            times[n] = min(times.get(n, dt_), dt_)
     ratios = [times[1000] / times[500], times[2000] / times[1000]]
-    check("B11 A22: derive time per doubling at 500/1000/2000 < 2.5 (the sealed threshold)", all(x < 2.5 for x in ratios),
-          {k: round(v, 3) for k, v in times.items()})
+    check(f"B11 A22: derive time per doubling at 500/1000/2000 < 2.5 (the sealed threshold; each size its fastest of "
+          f"{A22_ROUNDS} interleaved rounds)", all(x < 2.5 for x in ratios), {k: round(v, 3) for k, v in times.items()})
     # B12: RECORD-VANISHED survives a second derive
     r = new_repo(base, "b12")
     u = dec(r, "gone")

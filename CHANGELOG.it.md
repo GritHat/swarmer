@@ -2,6 +2,47 @@
 
 *[English](CHANGELOG.md)*
 
+## 5.3.1
+
+Una versione di correzione: quattro difetti del motore che l'atto ECC (D5) assegna alla 5.3 o alla 5.3.1, e due test
+che davano un falso fallimento. Compatibile all'indietro: nessun cambio di cancelli, manifesti o formati di file, e la
+versione del motore resta 5.3.
+
+### Il motore
+- G5 senza `f5/CHIUSURA.md`, o con una chiusura senza la riga dell'esito, segnala solo questo; non aggiunge più
+  «Outcome: closed but no H# proven», che nominava un esito che nessuno aveva scritto.
+- Ogni espressione degli identificativi del motore legge solo cifre ASCII (`[0-9]`, o `re.ASCII` dove l'espressione
+  non ha `\s`, `\b` o `\w`): `H-٠٣٥` e `H-０３５` a tutta larghezza non sono più `H-035`, né `D١` il `D1` di una
+  giuria, `K-٠٠١` una K#, `agente-٣`, `giro_٢` o `EMENDAMENTO_١.md` i nomi dei file di una convocazione o di una giuria.
+  `norm_id` li rifiuta come malformati, e così `seleziona`, `finanzia`, `chiudi-ramo` e `rifissa`. Dove la 5.3.0
+  leggeva un numero così, la 5.3.1 lo rifiuta con un errore e non lo salta mai: una cartella di ruolo `٠٣-statistico`
+  sotto `f3` o `f4`, una H# di una selezione o di un triage, una K# di una chiusura, un file di emendamento, di
+  cancello o di esito, una riga di sigillo 4.0 su `giro_١`, una scheda locale `### ٢.` e il `VERSION` dello sciame sono
+  errori, un token K# come `K-٠٠٧` resta segnalato come non allocato, e il controllo di riservatezza segnala ancora un
+  percorso della macchina scritto con cifre non ASCII. Gli spazi e i
+  confini di parola restano Unicode, come nella 5.3.0: una riga di giuria come «VOTO D1 no» con uno spazio non
+  separabile, o «PREFERISCO D١ (c)», resta una riga quasi conforme e un errore del conteggio, e «Risultati: <da
+  compilare>» con uno spazio non separabile resta un campo da compilare.
+- `INPUTS.md` e `ASSEMBLY.json` accanto al `TASK.md` di una consegna sono viste derivate (H-042, riga 24 della sua
+  revisione): con le regole 2 e 3 G4 non li conta più come il prodotto del ruolo (ENG-7a), e una chiusura anticipata
+  rimuove una cartella di consegna che contiene solo loro accanto al `TASK.md` invariato. Senza un'estensione che li
+  scrive non cambia nulla.
+
+### I test
+- `tests/test_crossroads.py` non copia più `ROOT` e `FACTORY.json` nel suo sciame giocattolo, così la batteria lanciata
+  da uno sciame installato dà tutte le sue verifiche, non 179/180. La sua verifica di scala A22 misura ogni dimensione
+  in 5 giri alternati e conta il più veloce, così una macchina carica non la fa più fallire; la soglia resta 2,5.
+- `tests/test_skill.py` costruisce le copie del repository (lo ZIP di G3, il controllo di pubblicazione di Y6, …) dai
+  file che git traccia o traccerebbe, mai da quelli ignorati, come la `.claude/` che un'installazione scrive alla
+  radice di un checkout.
+- `tests/test_engine531.py` copre le tre correzioni del motore, in inglese e in italiano, e gli spazi e le cifre non
+  ASCII che i rilevatori delle righe quasi conformi e il controllo dei segnaposto devono ancora cogliere.
+- `tests/test_engine531_diff.py` esegue ogni espressione che questa versione ha cambiato nel motore, e ognuna costruita
+  da esse, contro il motore della 5.3.0 (letto con `git show` dalla storia dell'albero dei sorgenti; senza di essa il
+  test non verifica nulla), su numeri in cifre ASCII, arabo-indiane, arabo-indiane estese, a tutta larghezza,
+  devanagari e in apice, e su spazi Unicode: la 5.3.1 dà il risultato della 5.3.0 sulle cifre ASCII, e rifiuta le
+  altre dove la 5.3.0 le leggeva.
+
 ## 5.3.0
 
 Compatibile all'indietro: ogni cancello si ricalcola con le regole con cui è stato approvato, così ogni cancello

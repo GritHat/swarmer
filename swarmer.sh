@@ -497,6 +497,34 @@ class Error(Exception):
     """The base error of the engine: every module raises it, or a subclass of it."""
 
 
+# The id regexes read ASCII digits only (5.3.1). Where the 5.3.0 form of one of them (\d Unicode) reads a text that the
+# strict form does not, that text writes an id, a number or a version in non-ASCII digits: its reader refuses it with
+# an error, and never skips it, so that no check that refused such a text in 5.3.0 now passes in silence (5.3.1,
+# third repair round).
+NON_ASCII_DIGIT = re.compile(r"[^\D0-9]")
+NUMBER = re.compile(r"\d+", re.ASCII)
+_WIDE: dict = {}
+
+
+def wide(rx: re.Pattern) -> re.Pattern:
+    """The 5.3.0 form of a strict regex: [0-9] read as any Unicode digit, and no re.ASCII. A detector, never a reader."""
+    w = _WIDE.get(rx)
+    if w is None:
+        w = _WIDE[rx] = re.compile(rx.pattern.replace("[0-9]", r"\d"), rx.flags & ~re.ASCII)
+    return w
+
+
+def refuse_wide(rx: re.Pattern, text: str, where: str, how: str = "match") -> None:
+    """Error if the 5.3.0 form of `rx` reads in `text` (with `how`: match, fullmatch, or search for every match) a
+    number with a non-ASCII digit."""
+    w = wide(rx)
+    hits = w.finditer(text) if how == "search" else [getattr(w, how)(text)]
+    bad = next((m.group(0) for m in hits if m and NON_ASCII_DIGIT.search(m.group(0))), None)
+    if bad is not None:
+        raise Error(f"{where}: «{bad.strip()[:60]}» is written with non-ASCII digits: the engine reads the digits 0-9 "
+                    "only (5.3.1)")
+
+
 LANGUAGES = ("en", "it")   # en is canonical
 
 # --- environment variables (F): the new name, then the old one ---
@@ -716,12 +744,12 @@ SEAL_LINE_RE = re.compile(r"^(?:sha256 dei byte che precedono questa riga|sha256
 SEAL_LINE_RE_L4 = re.compile(r"^sha256 dei byte che precedono questa riga: ([0-9a-f]{64})\s*$")
 # The round token: giro_<r> (4.0, it) and round_<r> (en); both are accepted in every dialect of L5.
 ROUND_PREFIX = {"en": "round_", "it": "giro_"}
-ROUND_TOKEN_RE = re.compile(r"^(?:giro|round)_(\d+)$")
+ROUND_TOKEN_RE = re.compile(r"^(?:giro|round)_(\d+)$", re.ASCII)
 # The lexicon L4: exactly the expressions of the 4.0 (Italian words only).
 L4 = {
     "values": {"TEST-OUTCOME": "(passa|fallisce)", "VOTE": "(si|sì|no)", "CLASS": "(leggera|ordinaria|plenaria)"},
-    "seal": re.compile(r"^SIGILLO ((?:giro_\d+/)?[A-Za-z0-9_.-]+\.(?:md|json)) ([0-9a-f]{64})\s*$"),
-    "verified": re.compile(r"^INCOMPATIBILE-VERIFICATO (giro_\d+) (D[0-9A-Za-z_.-]+)\s*$"),
+    "seal": re.compile(r"^SIGILLO ((?:giro_[0-9]+/)?[A-Za-z0-9_.-]+\.(?:md|json)) ([0-9a-f]{64})\s*$"),
+    "verified": re.compile(r"^INCOMPATIBILE-VERIFICATO (giro_[0-9]+) (D[0-9A-Za-z_.-]+)\s*$"),
     "delegated": r"^DELEGATA (D[0-9A-Za-z_.-]+)\s*$",
     "relevant": r"^PERTINENTE ([a-z][a-z0-9-]*)\s*$",
     "proxy": r"^DELEGA ([a-z][a-z0-9-]*) ([a-z][a-z0-9-]*)\s*$",
@@ -882,8 +910,10 @@ def _table_convert(table, value, dst: str):
 def _key_map(schema: Schema, path: tuple, key: str, dst: str) -> str:
     for en, it in schema.keymaps.get(path, ()):
         src_p, dst_p = (it, en) if dst == "en" else (en, it)
-        if key.startswith(src_p) and re.fullmatch(r"\d+", key[len(src_p):] or "x"):
-            return dst_p + key[len(src_p):]
+        if key.startswith(src_p):
+            refuse_wide(NUMBER, key[len(src_p):], f"the key «{key}»", "fullmatch")
+            if NUMBER.fullmatch(key[len(src_p):]):
+                return dst_p + key[len(src_p):]
     return key
 
 
@@ -1073,7 +1103,8 @@ CONVENE_FILES = {
     "REVISION.md": "REVISIONE.md", "work": "lavoro", "status.md": "stato.md",
     "CONTRADICTIONS.jsonl": "CONTRADDIZIONI.jsonl",
 }
-# Names with a variable part: (canonical regex, canonical template, Italian regex, Italian template).
+# Names with a variable part: (canonical regex, canonical template, Italian regex, Italian template). Every reader
+# matches them with re.ASCII, as every id regex of the engine: agent-\u0663 is not agent-3 (5.3.1).
 CONVENE_PATTERNS = [
     (r"agent-(\d+)", "agent-{0}", r"agente-(\d+)", "agente-{0}"),
     (r"\.(.+)\.lanes", ".{0}.lanes", r"\.(.+)\.corsie", ".{0}.corsie"),
@@ -1097,9 +1128,10 @@ def _name_in(name: str, lang: str, table: dict, patterns: list) -> str:
     if name in table:
         return table[name]
     for crx, _ct, _irx, itp in patterns:
-        m = re.fullmatch(crx, name)
+        m = re.fullmatch(crx, name, re.ASCII)
         if m:
             return itp.format(*m.groups())
+        refuse_wide(re.compile(crx, re.ASCII), name, "the name", "fullmatch")
     return name
 
 
@@ -1108,9 +1140,10 @@ def _name_canonical(name: str, table: dict, patterns: list) -> str:
     if name in rev:
         return rev[name]
     for _crx, ctp, irx, _it in patterns:
-        m = re.fullmatch(irx, name)
+        m = re.fullmatch(irx, name, re.ASCII)
         if m:
             return ctp.format(*m.groups())
+        refuse_wide(re.compile(irx, re.ASCII), name, "the name", "fullmatch")
     return name
 
 
@@ -1274,10 +1307,15 @@ FORMS = ("slices", "race", "mixed")
 RULES = ("first", "ranking", "best")
 CONTRACT_FIELDS = tuple(C.CONVENE_LINES["contract_fields"])   # canonical (English) headings
 TO_FILL = tuple(C.CONVENE_LINES["to_fill_in"].values())
-ID = re.compile(r"\bH-?0*(\d{1,3})\b")
+# Every id regex reads ASCII digits only (5.3.1): H-\u0660\u0663\u0665 and fullwidth H-035 are not H-035. It writes
+# [0-9], or takes re.ASCII when it has no \s, \b or \w: re.ASCII would make those ASCII too, and they stay Unicode as
+# in 5.3.0. A detector whose match is an error or an unfilled field (PLACEHOLDER, the near detectors of the juries) and
+# a negative lookahead keep \d: there a wider match fails closed.
+ID = re.compile(r"\bH-?0*([0-9]{1,3})\b")
 # A K# of the registry: K-001, as the allocator writes it, or K-01 and K-1 (ENG-15); not K-001-3, a K# numbered by its
-# branch, which is a token of its own (KTOKEN) and never names K-001.
-KID = re.compile(r"\bK-0*(\d{1,3})\b(?!-\d)")
+# branch, which is a token of its own (KTOKEN) and never names K-001. KTOKEN is a detector (every token it takes that
+# KID does not read as an allocated K# is a warning): it keeps \d, so K-\u0660\u0660\u0667 is warned, as in 5.3.0.
+KID = re.compile(r"\bK-0*([0-9]{1,3})\b(?!-\d)")
 KTOKEN = re.compile(r"\bK-\d+(?:-\d+)*\b")
 LIMIT_F1 = 40   # minutes for a brief of f1
 LIMIT_BRANCH = 60
@@ -1291,11 +1329,24 @@ STATE_DIRS = (".swarmer", C.FILE_NAMES["it"][".swarmer"])
 MANIFESTS = ("MANIFEST.json", C.CONVENE_FILES["MANIFEST.json"])
 SKIP_DIRS = (".git", "__pycache__")
 STATUS_NAMES = ("status.md", C.CONVENE_FILES["status.md"])
+# The views an extension derives beside a brief's TASK.md (its inputs, their assembly): never a role's deliverable, and
+# absent when no extension writes them (ENG-7a, the early closure).
+DERIVED_VIEWS = ("INPUTS.md", "ASSEMBLY.json")
 SENTINEL_DIRS = ("00-sentinel", C.CONVENE_FILES["00-sentinel"])
 SENTINEL_NAMES = ("SENTINEL.md", C.CONVENE_FILES["SENTINEL.md"])
 PHASE_SENTINELS = ("f2", "f3", "f4")   # the phases with a sentinel of their own under the rules 3 (ENG-17)
 HIDDEN_NAMES = ("HIDDEN_ASSUMPTIONS.md", C.CONVENE_FILES["HIDDEN_ASSUMPTIONS.md"])
-AMENDMENT_RE = re.compile("|".join(f"(?:{p[0]})|(?:{p[2]})" for p in C.CONVENE_PATTERNS if p[1].startswith("AMENDMENT")))
+AMENDMENT_RE = re.compile("|".join(f"(?:{p[0]})|(?:{p[2]})" for p in C.CONVENE_PATTERNS if p[1].startswith("AMENDMENT")),
+                         re.ASCII)
+# The names and labels the engine reads by their digits: a briefed role folder NN-<role> (f3, f4), an amendment's gate
+# label A<n> and its gate file, the version in VERSION. Each is read through a function that refuses, with an error, a
+# name that only their 5.3.0 form (\d Unicode) reads: «٠٣-statistico» is not skipped as no role folder (5.3.1, third
+# repair round).
+ROLE_DIR = re.compile(r"^\d+-", re.ASCII)
+ROLE_DIR_2 = re.compile(r"^\d\d-", re.ASCII)
+AMENDMENT_LABEL = re.compile(r"A\d+", re.ASCII)
+GATE_AMENDMENT = re.compile(r"GATE_A\d+\.json", re.ASCII)
+VERSION_NUMBER = re.compile(r"\d+\.\d+", re.ASCII)
 # The output of each briefed folder NN-<role> of a round of f4, by its two digits (select and repin write them so):
 # what the predictions of that folder are ordered against under the rules 3 (ENG-19).
 F4_OUTPUTS = {"00": "REVISION.md", "01": "COUNTERCHECKS.md", "02": "DEFECTS.md", "08": "HIDDEN_ASSUMPTIONS.md",
@@ -1359,7 +1410,9 @@ def swarmer_version() -> str:
     not a format version (the dialect is told by the file names and keys, the gates by gate_rules)."""
     p = BASE / "VERSION"
     words = p.read_text(encoding="utf-8", errors="replace").split() if p.is_file() else []
-    if words and re.fullmatch(r"\d+\.\d+", words[0]):
+    if words:
+        C.refuse_wide(VERSION_NUMBER, words[0], str(p), "fullmatch")
+    if words and VERSION_NUMBER.fullmatch(words[0]):
         return words[0]
     import generate as G
     return G.VERSION
@@ -1374,7 +1427,7 @@ def sha(p: Path) -> str:
 
 
 def norm_id(s: str) -> str:
-    m = re.fullmatch(r"H-?0*(\d{1,3})", s.strip(), re.I)
+    m = re.fullmatch(r"H-?0*(\d{1,3})", s.strip(), re.I | re.ASCII)
     if not m:
         raise Error(f"malformed ID: {s} (the form is H-001)")
     return f"H-{int(m.group(1)):03d}"
@@ -1818,14 +1871,27 @@ def seal_rows(conv: Convening) -> dict[str, list[dict]]:
 
 
 def ids_in(p: Path) -> list[str]:
+    """The H# a file names; an H# in non-ASCII digits (H-٠٠٩) is an error, not an H# left out (5.3.1)."""
     if not p.exists():
         return []
-    return list(dict.fromkeys(f"H-{int(n):03d}" for n in ID.findall(p.read_text(encoding="utf-8"))))
+    text = p.read_text(encoding="utf-8")
+    C.refuse_wide(ID, text, p.name, "search")
+    return list(dict.fromkeys(f"H-{int(n):03d}" for n in ID.findall(text)))
 
 
-def k_ids_in(text: str) -> list[str]:
-    """The K# a text cites (K-1, K-01 and K-001 are one), in the form the allocator writes."""
+def k_ids_in(text: str, where: str = "the text") -> list[str]:
+    """The K# a text cites (K-1, K-01 and K-001 are one), in the form the allocator writes; a K# in non-ASCII digits
+    (K-٠٠١) is an error, not a K# left out (5.3.1)."""
+    C.refuse_wide(KID, text, where, "search")
     return list(dict.fromkeys(f"K-{int(x):03d}" for x in KID.findall(text)))
+
+
+def _k_of(token: str) -> str | None:
+    """The allocated K# a KTOKEN token reads as, or None: a token in non-ASCII digits reads as none, so it is warned."""
+    try:
+        return (k_ids_in(token) or [None])[0]
+    except C.Error:
+        return None
 
 
 def contradictions(conv: Convening) -> dict[str, dict]:
@@ -1861,7 +1927,7 @@ def _unallocated(conv: Convening, files: list[Path]) -> list[str]:
             text = p.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        missing = [t for t in dict.fromkeys(KTOKEN.findall(text)) if (k_ids_in(t) or [None])[0] not in known]
+        missing = [t for t in dict.fromkeys(KTOKEN.findall(text)) if _k_of(t) not in known]
         if missing:
             out.append(f"{', '.join(missing)} cited in {p.relative_to(conv.folder)} and not allocated in "
                        f"{conv.name('CONTRADICTIONS.jsonl')}: contradiction C FILE… --question TEXT allocates a K#")
@@ -1953,6 +2019,8 @@ def amendments(conv: Convening, clashes: list[str] | None = None) -> dict[str, P
     out = {}
     for p in sorted(conv.folder.iterdir()) if conv.folder.is_dir() else []:
         mt = AMENDMENT_RE.fullmatch(p.name)
+        if not mt and p.is_file():
+            C.refuse_wide(AMENDMENT_RE, p.name, str(conv.folder), "fullmatch")
         if not mt or not p.is_file():
             continue
         phase = "A" + str(int(next(g for g in mt.groups() if g).lstrip("A")))
@@ -1968,7 +2036,11 @@ def amendments(conv: Convening, clashes: list[str] | None = None) -> dict[str, P
 
 def amendment_phases(conv: Convening, clashes: list[str] | None = None) -> list[str]:
     """The phases of the amendments: those with a file, and those with a gate whose amendment is gone."""
-    gated = [q.name[5:-5] for q in conv.folder.glob("GATE_A*.json") if re.fullmatch(r"GATE_A\d+\.json", q.name)]
+    gated = []
+    for q in conv.folder.glob("GATE_A*.json"):
+        C.refuse_wide(GATE_AMENDMENT, q.name, str(conv.folder), "fullmatch")
+        if GATE_AMENDMENT.fullmatch(q.name):
+            gated.append(q.name[5:-5])
     return sorted(set(amendments(conv, clashes)) | set(gated), key=lambda a: int(a[1:]))
 
 
@@ -1978,11 +2050,34 @@ def gated_amendments(conv: Convening) -> list[Path]:
     return [p for a, p in amendments(conv, clashes).items() if valid(conv, a)]
 
 
+def role_dir(name: str, two: bool = False) -> bool:
+    """`name` is NN-<role> (two digits with `two`), the folder of a briefed role. A number in non-ASCII digits
+    («٠٣-statistico») is an error: 5.3.0 read it as a role folder, and skipping it would skip its checks (5.3.1)."""
+    rx = ROLE_DIR_2 if two else ROLE_DIR
+    C.refuse_wide(rx, name, f"the folder «{name}»")
+    return bool(rx.match(name))
+
+
+def amendment_label(phase: str) -> bool:
+    """`phase` is the gate label of an amendment, A<n>; A<n> in non-ASCII digits is an error (5.3.1)."""
+    C.refuse_wide(AMENDMENT_LABEL, phase, "the phase", "fullmatch")
+    return bool(AMENDMENT_LABEL.fullmatch(phase))
+
+
+def _role_folder_by(d: Path, role: re.Pattern, h: re.Pattern) -> bool:
+    return bool(role.match(d.name) and h.fullmatch(d.parent.name)
+                and (d.parent.parent.name in ("f3", "f4") or split_label(f"{d.parent.parent.name}/H-000")[1] > 1))
+
+
 def _role_folder(d: Path) -> bool:
     """A folder f3/<H#>/NN-<role>, f4/<H#>/NN-<role> or f4_<n>/<H#>/NN-<role> (a briefed role): always the
-    convening's own."""
-    return bool(re.match(r"\d+-", d.name) and ID.fullmatch(d.parent.name)
-                and (d.parent.parent.name in ("f3", "f4") or split_label(f"{d.parent.parent.name}/H-000")[1] > 1))
+    convening's own. One that only 5.3.0's \\d reads so (a number in non-ASCII digits) is an error (5.3.1)."""
+    if _role_folder_by(d, ROLE_DIR, ID):
+        return True
+    if _role_folder_by(d, C.wide(ROLE_DIR), C.wide(ID)):
+        raise Error(f"{d}: a role folder or a branch numbered in non-ASCII digits: the engine reads the digits 0-9 "
+                    "only (5.3.1)")
+    return False
 
 
 def _is_manifest(p: Path) -> bool:
@@ -2142,7 +2237,7 @@ def _bind(top: Path, out: dict, exclude: set[str]) -> None:
                 continue
             if p.is_symlink():
                 out[str(p)] = _link(p, exclude, frozenset())
-            elif _aggregated(p, walked=r == top and bool(re.match(r"\d+-", x))):
+            elif _aggregated(p, walked=r == top and role_dir(x)):
                 out[str(p) + "/"] = _tree(p, exclude)
             else:
                 keep.append(x)
@@ -2186,7 +2281,7 @@ _FP: dict = {}
 def fingerprints(conv: Convening, phase: str, rules: int = 1) -> dict[str, str]:
     key = (str(conv.folder), phase, rules)
     if key not in _FP:
-        if re.fullmatch(r"A\d+", phase):
+        if amendment_label(phase):
             p = amendments(conv, []).get(phase)
             _FP[key] = {str(p): sha(p)} if p else {}
         else:
@@ -2443,7 +2538,7 @@ def arbiter_verdict(conv: Convening, h: str, d: Path | None = None) -> Path:
     """The verdict of the arbiter of `h`: NN-arbitro/VERDICT.md in the folder of its latest round (or of the round
     folder `d`), the folder that select and repin brief (09-arbitro)."""
     d = f4_dir(conv, h) if d is None else d
-    folders = [x for x in sorted(d.iterdir()) if x.is_dir() and re.match(r"\d+-", x.name)
+    folders = [x for x in sorted(d.iterdir()) if x.is_dir() and role_dir(x.name)
                and _role_of(x.name) == C.ROLES["arbiter"]] if d.is_dir() else []
     for x in folders:
         if (x / conv.name("VERDICT.md")).is_file():
@@ -2484,13 +2579,13 @@ def proven(conv: Convening, h: str, warnings: list[str] | None = None, lvl: int 
 
 
 def _role_of(folder_name: str) -> str:
-    return re.sub(r"^\d+-", "", folder_name)
+    return ROLE_DIR.sub("", folder_name, count=1) if role_dir(folder_name) else folder_name
 
 
 def team(conv: Convening, h: str) -> set[str]:
     """The roles of the f3 team of `h` (its folders NN-<role>)."""
     d = conv.folder / "f3" / h
-    return {_role_of(x.name) for x in d.iterdir() if x.is_dir() and re.match(r"\d+-", x.name)} if d.is_dir() else set()
+    return {_role_of(x.name) for x in d.iterdir() if x.is_dir() and role_dir(x.name)} if d.is_dir() else set()
 
 
 def sentinel_required(conv: Convening) -> bool:
@@ -2551,7 +2646,7 @@ def conditions(conv: Convening, phase: str, not_delivered: set[str], lvl: int = 
     warnings = info["warnings"]
     label = phase
     phase, k = split_label(label)
-    amend = re.fullmatch(r"A\d+", phase)
+    amend = amendment_label(phase)
     before = {"f1": "f0", "f2": "f1", "f5": "f2"}.get(phase)
     if amend:
         before = "f0"
@@ -2765,7 +2860,7 @@ def conditions(conv: Convening, phase: str, not_delivered: set[str], lvl: int = 
             else:
                 if open_:
                     errors.append(f"branches without a valid G4 nor an early closure: {', '.join(open_)}")
-                if bs and not proven_:
+                if bs and not proven_ and outcome == "closed":   # no outcome: its own error above, not «closed»
                     errors.append("Outcome: closed but no H# proven by its verdict (Correctness proven or verified): "
                                   "the cycle does not close; a recorded non-closure has the other line of "
                                   f"{C.CONVENE_LINES['outcome'][conv.lang]}")
@@ -2823,9 +2918,9 @@ def _g4_rules2(conv: Convening, h: str, folder: Path, nd: set[str], warnings: li
         errors.append(f"{p.relative_to(conv.folder)}: only the arbiter's verdict carries the line "
                       f"{C.CONVENE_LINES['correctness'][conv.lang]}")
     is_proven = v in PROVEN
-    skip = {n("TASK.md"), *STATUS_NAMES}
+    skip = {n("TASK.md"), *STATUS_NAMES, *DERIVED_VIEWS}
     for d in sorted(folder.iterdir()) if folder.is_dir() else []:
-        if not d.is_dir() or not re.match(r"\d\d-", d.name) or not (d / n("TASK.md")).is_file():
+        if not d.is_dir() or not role_dir(d.name, two=True) or not (d / n("TASK.md")).is_file():
             continue
         role = _role_of(d.name)
         if _not_delivered(conv, role, nd) or (d.name.startswith("08-") and not is_proven):
@@ -2835,7 +2930,7 @@ def _g4_rules2(conv: Convening, h: str, folder: Path, nd: set[str], warnings: li
     if is_proven:
         f3_team = team(conv, h)
         audits = [p for p in _own(folder, *HIDDEN_NAMES) if full(p) and len(p.relative_to(folder).parts) >= 2
-                  and re.match(r"\d+-", p.relative_to(folder).parts[0])
+                  and role_dir(p.relative_to(folder).parts[0])
                   and _role_of(p.relative_to(folder).parts[0]) not in f3_team]
         if not audits:
             errors.append(f"V2 missing on a proven result: {n('HIDDEN_ASSUMPTIONS.md')} under f4/{h}, by a role "
@@ -2916,7 +3011,7 @@ def _order_rules3(conv: Convening, folder: Path) -> list[str]:
             errors.append(f"{p.relative_to(c)} {wrong}")
             continue
         parts = p.relative_to(folder).parts
-        role = folder / parts[0] if len(parts) > 1 and re.match(r"\d\d-", parts[0]) else None
+        role = folder / parts[0] if len(parts) > 1 and role_dir(parts[0], two=True) else None
         if role is None or f4_output(role.name) == "COUNTERCHECKS.md":
             targets, kind = checks, "a prediction before the counterchecks"
         else:
@@ -2963,10 +3058,10 @@ def _tail_only(p: Path, s: dict) -> bool:
 def gate(ns) -> None:
     conv = Convening.load(Path(ns.C).resolve())
     phase = ns.phase
-    mt = re.fullmatch(r"[Aa]?(\d+)", phase)
+    mt = re.fullmatch(r"[Aa]?(\d+)", phase, re.ASCII)
     if mt:
         phase = f"A{int(mt.group(1))}"
-    if not re.fullmatch(r"f[0125]|f[34]/H-\d{3}|A\d+", phase):
+    if not re.fullmatch(r"f[0125]|f[34]/H-\d{3}|A\d+", phase, re.ASCII):
         raise Error(f"unknown phase: {phase}")
     lvl = max(level(conv), ns.rules or 1)
     # f4/<H#> is the branch's latest round; f5 the closure that is open (5.3): the label names its folder and gate.
@@ -3133,7 +3228,7 @@ def _convened(conv: Convening, cat: dict, skip: Path | None = None) -> set[str]:
     for h in all_branches(conv):
         for f in [c / "f3" / h] + [f4_dir(conv, h, j) for j in f4_rounds(conv, h)]:
             if f.is_dir():
-                used |= {_role_of(x.name) for x in f.iterdir() if x.is_dir() and re.match(r"\d+-", x.name)}
+                used |= {_role_of(x.name) for x in f.iterdir() if x.is_dir() and role_dir(x.name)}
     return used
 
 
@@ -3221,7 +3316,7 @@ def _sentinel_brief(conv: Convening, cat: dict, k: int = 1) -> Path | None:
     for h in bs:
         for f in [c / "f3" / h] + [f4_dir(conv, h, j) for j in f4_rounds(conv, h)]:
             if f.is_dir():
-                used |= {_role_of(x.name) for x in f.iterdir() if x.is_dir() and re.match(r"\d+-", x.name)}
+                used |= {_role_of(x.name) for x in f.iterdir() if x.is_dir() and role_dir(x.name)}
     agents = tuple(f"{p}-" for p in dict.fromkeys((prefix(), *C.AGENT_PREFIXES)))
     for j in range(1, k):
         task = f5_dir(conv, j) / n("00-sentinel") / n("TASK.md")
@@ -3361,7 +3456,8 @@ def fund(ns) -> None:
 
 
 def _remove_unused_briefs(conv: Convening, h: str) -> None:
-    """After an early closure, the f3/f4 folders of `h` that hold only the TASK.md the engine wrote, unchanged."""
+    """After an early closure, the f3/f4 folders of `h` that hold only the TASK.md the engine wrote, unchanged, and the
+    views derived beside it (DERIVED_VIEWS)."""
     try:
         prof = catalog()["profiles"][conv.m["profile"]]
     except (Error, OSError, KeyError, ValueError):
@@ -3371,7 +3467,7 @@ def _remove_unused_briefs(conv: Convening, h: str) -> None:
         d = task.parent
         if not d.is_dir() or d.is_symlink():
             continue
-        files = [p for p in d.rglob("*") if not p.is_dir()]
+        files = [p for p in d.rglob("*") if not p.is_dir() and not (p.parent == d and p.name in DERIVED_VIEWS)]
         if files == [task] and task.read_text(encoding="utf-8", errors="replace") == text:
             shutil.rmtree(d)
     f4 = conv.folder / "f4" / h
@@ -3612,8 +3708,8 @@ import compat as C  # noqa: E402
 FOLDER = "extensions"
 KEYS = {"name", "version", "requires", "commands", "documents", "skills", "coordinator", "state", "provides"}
 NAME = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
-VERSION_RE = re.compile(r"^\d+\.\d+$")
-REQ = re.compile(r"^>=\s*(\d+\.\d+)$")
+VERSION_RE = re.compile(r"^\d+\.\d+$", re.ASCII)
+REQ = re.compile(r"^>=\s*([0-9]+\.[0-9]+)$")
 FILE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]*(?:/[A-Za-z0-9_][A-Za-z0-9_.-]*)*$")
 _MODULES: dict = {}
 # the commands of the core (`verify` checks this list against the parser of swarmer.py): an extension command may not
@@ -5202,7 +5298,7 @@ def sha(data: bytes) -> str:
 # --- lexicons: L4 (exactly the 4.0, Italian words only) and L5 (both languages) ---
 
 ID_IT = r"(D[0-9A-Za-z_.-]+)"
-ID_EN = r"(D\d[0-9A-Za-z_.-]*)"
+ID_EN = r"(D[0-9][0-9A-Za-z_.-]*)"
 _VALUE = {
     "DEPENDS": None,   # two ids
     "TEST-OUTCOME": "test_outcome", "VOTE": "vote", "CLASS": "class",
@@ -5522,7 +5618,7 @@ SEAL_L4 = C.L4["seal"]
 VERIFIED_L4 = C.L4["verified"]
 _SW, _VW = (re.escape(W["SEAL"]), re.escape(W["INCOMPATIBLE-VERIFIED"]))
 SEAL_L5 = re.compile(rf"^(?:{_SW}|SEAL) (?:([A-Za-z]+_[^/\s]*)/)?([A-Za-z0-9_.-]+\.(?:md|json)) ([0-9a-f]{{64}})\s*$")
-VERIFIED_L5 = re.compile(rf"^(?:{_VW} (\S+) (D[0-9A-Za-z_.-]+)|INCOMPATIBLE-VERIFIED (\S+) (D\d[0-9A-Za-z_.-]*))\s*$")
+VERIFIED_L5 = re.compile(rf"^(?:{_VW} (\S+) (D[0-9A-Za-z_.-]+)|INCOMPATIBLE-VERIFIED (\S+) (D[0-9][0-9A-Za-z_.-]*))\s*$")
 _ROUND_ALT = "|".join(re.escape(x) for x in C.ROUND_PREFIX.values())
 SEAL_NEAR = re.compile(rf"^[\s\-*>#]*(?i:({_VW}|INCOMPATIBLE-VERIFIED|{_SW}|SEAL))[\s:*]+"
                        rf"(?:(?:{_ROUND_ALT})|D\d|[A-Za-z0-9_.-]+\.(?:md|json)\b|[A-Za-z0-9_.-]+/)")
@@ -5545,13 +5641,18 @@ def read_seals(j: Jury) -> Seals:
     s = Seals(j.lexicon)
     text = p.read_text(encoding="utf-8")
     if s.l4:
-        for line in text.splitlines():
+        for n, line in enumerate(text.splitlines(), 1):
             m = SEAL_L4.match(line)
             if m:
                 s.files[m.group(1)] = m.group(2)
             m = VERIFIED_L4.match(line)
             if m:   # the clerk confirms the incompatibility declared by the rapporteur in that round
                 s.verified.add((m.group(1), m.group(2)))
+            # a line that the 4.0 read and that names a round in non-ASCII digits is an error, not a line skipped
+            for rx in (SEAL_L4, VERIFIED_L4):
+                if not rx.match(line) and C.wide(rx).match(line):
+                    raise Error(f"{p.name} l. {n}: line not conforming: «{line.strip()[:80]}» (a round in non-ASCII "
+                                "digits)")
         return s
     inside = False
     for n, line in enumerate(text.splitlines(), 1):
@@ -5640,7 +5741,7 @@ def _protocol_lines(text: str, name: str, words: dict, near) -> list[tuple[str, 
 
 _DW, _RW, _PW = (re.escape(W[x]) for x in ("DELEGATED", "RELEVANT", "PROXY"))
 DELEGATED_L5 = [("DELEGATED", re.compile(rf"^{_DW} (D[0-9A-Za-z_.-]+)\s*$")),
-                ("DELEGATED", re.compile(r"^DELEGATED (D\d[0-9A-Za-z_.-]*)\s*$"))]
+                ("DELEGATED", re.compile(r"^DELEGATED (D[0-9][0-9A-Za-z_.-]*)\s*$"))]
 DELEGATED_NEAR = re.compile(rf"^[\s\-*>#]*(?:(?i:{_DW})[\s:*]+D[0-9A-Za-z_.-]|(?i:DELEGATED|DELEGATE)[\s:*]+D\d)")
 RELEVANT_L5 = [("RELEVANT", re.compile(rf"^(?:{_RW}|RELEVANT) ([a-z][a-z0-9-]*)\s*$")),
                ("PROXY", re.compile(rf"^(?:{_PW}|PROXY) ([a-z][a-z0-9-]*) ([a-z][a-z0-9-]*)\s*$"))]
@@ -5886,10 +5987,12 @@ def compute_round(j: Jury, roles, r, prev, seals: Seals):
 
 def outcome_files(folder: Path) -> list[tuple[int, Path]]:
     """The outcomes of a jury folder in its dialect, ordered by round number; outcomes of two dialects → error."""
-    en = [(int(m.group(1)), p) for p in folder.glob("OUTCOME_round_*.json")
-          if (m := re.fullmatch(r"OUTCOME_round_(\d+)\.json", p.name))]
-    it = [(int(m.group(1)), p) for p in folder.glob(C.JURY_PATTERNS[2][3].format("*"))
-          if (m := re.fullmatch(C.JURY_PATTERNS[2][2], p.name))]
+    names = (re.compile(r"OUTCOME_round_(\d+)\.json", re.ASCII), re.compile(C.JURY_PATTERNS[2][2], re.ASCII))
+    for rx, glob in zip(names, ("OUTCOME_round_*.json", C.JURY_PATTERNS[2][3].format("*"))):
+        for p in folder.glob(glob):   # OUTCOME_round_<non-ASCII digits>.json is no outcome to skip: an error
+            C.refuse_wide(rx, p.name, str(folder), "fullmatch")
+    en = [(int(m.group(1)), p) for p in folder.glob("OUTCOME_round_*.json") if (m := names[0].fullmatch(p.name))]
+    it = [(int(m.group(1)), p) for p in folder.glob(C.JURY_PATTERNS[2][3].format("*")) if (m := names[1].fullmatch(p.name))]
     if en and it:
         raise Error(f"{folder}: outcomes of two dialects")
     return sorted(en or it)
@@ -5994,7 +6097,7 @@ def count(folder, r):
 
 TABLE_ROW = re.compile(r"^\|\s*\d{4}")
 REQUEST_ROW = re.compile(
-    r"^\|\s*(\d{4}-\d{2}-\d{2})\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*`([a-z0-9-]+)`\s*\|\s*([^|]+?)\s*\|\s*([^|]*?)\s*\|\s*$")
+    r"^\|\s*([0-9]{4}-[0-9]{2}-[0-9]{2})\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*`([a-z0-9-]+)`\s*\|\s*([^|]+?)\s*\|\s*([^|]*?)\s*\|\s*$")
 CLOSED_ROW = re.compile(r"^- `([a-z0-9-]+)`: (" + "|".join(C.REGISTER_WORDS["created"]) + r"|(?:"
                         + "|".join(C.REGISTER_WORDS["merged"]) + r") `([a-z0-9-]+)`)")
 
@@ -6553,7 +6656,7 @@ STRATEGIES = ("single", "fan-out", "classic", "jury", "light-jury", "full", "ple
 # Reserved ids: the names of the strategies and of the skills, in every language (C.1).
 RESERVED = set(STRATEGIES) | C.RESERVED_IT | {"local", "light"}
 PREFIX_ALT = "|".join(C.AGENT_PREFIXES)
-TITLE = re.compile(r"^### (\d+(?:\.\d+)?)\. (.+?) — `(?:" + PREFIX_ALT + r")-([a-z0-9-]+)`\s*$")
+TITLE = re.compile(r"^### ([0-9]+(?:\.[0-9]+)?)\. (.+?) — `(?:" + PREFIX_ALT + r")-([a-z0-9-]+)`\s*$")
 TEXT_FIELDS = ("name", "short", "keywords", "body")
 CONTROL = re.compile(r"[\x00-\x1f\x7f  ]")
 
@@ -6696,7 +6799,7 @@ def validate(d: dict, langs: list[str] | None = None, existing=(), required=REQU
             errors.append(f"{where}: status «{v.get('status')}» not in {STATUSES}")
         if v.get("core") not in cores:
             errors.append(f"{where}: unknown core «{v.get('core')}»")
-        if not re.match(r"^\d+\.\d+$", str(v.get("version", ""))):
+        if not re.match(r"^\d+\.\d+$", str(v.get("version", "")), re.ASCII):
             errors.append(f"{where}: version missing or not in the form «4.0»")
         texts = v.get("texts") if isinstance(v.get("texts"), dict) else {}
         if not texts:
@@ -6809,6 +6912,9 @@ def local_cards(path: Path) -> dict[str, dict]:
     if not p.is_file():
         return {}
     lines = p.read_text(encoding="utf-8").splitlines()
+    for i, r in enumerate(lines, 1):   # a title numbered in non-ASCII digits is an error, never the previous card's text
+        if not TITLE.match(r):
+            C.refuse_wide(TITLE, r, f"{p.name} l. {i}")
     starts = [i for i, r in enumerate(lines) if TITLE.match(r)]
     out = {}
     short_re = _short_re()
@@ -20092,6 +20198,7 @@ import jury as J  # noqa: E402
 import paths as S  # noqa: E402
 
 LONG = "--long" in sys.argv
+A22_ROUNDS = 5   # the timed rounds of B11 A22 per size, interleaved; each size counts its fastest (5.3.1)
 results = []
 TD, TC, TR = "Crossroads-Decision", "Crossroads-Concern", "Crossroads-Reverts"
 T0 = "2026-11-17T08:00:00+01:00"
@@ -20426,7 +20533,33 @@ def group_extensions(base):
           "crossroads" in ns["swarmer"]["commands"] and "extensions" in ns["swarmer"]["commands"]
           and "derive" in ns["crossroads"]["commands"] and "--since" in ns["crossroads changes"]["options"])
     group_toy(base)
+    group_toy_installed(base)
     return p
+
+
+# The state files of an installed swarm (ROOT, FACTORY.json and their 4.0 names): a toy copied with them would be an
+# installed swarm of the project that holds the suite, with none of its extensions enabled (5.3.1).
+TOY_IGNORE = (".git", "__pycache__", "tests", "swarmer.sh", "sciame.sh", "ROOT", "FACTORY.json",
+              C.STATE_NAMES["ROOT"], C.STATE_NAMES["FACTORY.json"])
+
+
+def toy_copy(src, dst):
+    shutil.copytree(src, dst, ignore=shutil.ignore_patterns(*TOY_IGNORE))
+
+
+def group_toy_installed(base):
+    """The toy copy of an installed swarm, with ROOT and FACTORY.json, is not an installed swarm."""
+    import swarmer as SW
+    src = base / "installed-copy"
+    shutil.copytree(SOURCE, src, ignore=shutil.ignore_patterns(".git", "__pycache__", "tests"))
+    (src / "ROOT").write_text("..\n", encoding="utf-8")
+    (src / "FACTORY.json").write_text("{}\n", encoding="utf-8")
+    dst = base / "installed-toy"
+    toy_copy(src, dst)
+    check("toy extension: the toy copied from an installed swarm (ROOT, FACTORY.json) is not installed",
+          SW.installed(src) and not SW.installed(dst), (SW.installed(src), SW.installed(dst)))
+    shutil.rmtree(src)
+    shutil.rmtree(dst)
 
 
 def group_toy(base):
@@ -20436,7 +20569,9 @@ def group_toy(base):
     import aliases as AL
     import swarmer as SW
     sw = base / "toyswarm"
-    shutil.copytree(SOURCE, sw, ignore=shutil.ignore_patterns(".git", "__pycache__", "tests", "swarmer.sh", "sciame.sh"))
+    toy_copy(SOURCE, sw)
+    check("toy extension: the toy is a copy of the swarm, not an installed one, even from an installed suite",
+          not SW.installed(sw), sorted(x.name for x in sw.iterdir()))
     t = sw / "extensions" / "context"
     (t / "engine").mkdir(parents=True)
     (t / "engine" / "context.py").write_text(
@@ -21474,22 +21609,25 @@ def group_b(base):
           all(f"\n{x}/\n" in "\n" + gi for x in ("view", "log", "stage")), gi)
     rc, o, e = cx(r, "changes", "--since", "SNAPSHOT_" + first)
     check("B11: changes --since a kept snapshot lists the added records", rc == 0 and o.count("added ") >= 1, o[:300])
-    times = {}
-    for n in (500, 1000, 2000):
-        rr = new_repo(base, f"b11s{n}")
-        gen_records(rr, n)
-        best = None
-        for _ in range(2):
+    # A22's rule against the machine's load (5.3.1): each size is timed A22_ROUNDS times, the rounds interleaved
+    # (500, 1000, 2000, 500, …) so that a burst of load falls on every size alike, and each size counts its fastest
+    # wall-clock time. A load only adds time, so the minimum is the estimate least moved by it. The quantity (wall-clock
+    # time of derive and check) and the sealed threshold 2.5 are unchanged; 5.3.0 took the fastest of 2 runs in a row.
+    sizes, times, repos = (500, 1000, 2000), {}, {}
+    for n in sizes:
+        repos[n] = new_repo(base, f"b11s{n}")
+        gen_records(repos[n], n)
+    for _ in range(A22_ROUNDS):
+        for n in sizes:
             t = time.perf_counter()
-            st = X.Store({"swarm": SOURCE, "root": rr})
+            st = X.Store({"swarm": SOURCE, "root": repos[n]})
             gg, recs = X.derive(st)
             X.check(gg, st)
             dt_ = time.perf_counter() - t
-            best = dt_ if best is None else min(best, dt_)
-        times[n] = best
+            times[n] = min(times.get(n, dt_), dt_)
     ratios = [times[1000] / times[500], times[2000] / times[1000]]
-    check("B11 A22: derive time per doubling at 500/1000/2000 < 2.5 (the sealed threshold)", all(x < 2.5 for x in ratios),
-          {k: round(v, 3) for k, v in times.items()})
+    check(f"B11 A22: derive time per doubling at 500/1000/2000 < 2.5 (the sealed threshold; each size its fastest of "
+          f"{A22_ROUNDS} interleaved rounds)", all(x < 2.5 for x in ratios), {k: round(v, 3) for k, v in times.items()})
     # B12: RECORD-VANISHED survives a second derive
     r = new_repo(base, "b12")
     u = dec(r, "gone")
@@ -22982,8 +23120,8 @@ def e8(swarms: dict, base: Path):
             check(f"{L} [{lang}]: the installed wrapper {w} states no older version",
                   not re.search(r"\b5\.[0-2]\b", t), t[:300])
     plugin = json.loads((SOURCE / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
-    check(f"{L}: plugin.json (the Claude Code plugin and the Agensi package) is 5.3.0",
-          plugin.get("version") == "5.3.0", plugin.get("version"))
+    check(f"{L}: plugin.json (the Claude Code plugin and the Agensi package) is 5.3.1",
+          plugin.get("version") == "5.3.1", plugin.get("version"))
     for p in sorted((SOURCE / "wrappers").glob("*.py")):
         t = p.read_text(encoding="utf-8")
         check(f"{L}: wrappers/{p.name} states no 5.0, 5.1 or 5.2", not re.search(r"\b5\.[0-2]\b", t), t[:300])
@@ -23004,7 +23142,8 @@ def e8(swarms: dict, base: Path):
     for name in ("CHANGELOG.md", "CHANGELOG.it.md"):
         p = SOURCE / name
         t = p.read_text(encoding="utf-8") if p.is_file() else ""
-        check(f"{L}: {name} has a 5.3.0 entry", re.search(r"^## 5\.3\.0\b", t, re.M), t[:200])
+        check(f"{L}: {name} has a 5.3.1 and a 5.3.0 entry",
+              re.search(r"^## 5\.3\.1\b", t, re.M) and re.search(r"^## 5\.3\.0\b", t, re.M), t[:200])
     script = SOURCE / ".github" / "scripts" / "agensi.py"
     if script.is_file() and (SOURCE / ".git").exists() and shutil.which("git"):
         out_dir = base / "agensi-pkg"
@@ -23625,6 +23764,1476 @@ def main():
                 e8(swarms, base)
             except Exception:  # noqa: BLE001
                 check("e8 ran to the end", False, traceback.format_exc())
+    failed = [n for n, ok in results if not ok]
+    print(f"\n{len(results) - len(failed)}/{len(results)} checks passed")
+    sys.exit(1 if failed else 0)
+
+
+if __name__ == "__main__":
+    main()
+#==== swarmer.sh: file tests/test_engine531.py ====
+#!/usr/bin/env python3
+"""Tests of swarmer 5.3.1, the engine defects 1, 2 and 5 of the ECC act D5: python3 -I -B tests/test_engine531.py
+
+- D1: a G5 without f5/CLOSURE.md, or with one that has no outcome line, never reports «Outcome: closed …»;
+- D2: every id regex of the engine reads ASCII digits only: H-٠٣٥ and H-０３５ are not H-035, D١ is not D1, agent-٣ is
+  not agent-3 (norm_id, ids_in, the K# registry, the protocol lines of juries and crossroads, the names of the state
+  files); and only the digits: \\s, \\b and \\w stay Unicode, so the near detectors of the juries and the placeholder
+  check of the gates still catch a non-ASCII space or digit, as in 5.3.0 (5.3.1 repair round, D2 spaces);
+- D2 closed: where 5.3.0 refused a text with a non-ASCII digit, 5.3.1 refuses it with an error (the four sites of the
+  third repair round: a G4 role folder, a G2 selection, a local card, a machine path); tests/test_engine531_diff.py
+  checks every other site of the diff against 5.3.0's engine;
+- D5: INPUTS.md and ASSEMBLY.json, the derived views beside a brief's TASK.md, are not a deliverable for ENG-7a, and
+  an early closure removes a brief folder that holds only them beside the unchanged TASK.md;
+- A1-A7: the tester's acceptance checks of the same defects, of defect 7 and of the version (see their section).
+
+Reuses the installation and the convenings of tests/test_engine53.py (in English and in Italian). Exits with 1 if a
+check fails.
+"""
+from __future__ import annotations
+
+import ast
+import json
+import re
+import shutil
+import sys
+import tempfile
+import traceback
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+sys.dont_write_bytecode = True
+import test_engine53 as T  # noqa: E402
+
+C, V, SOURCE, check, results = T.C, T.V, T.SOURCE, T.check, T.results
+ARABIC, FULLWIDTH = "H-٠٣٥", "H-０３５"   # H-٠٣٥ and H-０３５
+RE_CALLS = {"compile", "match", "search", "fullmatch", "findall", "finditer", "sub", "subn", "split"}
+FLAG_POS = {"compile": 1, "match": 2, "search": 2, "fullmatch": 2, "findall": 2, "finditer": 2, "split": 3,
+            "sub": 4, "subn": 4}
+
+
+def d1(s: T.Swarm, base: Path):
+    L = f"D1 [{s.lang}]"
+    c = s.classic(rules=2)
+    s.gate_ok(c, "f2")
+    assert s.run("select", c, "H-001")[0] == 0
+    s.f3(c, "H-001")
+    s.f4(c, "H-001", correctness="refuted")
+    s.gate_ok(c, "f4/H-001")
+    s.sentinel(c)
+    CL = s.N("CLOSURE.md")
+    rc, out = s.verify(c, "f5")
+    check(f"{L}: a G5 without f5/{CL} is refused for the missing closure and reports no «Outcome: closed …»",
+          rc == 1 and f"{CL} of the arbiter is missing" in out and "closed but no H#" not in out, out)
+    p = s.f5(c) / CL
+    p.write_text("the arbiter wrote no outcome line\n", encoding="utf-8")
+    rc, out = s.verify(c, "f5")
+    check(f"{L}: a G5 whose f5/{CL} has no outcome line reports that line missing, not «Outcome: closed …»",
+          rc == 1 and f"{CL} without the line" in out and "closed but no H#" not in out, out)
+    s.closure(c, closed=True)
+    rc, out = s.verify(c, "f5")
+    check(f"{L}: a G5 whose f5/{CL} says closed, with no H# proven, still reports «Outcome: closed but no H# proven»",
+          rc == 1 and "closed but no H# proven" in out, out)
+
+
+def _pattern_text(node, consts):
+    """The text of a pattern argument when the source fixes it: a literal, an f-string, a + of them, or a module-level
+    name bound to one; None otherwise. Bytes patterns are ASCII already."""
+    if isinstance(node, ast.Constant):
+        return node.value if isinstance(node.value, str) else None
+    if isinstance(node, ast.JoinedStr):
+        return "".join(_pattern_text(v, consts) or "" for v in node.values)
+    if isinstance(node, ast.FormattedValue):
+        return _pattern_text(node.value, consts) or ""
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        a, b = _pattern_text(node.left, consts), _pattern_text(node.right, consts)
+        return None if a is None and b is None else (a or "") + (b or "")
+    if isinstance(node, ast.Name):
+        return consts.get(node.id)
+    return None
+
+
+def _has_ascii(node) -> bool:
+    return any(isinstance(x, ast.Attribute) and x.attr in ("ASCII", "A") for x in ast.walk(node)) or \
+        any(isinstance(x, ast.Constant) and isinstance(x.value, str) and x.value.startswith("(?a") for x in ast.walk(node))
+
+
+# The rule of the digits (5.3.1 repair round). re.ASCII changes \d, and also \s, \b and \w: so it goes only on a regex
+# without \s, \S, \b, \B, \w, \W, where it changes the digits alone; elsewhere a strict regex writes [0-9]. A Unicode
+# \d stays only in a negative lookaround (it refuses more) and in the detectors below, whose match turns a line into an
+# error or a field into unfilled: there a wider match fails closed, as in 5.3.0.
+DETECTORS = {"near", "SEAL_NEAR", "DELEGATED_NEAR", "PLACEHOLDER", "LIST_ITEM", "TABLE_ROW", "KTOKEN", "MACHINE_PATH"}
+_ESC = r"(?<!\\)(?:\\\\)*\\"
+UNICODE_CLASS = re.compile(_ESC + r"[sSbBwW]")
+DIGIT = re.compile(_ESC + "d")
+NEG_LOOK = re.compile(r"\(\?<?!(?:[^()\\]|\\.)*\)")
+
+
+def assigned_names(tree) -> dict:
+    """id(call) → the name or attribute a module or method assigns it to (PLACEHOLDER = re.compile(…), self.near = …)."""
+    out = {}
+    for st in ast.walk(tree):
+        if isinstance(st, ast.Assign) and isinstance(st.value, ast.Call):
+            for x in st.targets:
+                name = x.id if isinstance(x, ast.Name) else x.attr if isinstance(x, ast.Attribute) else None
+                if name:
+                    out[id(st.value)] = name
+    return out
+
+
+def digit_rule(text: str, ascii_flag: bool, target) -> str | None:
+    """Why a regex breaks the rule of the digits, or None."""
+    if ascii_flag and UNICODE_CLASS.search(text):
+        return "re.ASCII on a regex with \\s, \\b or \\w"
+    if not ascii_flag and DIGIT.search(NEG_LOOK.sub("", text)) and target not in DETECTORS:
+        return "Unicode \\d in a strict regex"
+    return None
+
+
+def unicode_digit_regexes(path: Path) -> list[str]:
+    """The re calls of a source file that break the rule of the digits."""
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    consts = {}
+    for st in tree.body:
+        if isinstance(st, ast.Assign) and len(st.targets) == 1 and isinstance(st.targets[0], ast.Name):
+            t = _pattern_text(st.value, consts)
+            if t is not None:
+                consts[st.targets[0].id] = t
+    names = assigned_names(tree)
+    bad = []
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr in RE_CALLS
+                and isinstance(node.func.value, ast.Name) and node.func.value.id == "re" and node.args):
+            continue
+        text = _pattern_text(node.args[0], consts)
+        if text is None:
+            continue
+        pos = FLAG_POS[node.func.attr]
+        flags = [k.value for k in node.keywords if k.arg == "flags"] + list(node.args[pos:pos + 1])
+        why = digit_rule(text, any(_has_ascii(f) for f in flags) or text.startswith("(?a"), names.get(id(node)))
+        if why:
+            bad.append(f"{path.relative_to(SOURCE)}:{node.lineno} {why}")
+    return bad
+
+
+def d2(s: T.Swarm, base: Path):
+    L = f"D2 [{s.lang}]"
+    if s.lang == "en":
+        files = sorted([*(SOURCE / "engine").glob("*.py"), *(SOURCE / "wrappers").glob("*.py")])
+        bad = [x for p in files for x in unicode_digit_regexes(p)]
+        check("D2: no re call of the engine and the wrappers passes re.ASCII with \\s, \\b or \\w, and a Unicode \\d is "
+              "left only in the near detectors and the placeholder check", files and not bad, bad)
+        for x in (ARABIC, FULLWIDTH, "H-٣٥", "H-0٣٥"):
+            try:
+                got = V.norm_id(x)
+            except V.Error:
+                got = None
+            check(f"D2: norm_id refuses {x!r}, it is not H-035", got is None, got)
+        check("D2: norm_id keeps the ASCII forms (h35, H-035, H035 → H-035)",
+              {V.norm_id(x) for x in ("h35", "H-035", "H035", " H-35 ")} == {"H-035"})
+        text = f"{ARABIC} and {FULLWIDTH} and K-٠٠١\n"
+        check("D2: ID and KID find no H# or K# in Arabic-Indic or fullwidth digits",
+              not V.ID.findall(text) and not V.KID.findall(text),
+              (V.ID.findall(text), V.KID.findall(text)))
+        check("D2: H-035 stays found beside them, alone", V.ID.findall(text + "H-035\n") == ["35"],
+              V.ID.findall(text + "H-035\n"))
+        check("D2: a state name with Arabic-Indic digits is not localized as an ASCII one: agent-٣ is refused (5.3.1 "
+              "third repair round: no longer left as is)", raises(C.localize_path, "agent-٣", "it", "convene") == "Error"
+              and C.localize_path("agent-3", "it", "convene") == "agente-3",
+              raises(C.localize_path, "agent-٣", "it", "convene"))
+        check("D2: round_٢ is not a round token", not C.ROUND_TOKEN_RE.match("round_٢"))
+        import jury as J
+        vote = J.Lexicon(5).lines["VOTE"][1]
+        check("D2: «VOTE D١ yes» is not a VOTE line on D1, «VOTE D1 yes» is",
+              not vote.match("VOTE D١ yes") and vote.match("VOTE D1 yes"))
+        check("D2: AMENDMENT_١.md and OUTCOME_round_١.json are not the names of amendment 1 and round 1 (the second "
+              "is refused)", not V.AMENDMENT_RE.fullmatch("AMENDMENT_١.md") and V.AMENDMENT_RE.fullmatch("AMENDMENT_1.md")
+              and raises(C.localize_path, "OUTCOME_round_١.json", "it", "jury") == "Error")
+    # through the command line: select refuses H-٠٠١ and briefs nothing
+    c = s.classic(rules=3)
+    s.gate_ok(c, "f2")
+    rc, out = s.run("select", c, "H-٠٠١")
+    check(f"{L}: select H-٠٠١ is refused and selects nothing (it is not H-001)",
+          rc == 1 and not (c / "f3" / "H-001").exists(), out)
+
+
+NBSP, EMSP = " ", " "   # NO-BREAK SPACE and EM SPACE: \s in Unicode, not in ASCII
+
+
+def d2_spaces(s: T.Swarm, base: Path):
+    """The 5.3.1 repair round (jury 20261121-jury-engine-5-3-1, round 0): D2 makes the digits ASCII and nothing else.
+    Each case below fails at the rejected pin (re.ASCII on the near detectors and on PLACEHOLDER) and holds in 5.3.0."""
+    if s.lang != "en":
+        return
+    import jury as J
+    import professionals as P
+    import extensions as E
+    L = "D2 spaces"
+
+    def count_error(line: str) -> bool:
+        try:
+            J.valid_lines(f"VOTE D1 yes\n{line}\n", "VOTE_x.md", set(J.VOTE_WORDS), J.L5)
+        except J.Error:
+            return True
+        return False
+
+    for line in (f"VOTE{NBSP}D1 no", f"CLASS{NBSP}D1 plenary", f"PREFER{NBSP}D1 (c)", "PREFER D١ (c)", "VOTE D١ no",
+                 f"{NBSP}VOTE D1 no", f"PREFER{EMSP}D1 (c)", f"VOTE{EMSP}D1 no", f"VOTO{NBSP}D1 no",
+                 f"CLASSE{NBSP}D1 plenaria"):
+        check(f"{L}: {line!a} is near-conforming, an error of the count (JURY.md §3), not prose",
+              J.L5.near.match(line) is not None and count_error(line), line)
+    check(f"{L}: control: «PREFER: D1 (c)» is an error, «I vote for D1» is prose",
+          count_error("PREFER: D1 (c)") and not count_error("I vote for D1"))
+    got = raises(J.valid_lines, f"VOTE D1 no{NBSP}\n", "VOTE_x.md", set(J.VOTE_WORDS), J.L5) or \
+        J.valid_lines(f"VOTE D1 no{NBSP}\n", "VOTE_x.md", set(J.VOTE_WORDS), J.L5)
+    check(f"{L}: a trailing NBSP after «VOTE D1 no» conforms, as in 5.3.0 (\\s*$ is Unicode)",
+          got == [("VOTE", ("D1", "no"))], got)
+    h = "0" * 64
+    for line in (f"SEAL{NBSP}round_0/PROPOSAL.md {h}", f"SEAL{EMSP}PROPOSAL.md {h}", f"{NBSP}SEAL round_0/x.md {h}",
+                 f"INCOMPATIBLE-VERIFIED{NBSP}round_0 D1", "INCOMPATIBLE-VERIFIED round_0 D١"):
+        ok = J.SEAL_NEAR.match(line) is not None and not J.SEAL_L5.match(line) and not J.VERIFIED_L5.match(line)
+        check(f"{L}: SEAL_NEAR: {line[:40]!a} is a non-conforming seal line, an error", ok, line)
+    check(f"{L}: control: «SEAL round_0/PROPOSAL.md <sha>» and «INCOMPATIBLE-VERIFIED round_0 D1<NBSP>» conform",
+          J.SEAL_L5.match(f"SEAL round_0/PROPOSAL.md {h}") and J.VERIFIED_L5.match(f"INCOMPATIBLE-VERIFIED round_0 D1{NBSP}"))
+    for text in (f"DELEGATED{NBSP}D1\n", f"DELEGATED{EMSP}D1\n", "DELEGATED D١\n", f"{J.W['DELEGATED']}{NBSP}D1\n"):
+        got = raises(J._protocol_lines, text, "DELEGATION.md", J.DELEGATED_L5, J.DELEGATED_NEAR)
+        check(f"{L}: DELEGATED_NEAR: {text.strip()!a} is an error, not prose", got == "Error", got)
+    got = raises(J._protocol_lines, f"DELEGATED D1{NBSP}\n", "DELEGATION.md", J.DELEGATED_L5, J.DELEGATED_NEAR) or \
+        J._protocol_lines(f"DELEGATED D1{NBSP}\n", "DELEGATION.md", J.DELEGATED_L5, J.DELEGATED_NEAR)
+    check(f"{L}: control: «DELEGATED D1<NBSP>» conforms", got == [("DELEGATED", ("D1",))], got)
+    # the placeholder check of the gates (ENG-25): unfilled() and full()
+    for ph in V.TO_FILL:
+        for text in (f"Goal:{NBSP}{ph}", f"Results:{NBSP}{ph}", f"Results: {ph}{NBSP}", f"{NBSP}{ph}", f"{ph}{NBSP}",
+                     f"Results: {ph}{EMSP}", f"Goal:{EMSP}{ph}", f"{EMSP}Results: {ph}", f"١. {ph}",
+                     f"-{NBSP}{ph}"):
+            check(f"{L}: unfilled({text!a}) is True: the field is left to fill in", V.unfilled(text + "\n"), text)
+        check(f"{L}: control: «Results: {ph}» unfilled, «Results: done» and a quoted `{ph}` filled",
+              V.unfilled(f"Results: {ph}\n") and not V.unfilled("Results: done\n")
+              and not V.unfilled(f"the mark `{ph}` is quoted\n"))
+    f = base / "nbsp-deliverable.md"
+    f.write_text(f"Results:{NBSP}{V.TO_FILL[0]}\n", encoding="utf-8")
+    check(f"{L}: full() refuses a deliverable whose only field is «Results:<NBSP>{V.TO_FILL[0]}»", not V.full(f))
+    f.unlink()
+    # the ids stay ASCII, beside Unicode spaces too
+    for x in (ARABIC, FULLWIDTH):
+        check(f"{L}: {x!a} is no id, between NBSPs too", V.ID.findall(f"{NBSP}{x}{NBSP}") == []
+              and raises(V.norm_id, x) == "Error", V.ID.findall(f"{NBSP}{x}{NBSP}"))
+    check(f"{L}: control: H-035 between NBSPs is H-035", V.ID.findall(f"{NBSP}H-035{NBSP}") == ["35"])
+    check(f"{L}: KID: «K-004-٣» is not K-004 (the lookahead refuses any digit, as in 5.3.0); K-004 is",
+          V.KID.findall("K-004-٣") == [] and V.KID.findall("K-004") == ["4"], V.KID.findall("K-004-٣"))
+    row = "| {} | conv | coordinator | `new-expert` | x | a reason long enough |"
+    check(f"{L}: a register row dated in Arabic-Indic digits is a row (TABLE_ROW) that does not conform (an error)",
+          J.TABLE_ROW.match(row.format("٢٠٢٦-١١-٢١")) and not J.REQUEST_ROW.match(row.format("٢٠٢٦-١١-٢١")))
+    check(f"{L}: control: a register row padded with NBSPs is a conforming row, as in 5.3.0",
+          J.TABLE_ROW.match(f"|{NBSP}2026-11-21 | x |")
+          and J.REQUEST_ROW.match(row.format("2026-11-21").replace("| ", f"|{NBSP}", 1)))
+    title = "### 22. Developer — `swarmer-developer`"
+    check(f"{L}: a card title with a trailing NBSP is a title, as in 5.3.0; one numbered ٢٢ is not",
+          P.TITLE.match(title + NBSP) and not P.TITLE.match(title.replace("22", "٢٢")))
+    check(f"{L}: «>=<NBSP>5.3» is a requirement, «>= ٥.٣» is not", E.REQ.match(f">={NBSP}5.3")
+          and not E.REQ.match(">= ٥.٣"))
+    check(f"{L}: a 4.0 seal line with a trailing NBSP conforms, one on giro_١ does not",
+          C.L4["seal"].match(f"SIGILLO giro_1/PROPOSTA.md {h}{NBSP}")
+          and not C.L4["seal"].match(f"SIGILLO giro_١/PROPOSTA.md {h}"))
+
+
+def d2_ktoken(s: T.Swarm, base: Path):
+    """The 5.3.1 second repair round (jury 20261121-jury-engine-5-3-1b, round 0): KTOKEN is a detector, so it keeps \\d
+    as in 5.3.0. A G4 under the rules 3 warns on a K# token with a non-ASCII digit that the registry does not hold
+    (_unallocated), and stays silent on the allocated K-001 in its three forms."""
+    if s.lang != "en":
+        return
+    L = "D2 KTOKEN"
+    c = s.classic(rules=3)
+    s.gate_ok(c, "f2")
+    assert s.run("select", c, "H-001")[0] == 0
+    s.f3(c, "H-001")
+    a = T.role_dir(c / "f3" / "H-001", "01-") / s.N("SOLUTION.md")
+    assert s.run("contradiction", c, a, "--question", "is the bound tight?")[0] == 0
+    check(f"{L}: the registry holds K-001 alone", list(V.contradictions(V.Convening(c))) == ["K-001"],
+          list(V.contradictions(V.Convening(c))))
+    s.f4_r3(c, "H-001", correctness="proven")
+    vp = T.role_dir(c / "f4" / "H-001", "09-") / s.N("VERDICT.md")
+    base_text = vp.read_text(encoding="utf-8")
+    for tok, warned in (("K-٠٠٧", True), ("K-００７", True), ("K-007٣", True), ("K-001-٣", True), ("K-007", True),
+                        ("K-001", False), ("K-1", False), ("K-01", False)):
+        vp.write_text(base_text + f"{tok} is open\n", encoding="utf-8")
+        rc, out = s.verify(c, "f4/H-001")
+        hit = f"{tok} cited in" in out and "not allocated" in out
+        check(f"{L}: G4 {'warns' if warned else 'does not warn'} on «{tok}» cited with the registry {{K-001}}",
+              rc == 0 and hit == warned and ("not allocated" in out) == warned, (rc, out))
+    vp.write_text(base_text, encoding="utf-8")
+
+
+def d2_closed(s: T.Swarm, base: Path):
+    """The 5.3.1 third repair round (jury 20261121-jury-engine-5-3-1c, round 0, avversario A1-A4): where 5.3.0 refused
+    a text with a non-ASCII digit, 5.3.1 refuses it too, with an error that says so; each check fails at the pin
+    4f208551…6670 and passes after. tests/test_engine531_diff.py checks every other site against 5.3.0."""
+    L = f"D2 closed [{s.lang}]"
+    import paths as S
+    import professionals as P
+    # A4: a briefed role folder renamed in non-ASCII digits after its deliverable is removed: G4 refused, not «holds»
+    c = s.classic(rules=2)
+    s.gate_ok(c, "f2")
+    assert s.run("select", c, "H-001")[0] == 0
+    s.f3(c, "H-001")
+    out4 = s.f4(c, "H-001", correctness="refuted")
+    d03 = out4["03"].parent
+    out4["03"].unlink()
+    for digits in ("٠٣", "０３"):
+        moved = d03.parent / f"{digits}{d03.name[2:]}"
+        d03.rename(moved)
+        try:
+            rc, out = s.verify(c, "f4/H-001")
+        finally:
+            moved.rename(d03)
+        check(f"{L}: A4: G4 refuses f4/H-001/{moved.name} without its deliverable, naming the non-ASCII digits "
+              "(5.3.0 refused it as a missing deliverable, the pin let it pass)",
+              rc == 1 and "non-ASCII digits" in out and "Traceback" not in out, out)
+    rc, out = s.verify(c, "f4/H-001")
+    check(f"{L}: A4 control: the ASCII folder without its deliverable is refused as before", rc == 1
+          and f"no deliverable of {d03.name[3:]}" in out, out)
+    out4["03"].write_text("done\n", encoding="utf-8")
+    rc, out = s.verify(c, "f4/H-001")
+    check(f"{L}: A4 control: with its deliverable back G4 holds", rc == 0, out)
+    # A1: G2 and a selection naming an H# in non-ASCII digits that the triage does not have
+    c = s.classic(rules=2)
+    sel = c / "f2" / s.N("05-selection") / s.N("SELECTION.md")
+    text = sel.read_text(encoding="utf-8")
+    for h in ("H-٠٠٩", "H-００９"):
+        sel.write_text(text + f"also {h}\n", encoding="utf-8")
+        rc, out = s.verify(c, "f2")
+        check(f"{L}: A1: G2 refuses a selection that names {h}, naming the non-ASCII digits (5.3.0 refused it as an H# "
+              "outside the triage, the pin let it pass)", rc == 1 and "non-ASCII digits" in out, out)
+    sel.write_text(text + "also H-009\n", encoding="utf-8")
+    rc, out = s.verify(c, "f2")
+    check(f"{L}: A1 control: the ASCII H-009 outside the triage is refused as before",
+          rc == 1 and "the triage does not have: H-009" in out, out)
+    sel.write_text(text, encoding="utf-8")
+    rc, out = s.verify(c, "f2")
+    check(f"{L}: A1 control: the selection as it was holds", rc == 0, out)
+    if s.lang != "en":
+        return
+    # A2: a local card numbered in non-ASCII digits does not vanish into the previous card
+    f = base / "AGENTS-local.md"
+    card = "### {}. {} — `swarmer-{}`\n\n- **In short:** {}\n\n"
+    for n in ("٢", "２"):
+        f.write_text(card.format(1, "Alpha", "loc-a", "a") + card.format(n, "Beta", "loc-b", "b"), encoding="utf-8")
+        got = raises(P.local_cards, f)
+        check(f"{L}: A2: local_cards refuses the card «### {n}. Beta» (5.3.0 read it, the pin added it to Alpha's)",
+              got == "Error", got)
+    f.write_text(card.format(1, "Alpha", "loc-a", "a") + card.format(2, "Beta", "loc-b", "b"), encoding="utf-8")
+    check(f"{L}: A2 control: «### 2. Beta» is a card of its own", sorted(P.local_cards(f)) == ["loc-a", "loc-b"],
+          sorted(P.local_cards(f)))
+    f.unlink()
+    # A3: the privacy detector sees a machine path in non-ASCII digits, as 5.3.0 did
+    for d in ("١٠٠٠", "１０００", "1000"):   # built here: the source itself carries no machine path (build's check)
+        x = f"/tmp/claude-{d}/x"
+        got = [m for m in S.public_problems(f"see {x}", []) if m.startswith("machine path")]
+        check(f"{L}: A3: public_problems reports the machine path {x!a}", got, got)
+
+
+def d5(s: T.Swarm, base: Path):
+    L = f"D5 [{s.lang}]"
+    views = {"INPUTS.md": "# The inputs\n\n| decision | U-0 | x |\n", "ASSEMBLY.json": "{\"a\": 1}\n"}
+    # ENG-7a: a role folder with TASK.md and the derived views only has not delivered
+    c = s.classic(rules=2)
+    s.gate_ok(c, "f2")
+    assert s.run("select", c, "H-001", "H-002")[0] == 0
+    s.f3(c, "H-001")
+    out4 = s.f4(c, "H-001", correctness="refuted")
+    d02 = out4["02"].parent
+    for b in [x for x in (c / "f4" / "H-001").iterdir() if x.is_dir() and re.match(r"\d\d-", x.name)]:
+        for n, t in views.items():
+            (b / n).write_text(t, encoding="utf-8")
+    out4["02"].unlink()
+    role = re.sub(r"^\d+-", "", d02.name)
+    rc, out = s.verify(c, "f4/H-001")
+    check(f"{L}: G4 refuses a role folder holding only TASK.md, INPUTS.md and ASSEMBLY.json (ENG-7a)",
+          rc == 1 and f"no deliverable of {role}" in out, out)
+    out4["02"].write_text("done\n", encoding="utf-8")
+    rc, out = s.verify(c, "f4/H-001")
+    check(f"{L}: with its real deliverable beside INPUTS.md and ASSEMBLY.json the same folder has delivered", rc == 0, out)
+    # early closure: the brief folders of H-002 that hold only TASK.md and the derived views go
+    f3 = c / "f3" / "H-002"
+    briefs = sorted(x for x in f3.iterdir() if x.is_dir() and re.match(r"\d\d-", x.name))
+    for b in briefs:
+        for n, t in views.items():
+            (b / n).write_text(t, encoding="utf-8")
+    kept = briefs[0]
+    (kept / s.N("SOLUTION.md")).write_text("a real deliverable\n", encoding="utf-8")
+    rc, out = s.run("close-branch", c, "H-002", "--reason", "no time", "--deciding-test", "the oracle on 10 cases")
+    gone = [b for b in briefs[1:] if b.exists()]
+    check(f"{L}: an early closure removes the f3 brief folders holding only TASK.md, INPUTS.md and ASSEMBLY.json",
+          rc == 0 and briefs[1:] and not gone, (out, gone))
+    check(f"{L}: and keeps the one with a real deliverable beside them, every file in place",
+          (kept / s.N("SOLUTION.md")).is_file() and all((kept / n).is_file() for n in views), out)
+
+
+# ------------------------------------------------------------------------------------------------------------------
+# A1-A7: the acceptance checks of the tester (swarmer-tester), written from impl/NOTES.md items 1-6 and from «Engine
+# defects found» 1, 2, 5, 7 of ecc-prompts-portfolio-design's f5/01-arbitro/ACCEPTANCE.md before reading D1-D5 above.
+# A1 (defect 1) under the rules 3 with two refuted branches, «not closed» and an open branch; A2 (defect 2) by an own
+# AST rule, four non-ASCII digit families, close-branch and gate labels; A5 (defect 5) under the rules 3 and 2, the f3
+# and f4 folders, and the folders an early closure must keep; A7 (defect 7) on a real installation; A6 the version.
+# They share with the patch the specification and test_engine53's Swarm.
+# ------------------------------------------------------------------------------------------------------------------
+
+CLOSED_NO_H = "closed but no H# proven"
+AR = "٠٣٥"        # Arabic-Indic 035
+FW = "０３５"        # fullwidth 035
+EX = "۰۳۵"        # extended Arabic-Indic 035
+MATH = "\U0001d7ce\U0001d7d1\U0001d7d3"   # mathematical bold 035
+
+
+def branch_case(s: T.Swarm, rules=3, ids=("H-001", "H-002")):
+    c = s.classic(rules=rules)
+    s.gate_ok(c, "f2")
+    rc, out = s.run("select", c, *ids)
+    assert rc == 0, out
+    return c
+
+
+# ---- A1: defect 1 ----
+
+def a1(s: T.Swarm):
+    L = f"A1 [{s.lang}]"
+    c = branch_case(s)
+    for h in ("H-001", "H-002"):
+        s.f3(c, h)
+        s.f4_r3(c, h, correctness="refuted")
+        s.gate_ok(c, f"f4/{h}")
+    s.sentinel(c, phase="f3")
+    s.sentinel(c, phase="f4")
+    s.sentinel(c)
+    CL = s.N("CLOSURE.md")
+    rc, out = s.verify(c, "f5")
+    check_missing = rc == 1 and CL in out and CLOSED_NO_H not in out
+    check(f"{L}: no {CL}: G5 refused for the missing closure only, no «{CLOSED_NO_H}»", check_missing, out)
+    p = s.f5(c) / CL
+    p.write_text("a closure without its outcome line\n", encoding="utf-8")
+    rc, out = s.verify(c, "f5")
+    check(f"{L}: {CL} without the outcome line: refused for the line, no «{CLOSED_NO_H}»",
+           rc == 1 and C.CONVENE_LINES["outcome"][s.lang] in out and CLOSED_NO_H not in out, out)
+    s.closure(c, closed=True)
+    rc, out = s.verify(c, "f5")
+    check(f"{L}: control: «closed» with no H# proven is still refused with «{CLOSED_NO_H}»",
+           rc == 1 and CLOSED_NO_H in out, out)
+    s.closure(c, closed=False)
+    rc, out = s.verify(c, "f5")
+    check(f"{L}: control: «not closed» with every G4 valid holds and never says «{CLOSED_NO_H}»",
+           rc == 0 and CLOSED_NO_H not in out, out)
+    # the check of the branches without G4 stays as before for a missing outcome
+    g = s.gate_file(c, "f4/H-002")
+    keep = g.read_bytes()
+    g.unlink()
+    p.unlink()
+    try:
+        rc, out = s.verify(c, "f5")
+        check(f"{L}: no {CL} and a branch without G4: the open branch is still reported, no «{CLOSED_NO_H}»",
+               rc == 1 and "without a valid G4" in out and "H-002" in out and CLOSED_NO_H not in out, out)
+    finally:
+        g.write_bytes(keep)
+
+
+# ---- A2: defect 2 ----
+
+ACC_FLAG_POS = {"compile": 1, "match": 2, "fullmatch": 2, "search": 2, "findall": 2, "finditer": 2, "split": 3,
+            "sub": 4, "subn": 4}
+
+
+def _acc_has_ascii(node) -> bool:
+    return any(isinstance(x, ast.Attribute) and x.attr in ("ASCII", "A") and isinstance(x.value, ast.Name)
+               and x.value.id == "re" for x in ast.walk(node))
+
+
+def _digit_literal(node) -> bool:
+    return any(isinstance(x, ast.Constant) and isinstance(x.value, str) and "\\d" in x.value for x in ast.walk(node))
+
+
+def _space_literal(node) -> bool:
+    return any(isinstance(x, ast.Constant) and isinstance(x.value, str) and UNICODE_CLASS.search(x.value)
+               for x in ast.walk(node))
+
+
+def ascii_sites(root: Path) -> tuple[int, list[str]]:
+    """Every call re.<f>(pattern, …) of engine/*.py whose pattern holds a literal \\d: those that read a Unicode digit
+    outside the DETECTORS (no re.ASCII, \\d outside a negative lookaround), and those whose re.ASCII would also make a
+    literal \\s, \\b or \\w of the pattern ASCII (the 5.3.1 repair round)."""
+    n, bad = 0, []
+    for f in sorted((root / "engine").glob("*.py")):
+        tree = ast.parse(f.read_text(encoding="utf-8"))
+        names = assigned_names(tree)
+        for x in ast.walk(tree):
+            if not (isinstance(x, ast.Call) and isinstance(x.func, ast.Attribute) and x.func.attr in ACC_FLAG_POS
+                    and isinstance(x.func.value, ast.Name) and x.func.value.id == "re"):
+                continue
+            pat = x.args[0] if x.args else next((k.value for k in x.keywords if k.arg == "pattern"), None)
+            if pat is None or not _digit_literal(pat):
+                continue
+            n += 1
+            i = ACC_FLAG_POS[x.func.attr]
+            flags = x.args[i] if len(x.args) > i else next((k.value for k in x.keywords if k.arg == "flags"), None)
+            asc = flags is not None and _acc_has_ascii(flags)
+            lits = [y.value for y in ast.walk(pat) if isinstance(y, ast.Constant) and isinstance(y.value, str)]
+            if asc and _space_literal(pat):
+                bad.append(f"{f.name}:{x.lineno} re.ASCII with \\s/\\b/\\w")
+            elif not asc and names.get(id(x)) not in DETECTORS and any(DIGIT.search(NEG_LOOK.sub("", v)) for v in lits):
+                bad.append(f"{f.name}:{x.lineno} Unicode \\d")
+    return n, bad
+
+
+def raises(f, *a):
+    try:
+        f(*a)
+    except Exception as e:  # noqa: BLE001
+        return type(e).__name__
+    return None
+
+
+def a2_inproc():
+    L = "A2"
+    n, bad = ascii_sites(SOURCE)
+    check(f"{L}: every re call of engine/*.py with a literal \\d reads ASCII digits outside the detectors, and no "
+          f"re.ASCII makes its \\s, \\b or \\w ASCII ({n} sites)", n >= 20 and not bad, bad)
+    for name, d in (("Arabic-Indic", AR), ("fullwidth", FW), ("extended Arabic-Indic", EX), ("math bold", MATH)):
+        check(f"{L}: norm_id refuses H-<{name} 035>", raises(V.norm_id, f"H-{d}") == "Error", raises(V.norm_id, f"H-{d}"))
+        check(f"{L}: ID finds no H# in H-<{name} 035>", V.ID.findall(f"H-{d}") == [], V.ID.findall(f"H-{d}"))
+    for form in ("H-035", "h-35", "H35", "H-0035", " H-035 "):
+        check(f"{L}: control: norm_id({form!r}) is H-035", raises(V.norm_id, form) is None
+               and V.norm_id(form) == "H-035", raises(V.norm_id, form))
+    check(f"{L}: ID finds only the ASCII H-035 beside an Arabic-Indic one", V.ID.findall(f"H-{AR} H-035") == ["35"],
+           V.ID.findall(f"H-{AR} H-035"))
+    check(f"{L}: KID finds no K# in K-<Arabic-Indic 004>, finds K-004", V.KID.findall("K-٠٠٤ K-004")
+           == ["4"], V.KID.findall("K-٠٠٤ K-004"))
+    check(f"{L}: KTOKEN, a detector, takes the Arabic-Indic K token whole, and KID reads no K# in it",
+           V.KTOKEN.findall("K-١-٢") == ["K-١-٢"] and V.KID.findall("K-١-٢") == [], V.KTOKEN.findall("K-١-٢"))
+    check(f"{L}: round_<Arabic-Indic 2> is not a round token, round_2 is",
+           C.ROUND_TOKEN_RE.match("round_٢") is None and C.ROUND_TOKEN_RE.match("round_2") is not None)
+    for lang in ("it",):
+        got, ctl = raises(C.localize_path, "agent-٣", lang, "convene"), C.localize_path("agent-3", lang, "convene")
+        check(f"{L}: agent-<Arabic-Indic 3> is not localized as an agent folder (it is refused), agent-3 is",
+               got == "Error" and ctl == "agente-3", (got, ctl))
+        got = raises(C.canonical_path, "agente-٣", "convene")
+        check(f"{L}: agente-<Arabic-Indic 3> has no canonical agent name (it is refused)", got == "Error", got)
+    am = [p for p in C.CONVENE_PATTERNS if p[1].startswith("AMENDMENT")][0]
+    check(f"{L}: AMENDMENT_A<Arabic-Indic 1>.md is not an amendment, AMENDMENT_A1.md is",
+           V.AMENDMENT_RE.fullmatch(am[1].format("A١")) is None
+           and V.AMENDMENT_RE.fullmatch(am[1].format("A1")) is not None)
+    import jury as J
+    lex = J.Lexicon(5)
+    for word in ("VOTE", C.JURY_WORDS["VOTE"] if hasattr(C, "JURY_WORDS") else J.W["VOTE"]):
+        if word not in lex.lines:
+            continue
+        rx = lex.lines[word][1]
+        val = next((v for v in ("yes", "si", "sì", "no") if rx.match(f"{word} D1 {v}")), None)
+        check(f"{L}: «{word} D<Arabic-Indic 1> {val}» is not a protocol line, «{word} D1 {val}» is",
+               val is not None and rx.match(f"{word} D١ {val}") is None, (word, val))
+    with tempfile.TemporaryDirectory() as t:
+        d = Path(t)
+        (d / "OUTCOME_round_1.json").write_text("{}\n", encoding="utf-8")
+        got = [r for r, _p in J.outcome_files(d)]
+        (d / "OUTCOME_round_٢.json").write_text("{}\n", encoding="utf-8")
+        bad = raises(J.outcome_files, d)
+        check(f"{L}: outcome_files reads OUTCOME_round_1.json, and refuses OUTCOME_round_<Arabic-Indic 2>.json beside it "
+              "(it does not skip it)", got == [1] and bad == "Error", (got, bad))
+    check(f"{L}: \\b stays Unicode, as in 5.3.0: «éH-035» holds no H#", V.ID.findall("éH-035") == [],
+           V.ID.findall("éH-035"))
+
+
+def a2_cli(s: T.Swarm):
+    L = f"A2 [{s.lang}]"
+    c = s.classic(rules=3)
+    s.gate_ok(c, "f2")
+    rc, out = s.run("select", c, f"H-٠٠١")
+    check(f"{L}: select H-<Arabic-Indic 001> is refused and briefs nothing",
+           rc == 1 and not (c / "f3" / "H-001").exists() and "Traceback" not in out, out)
+    rc, out = s.run("select", c, f"H-{FW[:1]}{FW[:1]}１")
+    check(f"{L}: select H-<fullwidth 001> is refused", rc == 1 and not (c / "f3" / "H-001").exists(), out)
+    rc, out = s.run("select", c, "H-001", "H-002")
+    check(f"{L}: after the refusals, select H-001 H-002 briefs both", rc == 0 and (c / "f3" / "H-002").is_dir(), out)
+    rc, out = s.run("close-branch", c, "H-٠٠٢", "--reason", "x", "--deciding-test", "t")
+    check(f"{L}: close-branch H-<Arabic-Indic 002> is refused and closes nothing",
+           rc == 1 and not (c / "f3" / "H-002" / s.N("EARLY_CLOSURE.json")).exists(), out)
+    for ph in ("f4/H-٠٠١", "A١"):
+        rc, out = s.verify(c, ph)
+        check(f"{L}: gate {ph!a} is an unknown phase", rc == 1 and "unknown phase" in out, out)
+
+
+# ---- A5: defect 5 ----
+
+def plant_views(d: Path):
+    (d / "INPUTS.md").write_text("# inputs\n- the contract, sha12 0123456789ab\n", encoding="utf-8")
+    (d / "ASSEMBLY.json").write_text('{"inputs": []}\n', encoding="utf-8")
+
+
+def a5(s: T.Swarm, rules: int):
+    L = f"A5 [{s.lang}] rules {rules}"
+    c = branch_case(s, rules=rules)
+    s.f3(c, "H-001")
+    out = (s.f4_r3 if rules == 3 else s.f4)(c, "H-001", correctness="refuted")
+    meas = out["03"]
+    folder = meas.parent
+    meas.unlink()
+    plant_views(folder)
+    rc, o = s.verify(c, "f4/H-001")
+    check(f"{L}: a role folder with only TASK.md, INPUTS.md and ASSEMBLY.json has no deliverable: G4 refused",
+           rc == 1 and "no deliverable of" in o and folder.name in o, o)
+    (folder / "INPUTS.md").unlink()
+    (folder / "ASSEMBLY.json").unlink()
+    (folder / "ASSEMBLY.md").write_text("an output named like a view but not one\n", encoding="utf-8")
+    rc, o = s.verify(c, "f4/H-001")
+    check(f"{L}: control: another .md (ASSEMBLY.md) still counts as a deliverable", rc == 0, o)
+    (folder / "ASSEMBLY.md").unlink()
+    plant_views(folder)
+    meas.write_text("done\n", encoding="utf-8")
+    rc, o = s.verify(c, "f4/H-001")
+    check(f"{L}: control: the deliverable beside the views: G4 holds", rc == 0, o)
+    # the early closure of the funded H-002, before its G3
+    dirs = sorted(t.parent for f in ("f3", "f4") for t in (c / f / "H-002").glob("*/TASK.md"))
+    assert len(dirs) >= 4, dirs
+    nested, extra, changed, plain = dirs[0], dirs[1], dirs[2], dirs[3]
+    for d in dirs:
+        if d != plain:
+            plant_views(d)
+    (nested / s.N("work")).mkdir()
+    (nested / s.N("work") / "INPUTS.md").write_text("a copy, nested\n", encoding="utf-8")
+    (extra / "notes.txt").write_text("a role's own file\n", encoding="utf-8")
+    (changed / "TASK.md").write_text((changed / "TASK.md").read_text(encoding="utf-8") + "edited\n", encoding="utf-8")
+    rc, o = s.run("close-branch", c, "H-002", "--reason", "measured inside H-001", "--deciding-test", "the oracle")
+    gone = [d for d in dirs if not d.exists()]
+    kept = [d for d in dirs if d.exists()]
+    if rules >= 2:
+        want_gone = [d for d in dirs if d not in (nested, extra, changed)]
+        check(f"{L}: the early closure removes the brief folders holding only TASK.md and the derived views "
+               f"({len(want_gone)} folders)", rc == 0 and sorted(gone) == sorted(want_gone),
+               (o, [str(d.relative_to(c)) for d in kept]))
+        check(f"{L}: control: it keeps a folder with a nested work/INPUTS.md, one with a file of its own, and one "
+               f"whose TASK.md changed", nested.is_dir() and extra.is_dir() and changed.is_dir(),
+               [str(d.relative_to(c)) for d in gone])
+    check(f"{L}: the closure is recorded", (c / "f3" / "H-002" / s.N("EARLY_CLOSURE.json")).is_file(), o)
+
+
+# ---- A7: defect 7 ----
+
+def a7(s: T.Swarm):
+    L = f"A7 [{s.lang}]"
+    import swarmer as SW
+    import test_crossroads as X
+    dst = s.base / f"toy-of-installed-{s.lang}"
+    if hasattr(X, "toy_copy"):
+        X.toy_copy(s.swarm, dst)
+    else:   # 5.3.0's ignore list
+        shutil.copytree(s.swarm, dst, ignore=shutil.ignore_patterns(".git", "__pycache__", "tests", "swarmer.sh",
+                                                                    "sciame.sh"))
+    check(f"{L}: the toy copy of a real installed swarm ({s.swarm.name}) is not installed",
+           SW.installed(s.swarm) and not SW.installed(dst), (SW.installed(s.swarm), sorted(x.name for x in dst.iterdir())))
+    shutil.rmtree(dst)
+
+
+# ---- A6: the version ----
+
+def a6():
+    L = "A6"
+    plugin = json.loads((SOURCE / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+    check(f"{L}: plugin.json is 5.3.1", plugin.get("version") == "5.3.1", plugin.get("version"))
+    for name in ("CHANGELOG.md", "CHANGELOG.it.md"):
+        t = (SOURCE / name).read_text(encoding="utf-8")
+        heads = re.findall(r"^## (\S+)", t, re.M)
+        check(f"{L}: {name} opens with 5.3.1, then 5.3.0", heads[:2] == ["5.3.1", "5.3.0"], heads[:3])
+    import generate as G
+    check(f"{L}: the engine version stays 5.3 (no format or gate changed)", G.VERSION == "5.3", G.VERSION)
+    rc, out = T.py(SOURCE / "engine" / "swarmer.py", "--swarm", SOURCE, "build", "--check")
+    check(f"{L}: build --check: swarmer.sh is up to date", rc == 0, out)
+
+
+def acc_once(s: T.Swarm, base: Path):
+    if s.lang == "en":
+        a2_inproc()
+        a6()
+
+
+def acc_a5(s: T.Swarm, base: Path):
+    a5(s, 3)
+    a5(s, 2)
+
+
+def acc_a1(s: T.Swarm, base: Path):
+    a1(s)
+
+
+def acc_a2(s: T.Swarm, base: Path):
+    a2_cli(s)
+
+
+def acc_a7(s: T.Swarm, base: Path):
+    a7(s)
+
+
+ACC_TESTS = (acc_once, acc_a1, acc_a2, acc_a5, acc_a7)
+
+
+TESTS = (d1, d2, d2_spaces, d2_ktoken, d2_closed, d5, *ACC_TESTS)
+
+
+def main():
+    only = set(sys.argv[1:])
+    with tempfile.TemporaryDirectory() as b:
+        base = Path(b)
+        for lang in ("en", "it"):
+            s = T.Swarm(base, lang)
+            for t in TESTS:
+                if only and t.__name__ not in only:
+                    continue
+                try:
+                    t(s, base)
+                except Exception:  # noqa: BLE001
+                    check(f"{t.__name__} [{lang}] ran to the end", False, traceback.format_exc())
+    failed = [n for n, ok in results if not ok]
+    print(f"\n{len(results) - len(failed)}/{len(results)} checks passed")
+    sys.exit(1 if failed else 0)
+
+
+if __name__ == "__main__":
+    main()
+#==== swarmer.sh: file tests/test_engine531_diff.py ====
+#!/usr/bin/env python3
+"""The differential test of swarmer 5.3.1 against 5.3.0 (third repair round): python3 -I -B tests/test_engine531_diff.py
+
+5.3.1 makes the id regexes of the engine read ASCII digits only (defect 2). A regex that 5.3.0 used as a check could
+then stop seeing a text, and the check passed in silence where 5.3.0 refused (jury 20261121-jury-engine-5-3-1c). This
+test reads 5.3.0's engine with `git show 40848fb:engine/<file>` (read only) into a temporary folder, and runs the same
+probes on both engines, each in a process of its own:
+
+- SITES lists every regex the 5.3.1 diff changed in engine/, and every regex built at runtime from them; a static check
+  recomputes the changed regexes from the two sources (re calls, and literals with \\d or [0-9]) and fails on one that
+  no site claims;
+- each site has a probe that drives the code that reads the regex, on a generated corpus: the numbers the site reads,
+  written in ASCII, Arabic-Indic, Extended Arabic-Indic, fullwidth, Devanagari and superscript digits, whole or mixed
+  with ASCII, and Unicode spaces where the site reads a space;
+- the rule, for every site and every string: on a string whose read digits are all ASCII, 5.3.1 gives 5.3.0's result;
+  on a string with a non-ASCII digit where 5.3.0 matched (a value, or an error), 5.3.1 refuses with an error (a
+  warning only at the one site whose 5.3.0 output is itself a warning), never the value, never silence; where 5.3.0
+  did not match, 5.3.1 does not match either or refuses.
+
+Without the git history of the source tree (an installation) the test says so and checks nothing. Exits with 1 if a
+check fails.
+"""
+from __future__ import annotations
+
+import argparse
+import ast
+import collections
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import types
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+SOURCE = HERE.parent
+REV = "40848fb"   # swarmer 5.3.0
+sys.dont_write_bytecode = True
+
+FAMILIES = {
+    "ascii": "0123456789",
+    "arabic-indic": "\u0660\u0661\u0662\u0663\u0664\u0665\u0666\u0667\u0668\u0669",
+    "ext-arabic-indic": "\u06f0\u06f1\u06f2\u06f3\u06f4\u06f5\u06f6\u06f7\u06f8\u06f9",
+    "fullwidth": "\uff10\uff11\uff12\uff13\uff14\uff15\uff16\uff17\uff18\uff19",
+    "devanagari": "\u0966\u0967\u0968\u0969\u096a\u096b\u096c\u096d\u096e\u096f",
+    "superscript": "\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079",   # not \d: the control
+}
+SPACES = {"space": " ", "nbsp": "\u00a0", "emsp": "\u2003", "ideographic": "\u3000", "none": ""}
+SHA = "0" * 64
+TWIN = "\u0436"   # CYRILLIC SMALL LETTER ZHE: \w and not \d, as a non-ASCII digit is for a strict regex
+
+results: list[tuple[str, bool]] = []
+
+
+def check(name, ok, detail=""):
+    results.append((name, bool(ok)))
+    print(("ok   " if ok else "FAILED ") + name + ("" if ok or not detail else f"\n     {str(detail)[:2500]}"),
+          flush=True)
+
+
+def non_ascii_digit(s: str) -> bool:
+    return any(c.isdecimal() and c not in "0123456789" for c in s)
+
+
+def renders(v: str):
+    """The number `v` (ASCII) in every family, whole, and mixed with ASCII (first digit or the others)."""
+    for fam, digits in FAMILIES.items():
+        t = v.translate(str.maketrans("0123456789", digits))
+        yield fam, t
+        if fam != "ascii" and sum(c.isdigit() for c in v) > 1:
+            i = next(k for k, c in enumerate(v) if c.isdigit())
+            yield fam + "+ascii", v[:i + 1] + t[i + 1:]
+            yield "ascii+" + fam, t[:i + 1] + v[i + 1:]
+
+
+def corpus(templates, values):
+    """(text, wide, twin): each template with {n} the number and {s} a space; wide when a digit of the number is not
+    ASCII, and then twin is the same text with each such digit written «ж», a letter that is \\w like a digit and in no
+    ASCII class: where 5.3.0 gives the twin the result it gives the text, it did not read those digits."""
+    out = []
+    for tpl in templates:
+        for v in values:
+            for _fam, d in renders(v):
+                for sp in (SPACES.values() if "{s}" in tpl else [""]):
+                    if sp and non_ascii_digit(d):
+                        continue   # the spaces with the ASCII number and the plain one: the space alone is read
+                    wide = "{n}" in tpl and non_ascii_digit(d)
+                    twin = tpl.format(n="".join(TWIN if non_ascii_digit(c) else c for c in d), s=sp) if wide else None
+                    out.append((tpl.format(n=d, s=sp), wide, twin))
+    return list(dict.fromkeys(out))
+
+
+# --------------------------------------------------------------------------------------------------------------------
+# The sites: (id, file, function or <module>, fragments of the changed regex items it claims, class, probe); a fragment
+# «=x» claims the item x alone. The class says what 5.3.1 does where 5.3.0 read a non-ASCII digit: «explicit» it
+# refused already before this round, «fixed» this round makes it refuse, «detector» its \d is Unicode as in 5.3.0 (a
+# warning or a problem, as 5.3.0 gave), «new» a regex this round adds to refuse.
+# --------------------------------------------------------------------------------------------------------------------
+
+SITES = [
+    # compat.py
+    ("C1 ROUND_TOKEN_RE", "compat.py", "<module>", ("(?:giro|round)_(\\d+)$",), "explicit", "seals_l5"),
+    ("C2 L4 seal", "compat.py", "<module>", ("SIGILLO ((?:giro_",), "fixed", "seals_l4"),
+    ("C3 L4 verified", "compat.py", "<module>", ("INCOMPATIBILE-VERIFICATO (giro_",), "fixed", "seals_l4"),
+    ("C4 _key_map", "compat.py", "_key_map", ("key[len(src_p):]", "=\\d+"), "fixed", "key_map"),
+    ("C5 _name_in (CONVENE_PATTERNS, JURY_PATTERNS)", "compat.py", "_name_in", ("re.fullmatch(crx", "re.compile(crx"),
+     "fixed", "localize"),
+    ("C6 _name_canonical (CONVENE_PATTERNS, JURY_PATTERNS)", "compat.py", "_name_canonical",
+     ("re.fullmatch(irx", "re.compile(irx"), "fixed", "canonical"),
+    ("C7 NUMBER (new)", "compat.py", "<module>", ("NUMBER = ", 're.compile(r"\\d+", re.ASCII)', "=\\d+"), "new",
+     "key_map"),
+    ("C8 NON_ASCII_DIGIT (new)", "compat.py", "<module>", ("[^\\D0-9]",), "new", "key_map"),
+    ("C9 wide, the 5.3.0 form of a strict regex (new)", "compat.py", "wide", ("=[0-9]", "=\\d", "rx.pattern.replace"),
+     "new", "key_map"),
+    # convene.py
+    ("V1 ID", "convene.py", "<module>", ("\\bH-?0*(",), "fixed", "ids_in"),
+    ("V2 KID", "convene.py", "<module>", ("\\bK-0*(",), "fixed", "k_ids_in"),
+    ("V2b KID read through KTOKEN (_unallocated)", "convene.py", "_unallocated", (), "detector", "unallocated"),
+    ("V3 norm_id", "convene.py", "norm_id", ("H-?0*(\\d{1,3})",), "explicit", "norm_id"),
+    ("V4 AMENDMENT_RE (built from CONVENE_PATTERNS)", "convene.py", "<module>", ('p[1].startswith("AMENDMENT")',),
+     "fixed", "amendments"),
+    ("V5 swarmer_version", "convene.py", "swarmer_version", ("\\d+\\.\\d+",), "fixed", "version_file"),
+    ("V6 amendment_phases (GATE_A)", "convene.py", "amendment_phases", ("GATE_A\\d+\\.json",), "fixed", "gate_files"),
+    ("V7 _role_folder", "convene.py", "_role_folder", ("\\d+-",), "fixed", "role_folder"),
+    ("V8 _bind", "convene.py", "_bind", ("\\d+-",), "fixed", "bind"),
+    ("V9 fingerprints (A<n>)", "convene.py", "fingerprints", ("A\\d+",), "fixed", "fingerprints"),
+    ("V10 arbiter_verdict", "convene.py", "arbiter_verdict", ("\\d+-",), "fixed", "arbiter"),
+    ("V11 _role_of", "convene.py", "_role_of", ("^\\d+-",), "fixed", "role_of"),
+    ("V12 team", "convene.py", "team", ("\\d+-",), "fixed", "team"),
+    ("V13 conditions (A<n>)", "convene.py", "conditions", ("A\\d+",), "fixed", "conditions_amend"),
+    ("V14 _g4_rules2 (the briefed role folders, A4)", "convene.py", "_g4_rules2", ("\\d\\d-",), "fixed",
+     "g4_deliverable"),
+    ("V15 _g4_rules2 (the V2 audits)", "convene.py", "_g4_rules2", ("=\\d+-", "p.relative_to(folder).parts[0]"),
+     "fixed", "g4_audit"),
+    ("V16 _order_rules3", "convene.py", "_order_rules3", ("\\d\\d-",), "fixed", "order_rules3"),
+    ("V17 gate (A<n>)", "convene.py", "gate", ("[Aa]?(\\d+)",), "explicit", "gate_label"),
+    ("V18 gate (the phase)", "convene.py", "gate", ("f[0125]|f[34]/H-\\d{3}|A\\d+",), "explicit", "gate_label"),
+    ("V19 _convened", "convene.py", "_convened", ("\\d+-",), "fixed", "convened"),
+    ("V20 _sentinel_brief", "convene.py", "_sentinel_brief", ("\\d+-",), "fixed", "sentinel_brief"),
+    ("V21 ROLE_DIR, ROLE_DIR_2 (new)", "convene.py", "<module>",
+     ("ROLE_DIR", "=^\\d+-", "=^\\d\\d-", 're.compile(r"^\\d+-"', 're.compile(r"^\\d\\d-"'), "new", "role_of"),
+    ("V22 AMENDMENT_LABEL (new)", "convene.py", "<module>", ("AMENDMENT_LABEL", "=A\\d+", 're.compile(r"A\\d+"'),
+     "new", "fingerprints"),
+    ("V23 GATE_AMENDMENT (new)", "convene.py", "<module>",
+     ("GATE_AMENDMENT", "=GATE_A\\d+\\.json", 're.compile(r"GATE_A\\d+'), "new", "gate_files"),
+    ("V24 VERSION_NUMBER (new)", "convene.py", "<module>",
+     ("VERSION_NUMBER", "=\\d+\\.\\d+", 're.compile(r"\\d+\\.\\d+"'), "new", "version_file"),
+    # extensions.py
+    ("E1 VERSION_RE", "extensions.py", "<module>", ("VERSION_RE", 're.compile(r"^\\d+\\.\\d+$"'), "explicit",
+     "ext_validate"),
+    ("E2 REQ", "extensions.py", "<module>", ("REQ = ", "^>=\\s*("), "explicit", "ext_validate"),
+    # jury.py
+    ("J1 ID_EN (and the lexicon lines built from it)", "jury.py", "<module>",
+     ("=(D[0-9][0-9A-Za-z_.-]*)", "=(D\\d[0-9A-Za-z_.-]*)"), "explicit", "lexicon"),
+    ("J2 VERIFIED_L5", "jury.py", "<module>", ("INCOMPATIBLE-VERIFIED (\\S+) (D",), "explicit", "seals_l5"),
+    ("J3 DELEGATED_L5", "jury.py", "<module>", ("^DELEGATED (D",), "explicit", "delegated"),
+    ("J4 outcome_files (en)", "jury.py", "outcome_files", ("OUTCOME_round_(\\d+)",), "fixed", "outcomes"),
+    ("J5 outcome_files (it, JURY_PATTERNS)", "jury.py", "outcome_files", ("JURY_PATTERNS[2][2]",), "fixed",
+     "outcomes"),
+    ("J6 REQUEST_ROW", "jury.py", "<module>", ("REQUEST_ROW", "{4}-"), "explicit", "register"),
+    ("J7 read_seals (the L4 lines through C.wide)", "jury.py", "read_seals", (), "fixed", "seals_l4"),
+    # paths.py: back to 5.3.0's bytes
+    ("S1 MACHINE_PATH", "paths.py", "<module>", (), "detector", "machine_path"),
+    # professionals.py
+    ("P1 TITLE", "professionals.py", "<module>", ("^### (",), "fixed", "local_cards"),
+    ("P2 validate (the version)", "professionals.py", "validate", ("^\\d+\\.\\d+$",), "explicit", "db_version"),
+]
+# Sites whose 5.3.0 output for a non-ASCII digit is a warning, and whose 5.3.1 refusal may be a warning too.
+WARN_OK = {"unallocated"}
+
+
+# --------------------------------------------------------------------------------------------------------------------
+# The static part: the regexes that changed between the two sources.
+# --------------------------------------------------------------------------------------------------------------------
+
+def regex_items(src: str) -> collections.Counter:
+    """(function, text) of every re.<f>(…) call and every string literal with \\d or [0-9] (not a docstring)."""
+    tree = ast.parse(src)
+    out: collections.Counter = collections.Counter()
+    docs = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.body:
+            first = node.body[0]
+            if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant):
+                docs.add(id(first.value))
+
+    def visit(node, where):
+        for child in ast.iter_child_nodes(node):
+            w = child.name if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)) else where
+            if isinstance(child, ast.Call) and isinstance(child.func, ast.Attribute) and \
+                    isinstance(child.func.value, ast.Name) and child.func.value.id == "re":
+                out[(w, " ".join(ast.get_source_segment(src, child).split()))] += 1
+            elif isinstance(child, ast.Assign) and len(child.targets) == 1 and isinstance(child.targets[0], ast.Name) \
+                    and isinstance(child.value, ast.Call) and isinstance(child.value.func, ast.Attribute) \
+                    and child.value.func.attr == "compile":
+                out[(w, child.targets[0].id + " = " + " ".join(ast.get_source_segment(src, child.value).split()))] += 1
+            elif isinstance(child, ast.Constant) and isinstance(child.value, str) and id(child) not in docs \
+                    and ("\\d" in child.value or "[0-9]" in child.value):
+                out[(w, child.value)] += 1
+            visit(child, w)
+
+    visit(tree, "<module>")
+    return out
+
+
+def changed_regexes(old: Path, new: Path) -> list[tuple[str, str, str, str]]:
+    """(side, file, function, text): the regex items 5.3.1 has and 5.3.0 has not («new»), and the other way («old»)."""
+    out = []
+    for f in sorted({p.name for p in new.glob("*.py")} | {p.name for p in old.glob("*.py")}):
+        a = regex_items((old / f).read_text(encoding="utf-8")) if (old / f).is_file() else collections.Counter()
+        b = regex_items((new / f).read_text(encoding="utf-8")) if (new / f).is_file() else collections.Counter()
+        out += [("new", f, w, t) for (w, t) in sorted(b - a)] + [("old", f, w, t) for (w, t) in sorted(a - b)]
+    return out
+
+
+def claimed(item, sites=SITES) -> list[str]:
+    _side, f, w, t = item
+    return [s[0] for s in sites if s[1] == f and s[2] == w
+            and any(t == x[1:] if x.startswith("=") else x in t for x in s[3])]
+
+
+# --------------------------------------------------------------------------------------------------------------------
+# The probes, run inside one engine (the child process): each returns ("ok", value), ("none",) or ("warn", …); an
+# Error of the engine is ("err", message), another exception ("crash", …).
+# --------------------------------------------------------------------------------------------------------------------
+
+class Reached(Exception):
+    pass
+
+
+def _patch(mod, **kw):
+    old = {k: getattr(mod, k) for k in kw}
+    for k, v in kw.items():
+        setattr(mod, k, v)
+    return old
+
+
+def _raise(tag):
+    def f(*a, **k):
+        raise Reached((tag,) + tuple(str(x) for x in a[1:2]))
+    return f
+
+
+class FakeJury:
+    def __init__(self, folder: Path, lexicon):
+        self.folder, self.lexicon = folder, lexicon
+        self.lang = "it" if lexicon.number == 4 else "en"
+
+    def name(self, canonical):
+        return canonical
+
+    def file(self, canonical):
+        return self.folder / ("SIGILLI.md" if self.lexicon.number == 4 else "SEALS.md")
+
+
+def make_probes(E, root: Path):
+    C, V, J, P, S, X = E["compat"], E["convene"], E["jury"], E["professionals"], E["paths"], E["extensions"]
+    counter = [0]
+
+    def fresh() -> Path:
+        counter[0] += 1
+        d = root / f"p{counter[0]}"
+        d.mkdir()
+        return d
+
+    def conv(d: Path):
+        m = {"strategy": "classic", "selected": ["H-001"], "radical": None, "f1": {}, "profile": "p", "seed": 1}
+        return V.Convening(d, "en", m)
+
+    def some(v):
+        return ("ok", v) if v else ("none",)
+
+    def seals(lexicon, line):
+        d = fresh()
+        for r in range(0, 13):
+            (d / f"round_{r}").mkdir()
+        j = FakeJury(d, lexicon)
+        j.file("SEALS.md").write_text(line + "\n", encoding="utf-8")
+        s = J.read_seals(j)
+        return some(sorted(map(str, s.files.items())) + sorted(map(str, s.verified)))
+
+    def key_map(x):
+        dst = "en" if x.startswith("agente-") else "it"
+        v = C._key_map(C.MANIFEST_SCHEMA, ("f1", "*"), x, dst)
+        return ("ok", v) if v != x else ("none",)
+
+    def localize(x):
+        kind, name = x.split(":", 1)
+        v = C.localize_path(name, "it", kind)
+        return ("ok", v) if v != name else ("none",)
+
+    def canonical(x):
+        kind, name = x.split(":", 1)
+        v = C.canonical_path(name, kind)
+        return ("ok", v) if v != name else ("none",)
+
+    def ids_in(x):
+        p = fresh() / "SELECTION.md"
+        p.write_text(x + "\n", encoding="utf-8")
+        return some(V.ids_in(p))
+
+    def k_ids_in(x):
+        return some(V.k_ids_in(x))
+
+    def unallocated(x):
+        d = fresh()
+        c = conv(d)
+        (d / "MANIFEST.json").write_text("{}\n", encoding="utf-8")
+        reg = "".join(json.dumps({"id": k, "time": "2026-11-21T00:00:00+00:00", "question": "q", "files": []}) + "\n"
+                      for k in ("K-001", "K-007"))
+        c.file("CONTRADICTIONS.jsonl").write_text(reg, encoding="utf-8")
+        p = d / "VERDICT.md"
+        p.write_text(x + "\n", encoding="utf-8")
+        w = V._unallocated(c, [p])
+        return ("warn", len(w)) if w else ("ok", "silent")   # silence is the reading of an allocated K#
+
+    def norm_id(x):
+        return ("ok", V.norm_id(x))
+
+    def amendments(x):
+        d = fresh()
+        (d / x).write_text("an amendment\n", encoding="utf-8")
+        return some(sorted(V.amendments(conv(d), [])))
+
+    def version_file(x):
+        d = fresh()
+        (d / "VERSION").write_text(x + "\n", encoding="utf-8")
+        old = _patch(V, BASE=d)
+        try:
+            import generate as G
+            v = V.swarmer_version()
+            return ("ok", v) if v != G.VERSION else ("none",)
+        finally:
+            _patch(V, **old)
+
+    def gate_files(x):
+        d = fresh()
+        (d / x).write_text("{}\n", encoding="utf-8")
+        return some(V.amendment_phases(conv(d), []))
+
+    def role_folder(x):
+        parent, name = x.split("|")
+        return ("ok", True) if V._role_folder(fresh() / "f3" / parent / name) else ("none",)
+
+    def bind(x):
+        d = fresh()
+        top = d / "f4" / "H-001"
+        deep = top / x / "deep"
+        deep.mkdir(parents=True)
+        for i in range(3):
+            (deep / f"{i}.md").write_text(f"{i}\n", encoding="utf-8")
+        out = {}
+        old = _patch(V, FILES_PER_FOLDER=2)
+        try:
+            V._bind(top, out, set())
+        finally:
+            _patch(V, **old)
+        return ("ok", "walked") if any(k.endswith("/deep/") for k in out) else ("none",)
+
+    def fingerprints(x):
+        d = fresh()
+        (d / "AMENDMENT_A3.md").write_text("an amendment\n", encoding="utf-8")
+        (d / x).mkdir()
+        (d / x / "a.md").write_text("a\n", encoding="utf-8")
+        seen = []
+        real = V.amendments
+
+        def spy(*a, **k):
+            seen.append(1)
+            return real(*a, **k)
+        old = _patch(V, amendments=spy)
+        V._FP.clear()
+        try:
+            fp = V.fingerprints(conv(d), x)
+        finally:
+            _patch(V, **old)
+        return ("ok", sorted(Path(k).name for k in fp)) if seen else ("none",)
+
+    def arbiter(x):
+        d = fresh() / "f4" / "H-001"
+        a = d / f"{x}-{C.ROLES['arbiter']}"
+        a.mkdir(parents=True)
+        (a / "VERDICT.md").write_text("Correctness: refuted\n", encoding="utf-8")
+        p = V.arbiter_verdict(conv(d.parent.parent), "H-001", d)
+        return ("ok", p.parent.name) if p.is_file() else ("none",)
+
+    def role_of(x):
+        v = V._role_of(x)
+        return ("ok", v) if v != x else ("none",)
+
+    def team(x):
+        d = fresh()
+        (d / "f3" / "H-001" / x).mkdir(parents=True)
+        return some(sorted(V.team(conv(d), "H-001")))
+
+    def conditions_amend(x):
+        d = fresh()
+        old = _patch(V, valid=_raise("valid"), g3_holds=_raise("g3_holds"))
+        try:
+            V.conditions(conv(d), x, set())
+        except Reached as r:
+            return ("ok", list(r.args[0]))
+        finally:
+            _patch(V, **old)
+        return ("ok", "no gate before")
+
+    def g4(x, proven: bool):
+        d = fresh()
+        c = conv(d)
+        folder = d / "f4" / "H-001"
+        a = folder / f"09-{C.ROLES['arbiter']}"
+        a.mkdir(parents=True)
+        (a / c.name("TASK.md")).write_text("the brief\n", encoding="utf-8")
+        (a / c.name("VERDICT.md")).write_text(f"Correctness: {'proven' if proven else 'refuted'}\n", encoding="utf-8")
+        r = folder / x
+        r.mkdir()
+        if proven:
+            (r / c.name("HIDDEN_ASSUMPTIONS.md")).write_text("an audit of the hidden assumptions\n", encoding="utf-8")
+        else:
+            (r / c.name("TASK.md")).write_text("the brief\n", encoding="utf-8")
+        old = _patch(V, _f5_now=lambda conv: 1, sentinel_required=lambda conv: False)
+        try:
+            errors = V._g4_rules2(c, "H-001", folder, set(), [])
+        finally:
+            _patch(V, **old)
+        if proven:
+            return ("err", "V2 missing") if any("V2 missing" in e for e in errors) else ("ok", "audited")
+        bad = [e for e in errors if "no deliverable" in e]
+        return ("err", "no deliverable") if bad else ("none",)
+
+    def order_rules3(x):
+        d = fresh()
+        c = conv(d)
+        folder = d / "f4" / "H-001"
+        r = folder / x
+        r.mkdir(parents=True)
+        (r / c.name("PREDICTIONS.md")).write_text("a prediction\n", encoding="utf-8")
+        (r / c.name(V.f4_output(x))).write_text("the output\n", encoding="utf-8")
+        old = _patch(V, seal_rows=lambda conv: {}, _whole_seal=lambda rows, p: (1.0, None),
+                     _first_seal=lambda rows, p: None)
+        try:
+            errors = V._order_rules3(c, folder)
+        finally:
+            _patch(V, **old)
+        own = [e for e in errors if "against its own output" in e or f"{x}/{c.name(V.f4_output(x))} is not sealed" in e]
+        return ("err", "ordered against its own output") if own else ("none",)
+
+    def gate_label(x):
+        d = fresh()
+        (d / "MANIFEST.json").write_text(json.dumps({"strategy": "classic", "f1": {}}) + "\n", encoding="utf-8")
+        ns = argparse.Namespace(C=str(d), phase=x, rules=None, notes="n", not_delivered=None, verify=True)
+        old = _patch(V, conditions=_raise("conditions"), level=lambda conv: 1)
+        try:
+            V.gate(ns)
+        except Reached as r:
+            return ("ok", list(r.args[0]))
+        finally:
+            _patch(V, **old)
+        return ("ok", "returned")
+
+    def convened(x):
+        d = fresh()
+        (d / "f3" / "H-001" / x).mkdir(parents=True)
+        used = V._convened(conv(d), {})
+        return ("ok", "statistico") if "statistico" in used else ("none",)
+
+    def sentinel_brief(x):
+        d = fresh()
+        c = conv(d)
+        c.m["selected"] = ["H-001", "H-002"]
+        (d / "f3" / "H-001" / x).mkdir(parents=True)
+        old = _patch(V, gated_amendments=lambda conv: [], _round_dirs=lambda conv: [], level=lambda conv: 1,
+                     brief=lambda conv, folder, role, *a, **k: role)
+        try:
+            role = V._sentinel_brief(c, {"roles": [{"id": "statistico"}]})
+        finally:
+            _patch(V, **old)
+        return ("ok", "drawn elsewhere") if role != "statistico" else ("none",)
+
+    def ext_validate(x):
+        version, req = x.split("|")
+        d = fresh() / "extensions" / "x"
+        d.mkdir(parents=True)
+        m = {"name": "x", "version": version, "requires": {"swarmer": req}, "commands": {"c": "engine/c.py"}}
+        errs = [e for e in X.validate(d.parent.parent, d, m) if "is not N.M" in e or "requires is" in e]
+        return ("err", errs[0][-40:]) if errs else ("ok", "valid")
+
+    words = {}
+
+    def lexicon(x):
+        word, rest = x.split("|", 1)
+        if not words:
+            for canon in J.PROPOSAL_WORDS + J.VOTE_WORDS:
+                for w in {canon, J.W[canon]}:
+                    for val in ("D2", "yes", "sì", "pass", "passa", "light", "leggera", "(a)"):
+                        try:
+                            if J.valid_lines(f"{w} D1 {val}\n", "X.md", set(J.PROPOSAL_WORDS + J.VOTE_WORDS), J.L5):
+                                words[w] = val
+                                break
+                        except J.Error:
+                            continue
+        line = rest.replace("<w>", word).replace("<v>", words.get(word, "x"))
+        return some(J.valid_lines(line + "\n", "X.md", set(J.PROPOSAL_WORDS + J.VOTE_WORDS), J.L5))
+
+    def delegated(x):
+        text = x.replace("<w>", J.W["DELEGATED"])
+        return some(J._protocol_lines(text + "\n", "DELEGATION.md", J.DELEGATED_L5, J.DELEGATED_NEAR))
+
+    def outcomes(x):
+        d = fresh()
+        (d / x).write_text("{}\n", encoding="utf-8")
+        return some([r for r, _p in J.outcome_files(d)])
+
+    def register(x):
+        d = fresh()
+        (d / "conv").mkdir()
+        reg = d / "REGISTER.md"
+        reg.write_text(f"| {x} | conv | coordinator | `new-expert` | x | a reason long enough |\n", encoding="utf-8")
+        old = _patch(J, known_roles=lambda: set())
+        try:
+            return some(sorted(J.requests(reg, d)))
+        finally:
+            _patch(J, **old)
+
+    def machine_path(x):
+        found = [p for p in S.public_problems(x, []) if p.startswith("machine path")]
+        return ("err", found[0]) if found else ("none",)
+
+    def local_cards(x):
+        p = fresh() / "AGENTS.md"
+        p.write_text(x.replace("|", "\n") + "\n", encoding="utf-8")
+        return some(sorted(P.local_cards(p)))
+
+    def db_version(x):
+        entry = {"id": "x", "type": "professional", "core": "c", "version": x}
+        errs = [e for e in P.validate({"cores": [], "entries": [entry]}, required=()) if "version missing" in e]
+        return ("err", "version") if errs else ("ok", "valid")
+
+    return {
+        "seals_l4": lambda x: seals(J.L4, x), "seals_l5": lambda x: seals(J.L5, x), "key_map": key_map,
+        "localize": localize, "canonical": canonical, "ids_in": ids_in, "k_ids_in": k_ids_in,
+        "unallocated": unallocated, "norm_id": norm_id, "amendments": amendments, "version_file": version_file,
+        "gate_files": gate_files, "role_folder": role_folder, "bind": bind, "fingerprints": fingerprints,
+        "arbiter": arbiter, "role_of": role_of, "team": team, "conditions_amend": conditions_amend,
+        "g4_deliverable": lambda x: g4(x, False), "g4_audit": lambda x: g4(x, True), "order_rules3": order_rules3,
+        "gate_label": gate_label, "convened": convened, "sentinel_brief": sentinel_brief,
+        "ext_validate": ext_validate, "lexicon": lexicon, "delegated": delegated, "outcomes": outcomes,
+        "register": register, "machine_path": machine_path, "local_cards": local_cards, "db_version": db_version,
+    }
+
+
+VOTE_LINES = [f"<w> D{{n}} <v>", f"<w>{{s}}D1 <v>", "<w> D1{n} <v>"]
+CORPORA = {
+    "seals_l4": (["SIGILLO giro_{n}/PROPOSTA.md " + SHA + "{s}", "SIGILLO giro_{n}/VOTO_x.md " + SHA,
+                  "INCOMPATIBILE-VERIFICATO giro_{n} D1{s}", "INCOMPATIBILE-VERIFICATO giro_0 D{n}"], ["1", "3", "12"]),
+    "seals_l5": (["SEAL round_{n}/PROPOSAL.md " + SHA, "SIGILLO giro_{n}/PROPOSTA.md " + SHA,
+                  "INCOMPATIBLE-VERIFIED round_{n} D1", "INCOMPATIBLE-VERIFIED round_0 D{n}{s}",
+                  "INCOMPATIBILE-VERIFICATO giro_{n} D1", "SEAL{s}round_{n}/PROPOSAL.md " + SHA], ["1", "3", "12"]),
+    "key_map": (["agente-{n}", "agent-{n}"], ["1", "3", "12"]),
+    "localize": (["convene:agent-{n}", "convene:AMENDMENT_{n}.md", "convene:AMENDMENT_A{n}.md", "jury:round_{n}",
+                  "jury:OUTCOME_round_{n}.json", "jury:round_{n}/PROPOSAL.md"], ["1", "3", "12"]),
+    "canonical": (["convene:agente-{n}", "convene:EMENDAMENTO_{n}.md", "convene:EMENDAMENTO_A{n}.md", "jury:giro_{n}",
+                   "jury:ESITO_giro_{n}.json", "jury:giro_{n}/PROPOSTA.md"], ["1", "3", "12"]),
+    "ids_in": (["H-{n}", "{s}H-{n}{s}", "H{n}", "the selection: H-001, H-{n}", "h-{n} and H-002", "(H-{n})"],
+               ["9", "009", "35", "1"]),
+    "k_ids_in": (["K-{n}", "{s}K-{n}{s}", "K-001-{n}", "K-{n}-1", "see K-{n}."], ["1", "007", "8", "001"]),
+    "unallocated": (["K-{n} is open", "{s}K-{n}{s}", "K-001-{n}", "K-{n}-1"], ["1", "007", "8", "001"]),
+    "norm_id": (["H-{n}", "{s}H{n}{s}", "h-{n}", "H{n}"], ["9", "035", "1"]),
+    "amendments": (["AMENDMENT_{n}.md", "AMENDMENT_A{n}.md", "EMENDAMENTO_{n}.md", "EMENDAMENTO_A{n}.md"],
+                   ["1", "3", "12"]),
+    "version_file": (["{n}.{n}", "{n}.9 a build", "4.{n}"], ["4", "12"]),
+    "gate_files": (["GATE_A{n}.json"], ["1", "3", "12"]),
+    "role_folder": (["H-001|{n}-statistico", "H-{n}|01-statistico", "H-{n}|{n}-statistico"], ["03", "3", "001"]),
+    "bind": (["{n}-statistico", "{n}-x"], ["03", "3", "12"]),
+    "fingerprints": (["A{n}"], ["3", "1", "12"]),
+    "arbiter": (["{n}"], ["09", "9", "12"]),
+    "role_of": (["{n}-statistico", "{n}-"], ["03", "3", "12"]),
+    "team": (["{n}-statistico"], ["03", "3", "12"]),
+    "conditions_amend": (["A{n}"], ["3", "1", "12"]),
+    "g4_deliverable": (["{n}-statistico"], ["03", "3", "12"]),
+    "g4_audit": (["{n}-auditor"], ["05", "5", "12"]),
+    "order_rules3": (["{n}-statistico"], ["02", "05", "12"]),
+    "gate_label": (["A{n}", "{n}", "a{n}", "f4/H-{n}", "f3/H-{n}"], ["1", "3", "001", "12"]),
+    "convened": (["{n}-statistico"], ["03", "3", "12"]),
+    "sentinel_brief": (["{n}-statistico"], ["03", "3", "12"]),
+    "ext_validate": (["{n}.{n}|>=5.3", "1.0|>={n}.{n}", "1.0|>={s}5.{n}", "1.0|>={s}5.3"], ["5", "12"]),
+    "lexicon": ([w + "|" + t for w in ("VOTE", "VOTO", "PREFER", "PREFERISCO", "OPTION", "OPZIONE", "DEPENDS", "DIPENDE",
+                                       "TEST-OUTCOME", "ESITO-TEST", "CLASS", "CLASSE", "OPERATIVE", "REVISION",
+                                       "CONDITION", "CHANGE", "INCOMPATIBLE", "TEST", "OPTIONS")
+                 for t in VOTE_LINES], ["1", "12"]),
+    "delegated": (["DELEGATED D{n}", "DELEGATED{s}D{n}", "<w> D{n}", "DELEGATED D1{n}"], ["1", "12"]),
+    "outcomes": (["OUTCOME_round_{n}.json", "ESITO_giro_{n}.json"], ["1", "3", "12"]),
+    "register": (["{n}-11-21", "2026-{n}-21", "{s}2026-11-21"], ["2026", "11"]),
+    "machine_path": (["see /tmp/claude-{n}/x", "/tmp/claude-{n}", "a log in /tmp/claude-{n}{s}/y"], ["1000", "1"]),
+    "local_cards": (["### 1. Alpha — `swarmer-loc-a`|- **In short:** a|### {n}. Beta — `swarmer-loc-b`|- **In short:** b",
+                     "### {n}. Beta — `swarmer-loc-b`{s}", "### 2.{n}. Beta — `swarmer-loc-b`"], ["2", "22"]),
+    "db_version": (["{n}.0", "4.{n}", "{n}.{n}"], ["4", "12"]),
+}
+
+
+def child(engine: str, out: str):
+    """Runs every probe on its corpus inside the engine of `engine` and writes the results as JSON."""
+    sys.path.insert(0, engine)
+    import importlib
+    E = {m: importlib.import_module(m) for m in ("compat", "convene", "jury", "professionals", "paths", "extensions")}
+    res = {}
+    with tempfile.TemporaryDirectory() as t:
+        root = Path(t)
+        probes = make_probes(E, root)
+        def one(name, text):
+            try:
+                r = list(probes[name](text))
+            except Reached as x:
+                r = ["ok", list(x.args)]
+            except E["compat"].Error as x:
+                r = ["err", str(x)]
+            except Exception as x:  # noqa: BLE001
+                r = ["crash", f"{type(x).__name__}: {x}"]
+            return [re.sub(r"<T>/p[0-9]+", "<T>", str(v).replace(str(root), "<T>")) if i else v for i, v in enumerate(r)]
+
+        for name, (templates, values) in CORPORA.items():
+            res[name] = [[text, wide, one(name, text), one(name, twin) if wide else None]
+                         for text, wide, twin in corpus(templates, values)]
+    Path(out).write_text(json.dumps(res, ensure_ascii=False, indent=0), encoding="utf-8")
+
+
+def same(a: list, b: list) -> bool:
+    return a[0] == b[0] and (a[0] not in ("ok", "warn") or a[1:] == b[1:])
+
+
+def violation(name: str, wide: bool, a: list, b: list, twin: list | None) -> str | None:
+    """Why 5.3.1's result `b` breaks the rule against 5.3.0's `a`, or None. `twin` is 5.3.0's result on the text
+    with its non-ASCII digits written as letters: equal to `a`, 5.3.0 did not read them."""
+    refused = b[0] == "err" or (b[0] == "warn" and name in WARN_OK)
+    if not wide:
+        return None if same(a, b) else "a string with ASCII digits only gives another result"
+    if b[0] == "crash":
+        return "a crash, not an explicit refusal"
+    if a[0] == "none":   # 5.3.0 did not match: no match either, or a refusal
+        return None if b[0] in ("none", "err") else "accepts what 5.3.0 did not match"
+    if same(a, twin):   # 5.3.0 did not read the non-ASCII digits: the same result, or a refusal
+        return None if same(a, b) or refused else "a string whose non-ASCII digits 5.3.0 did not read changes"
+    if refused:
+        return None
+    if b[0] == "none":
+        return "ignores in silence what 5.3.0 read"
+    return "accepts a non-ASCII digit" if same(a, b) else "reads it as something else"
+
+
+def old_engine(tmp: Path) -> Path | None:
+    """5.3.0's engine, from the git history of the source tree, in tmp/engine; None without that history."""
+    git = ["git", "-C", str(SOURCE), "show"]
+    try:
+        r = subprocess.run(git + [f"{REV}:engine/"], capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if r.returncode != 0:
+        return None
+    d = tmp / "engine"
+    d.mkdir()
+    for f in [x for x in r.stdout.splitlines()[2:] if x.strip()]:
+        b = subprocess.run(git + [f"{REV}:engine/{f}"], capture_output=True, timeout=60)
+        if b.returncode != 0:
+            return None
+        (d / f).write_bytes(b.stdout)
+    return d
+
+
+def run_child(engine: Path, out: Path, tmp: Path) -> tuple[int, str]:
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("SWARMER_", "SCIAME_"))}
+    env["TMPDIR"] = str(tmp)
+    r = subprocess.run([sys.executable, "-I", "-B", str(Path(__file__).resolve()), "--child", str(engine), str(out)],
+                       capture_output=True, text=True, timeout=600, env=env)
+    return r.returncode, r.stdout + r.stderr
+
+
+def main():
+    if len(sys.argv) == 4 and sys.argv[1] == "--child":
+        child(sys.argv[2], sys.argv[3])
+        return
+    # --engine DIR: another 5.3.1 engine in place of SOURCE/engine (the evidence of a fix, failing before it)
+    new = Path(sys.argv[2]).resolve() if len(sys.argv) == 3 and sys.argv[1] == "--engine" else SOURCE / "engine"
+    with tempfile.TemporaryDirectory() as t:
+        tmp = Path(t)
+        old = old_engine(tmp)
+        if old is None:
+            print(f"skipped: no git history with {REV} (swarmer 5.3.0) beside {SOURCE}: nothing checked")
+            print("\n0/0 checks passed")
+            sys.exit(0)
+        # the static part: every changed regex is a site, and every site names one
+        changed = changed_regexes(old, new)
+        loose = [f"{side} {f} {w}: {x[:90]}" for side, f, w, x in changed if not claimed((side, f, w, x))]
+        check(f"every regex the 5.3.1 diff changed in engine/ is a site of this test ({len(changed)} changed items, "
+              f"{len(SITES)} sites)", changed and not loose, loose)
+        named = {s[0] for item in changed for s in SITES if s[0] in claimed(item)}
+        static = {s[0] for s in SITES if s[3]}
+        check("every site of this test with a fragment names a changed regex (the others read one: V2b, J7; or are "
+              "5.3.0's bytes again: S1)", named == static, sorted(static - named))
+        check("every site has a probe and a corpus", all(s[5] in CORPORA for s in SITES),
+              [s[0] for s in SITES if s[5] not in CORPORA])
+        # the dynamic part: the same probes on both engines
+        runs = {}
+        for tag, eng in (("5.3.0", old), ("5.3.1", new)):
+            out = tmp / f"{tag}.json"
+            (tmp / tag).mkdir()
+            rc, text = run_child(eng, out, tmp / tag)
+            check(f"the probes ran in {tag}'s engine", rc == 0 and out.is_file(), text)
+            if rc != 0 or not out.is_file():
+                break
+            runs[tag] = json.loads(out.read_text(encoding="utf-8"))
+        if len(runs) == 2:
+            a, b = runs["5.3.0"], runs["5.3.1"]
+            for name in CORPORA:
+                rows = list(zip(a[name], b[name]))
+                sites = ", ".join(s[0].split()[0] for s in SITES if s[5] == name)
+                bad = []
+                for (ta, wa, ra, twa), (tb, _wb, rb, _twb) in rows:
+                    assert ta == tb
+                    why = violation(name, wa, ra, rb, twa)
+                    if why:
+                        bad.append(f"{ta!a}: 5.3.0 {ra[0]} {str(ra[1:])[:60]} → 5.3.1 {rb[0]} {str(rb[1:])[:80]}: {why}")
+                wide_read = sum(1 for (_t, w, ra, tw), _ in rows if w and not same(ra, tw))
+                ascii_read = sum(1 for (_t, w, ra, _tw), _ in rows if not w and ra[0] != "none")
+                check(f"{name} ({sites}): {len(rows)} strings, {wide_read} with a non-ASCII digit that 5.3.0 read: "
+                      "5.3.1 gives 5.3.0's result on ASCII digits and refuses the others", not bad,
+                      "\n     ".join(bad[:8]) + (f"\n     … {len(bad)} in all" if len(bad) > 8 else ""))
+                check(f"{name}: the corpus reaches 5.3.0's reading with ASCII digits and with non-ASCII ones",
+                      wide_read > 0 and ascii_read > 0, (wide_read, ascii_read))
+            fixed = sum(1 for s in SITES if s[4] == "fixed")
+            print(f"sites: {len(SITES)} ({fixed} fixed, "
+                  f"{sum(1 for s in SITES if s[4] == 'explicit')} explicit already, "
+                  f"{sum(1 for s in SITES if s[4] == 'detector')} detectors, "
+                  f"{sum(1 for s in SITES if s[4] == 'new')} new in this round); strings: "
+                  f"{sum(len(v) for v in a.values())} per engine")
     failed = [n for n, ok in results if not ok]
     print(f"\n{len(results) - len(failed)}/{len(results)} checks passed")
     sys.exit(1 if failed else 0)
@@ -26813,6 +28422,49 @@ def tree(root: Path) -> dict[str, str]:
             for p in sorted(root.rglob("*")) if p.is_file()}
 
 
+def repo_copy(dst: Path, src: Path = SOURCE) -> None:
+    """A copy of the repository as a ZIP of it holds it: in a git checkout, the files git tracks or would track (never
+    an ignored one, such as the .claude/ an installation writes at the root of the checkout); without git, the tree
+    without COPY_IGNORE."""
+    q = None
+    if (src / ".git").exists() and shutil.which("git"):
+        q = subprocess.run(["git", "-C", str(src), "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+                           capture_output=True, stdin=subprocess.DEVNULL)
+    if q is None or q.returncode != 0:
+        shutil.copytree(src, dst, ignore=COPY_IGNORE)
+        return
+    dst.mkdir(parents=True)
+    for rel in sorted(set(os.fsdecode(x) for x in q.stdout.split(b"\0") if x)):
+        s, d = src / rel, dst / rel
+        if not (s.is_file() or s.is_symlink()) or "__pycache__" in Path(rel).parts:
+            continue
+        d.parent.mkdir(parents=True, exist_ok=True)
+        if s.is_symlink():
+            d.symlink_to(os.readlink(s))
+        else:
+            shutil.copy2(s, d)
+
+
+def repo_copy_check(base: Path) -> None:
+    """repo_copy on a toy checkout: the ignored .claude/ and _work/ stay out, a tracked and an untracked file go in."""
+    r = base / "toy-checkout"
+    (r / ".claude" / "agents").mkdir(parents=True)
+    (r / ".claude" / "agents" / "mine.md").write_text("private\n")
+    (r / "_work").mkdir()
+    (r / "_work" / "x.txt").write_text("x\n")
+    (r / ".gitignore").write_text("/.claude/\n_work/\n")
+    (r / "tracked.txt").write_text("t\n")
+    env = dict(clean_env(), GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL="/dev/null")
+    for a in (["init", "-q"], ["add", "tracked.txt", ".gitignore"]):
+        subprocess.run(["git", "-C", str(r), *a], check=True, env=env, capture_output=True)
+    (r / "untracked.txt").write_text("u\n")
+    c = base / "toy-copy"
+    repo_copy(c, r)
+    got = sorted(p.relative_to(c).as_posix() for p in c.rglob("*") if p.is_file())
+    check("repo_copy copies what git tracks or would track, never an ignored file (.claude/, _work/)",
+          got == [".gitignore", "tracked.txt", "untracked.txt"], got)
+
+
 def aligned(out):
     return any(t["cli_aligned"].split("{profiles}")[1].strip() in out for t in (EN, IT))
 
@@ -27083,7 +28735,7 @@ def battery(base: Path):
           "skill/convene.py" in sk and "swarmer/convene.py" not in sk)
     # G3: a copy of the repository without .git is not an installed copy
     copy = base / "repo-main"
-    shutil.copytree(SOURCE, copy, ignore=COPY_IGNORE)
+    repo_copy(copy)
     work = base / "g3"
     work.mkdir()
     q = bash(copy / "swarmer.sh", "install", cwd=work)
@@ -27105,7 +28757,7 @@ def battery(base: Path):
         check(f"G5: --folder «{c}» is refused", rc == 1, out)
     # G6: a marker of swarmer.sh inside a document stops build; awk refuses «..»
     r = base / "g6"
-    shutil.copytree(SOURCE, r, ignore=COPY_IGNORE)
+    repo_copy(r)
     doc = r / "docs" / "en" / "HYPOTHESIS_CARD.md"
     doc.write_text(doc.read_text() + "#==== swarmer.sh: file ../../OUTSIDE ====\n")
     rc, out = py(r / "engine" / "swarmer.py", "--swarm", r, "build", "--output", base / "g6.sh")
@@ -27169,7 +28821,7 @@ def battery(base: Path):
     check("G13: check without claude exits with 0 if everything is aligned", rc == 0, out)
     # G22, G24, G25, G26: verify on the repository (in a copy)
     rep = base / "rep"
-    shutil.copytree(SOURCE, rep, ignore=COPY_IGNORE)
+    repo_copy(rep)
     (rep / "engine" / "jury.py").write_text((rep / "engine" / "jury.py").read_text() + "\n# retouch\n")
     rc, out = py(rep / "engine" / "swarmer.py", "--swarm", rep, "verify")
     check("G22: verify sees a swarmer.sh not up to date", rc == 1 and "is not up to date" in out, out)
@@ -27201,7 +28853,7 @@ def battery(base: Path):
 
     # 11. the checks of the second pass
     rep = base / "rep2"
-    shutil.copytree(SOURCE, rep, ignore=COPY_IGNORE)
+    repo_copy(rep)
     odd = rep / "docs" / "en" / "name with space.md"
     odd.write_text("x\n")
     rc, out = py(rep / "engine" / "swarmer.py", "--swarm", rep, "build", "--output", base / "n1.sh")
@@ -27247,7 +28899,7 @@ def battery(base: Path):
 
     # 12. the checks of the third pass
     rep = base / "rep3"
-    shutil.copytree(SOURCE, rep, ignore=COPY_IGNORE)
+    repo_copy(rep)
     outside_dir = base / "outside3"
     outside_dir.mkdir()
     (rep / "link").symlink_to(outside_dir)
@@ -27278,7 +28930,7 @@ def battery(base: Path):
     r = base / "x4"
     rc, _ = install(r)
     broken = base / "broken_rep"
-    shutil.copytree(SOURCE, broken, ignore=COPY_IGNORE)
+    repo_copy(broken)
     (broken / "engine" / "head.sh").unlink()
     cfg = r / ".swarmer" / "config.json"
     cfg.parent.mkdir(exist_ok=True)
@@ -27297,7 +28949,7 @@ def battery(base: Path):
     doc = r / "swarmer" / "docs" / "en" / "HYPOTHESIS_CARD.md"
     doc.write_text(doc.read_text() + "\nline of the project x6\n")
     newsrc = base / "source_x6"
-    shutil.copytree(SOURCE, newsrc, ignore=COPY_IGNORE)
+    repo_copy(newsrc)
     d6 = newsrc / "docs" / "en" / "HYPOTHESIS_CARD.md"
     d6.write_text(d6.read_text() + "\nnew factory line\n")
     py(newsrc / "engine" / "swarmer.py", "--swarm", newsrc, "build", "--output", newsrc / "swarmer.sh")
@@ -27331,7 +28983,7 @@ def battery(base: Path):
     rc, out = swarmer(r / "swarmer", "approve", f, env=env4)
     check("Y2: a forbidden entry split by a newline is refused", rc == 1, out)
     rep = base / "rep4"
-    shutil.copytree(SOURCE, rep, ignore=COPY_IGNORE)
+    repo_copy(rep)
     (rep / ".venv" / "bin").mkdir(parents=True)
     (rep / ".venv" / "bin" / "python").symlink_to(sys.executable)
     with open(rep / ".gitignore", "a") as g:
@@ -27390,7 +29042,7 @@ def battery(base: Path):
     forb5.write_text("nfake\nalphafake-betafake\nsecretfake\n")
     env5 = clean_env(SWARMER_FORBIDDEN=str(forb5))
     rep = base / "rep5"
-    shutil.copytree(SOURCE, rep, ignore=COPY_IGNORE)
+    repo_copy(rep)
     doc = rep / "docs" / "en" / "W1.md"
     doc.write_text("path C:\\nfake\n")
     rc, out = py(rep / "engine" / "swarmer.py", "--swarm", rep, "verify", env=env5)
@@ -27419,7 +29071,7 @@ def battery(base: Path):
 
     # 15. the checks of the sixth pass
     rep = base / "rep6"
-    shutil.copytree(SOURCE, rep, ignore=COPY_IGNORE)
+    repo_copy(rep)
     with open(rep / ".gitignore", "a") as g:
         g.write("HYPOTHESIS_CARD.md\n")
     subprocess.run(["git", "init", "-q", str(rep)], check=True)
@@ -27438,7 +29090,7 @@ def battery(base: Path):
     forb6.write_text("secretfake\n")
     env6 = clean_env(SWARMER_FORBIDDEN=str(forb6))
     rep = base / "rep7"
-    shutil.copytree(SOURCE, rep, ignore=COPY_IGNORE)
+    repo_copy(rep)
     (rep / "extra").mkdir()
     (rep / "extra" / "data.txt").write_text("secretfake\n")
     with open(rep / ".gitignore", "a") as g:
@@ -27458,6 +29110,7 @@ def battery(base: Path):
 def main():
     with tempfile.TemporaryDirectory() as base:
         battery(Path(base))
+        repo_copy_check(Path(base))
     failed = [n for n, ok in results if not ok]
     print(f"\n{len(results) - len(failed)}/{len(results)} checks passed")
     sys.exit(1 if failed else 0)
