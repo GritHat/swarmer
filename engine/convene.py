@@ -71,10 +71,15 @@ FORMS = ("slices", "race", "mixed")
 RULES = ("first", "ranking", "best")
 CONTRACT_FIELDS = tuple(C.CONVENE_LINES["contract_fields"])   # canonical (English) headings
 TO_FILL = tuple(C.CONVENE_LINES["to_fill_in"].values())
-ID = re.compile(r"\bH-?0*(\d{1,3})\b")
+# Every id regex reads ASCII digits only (5.3.1): H-\u0660\u0663\u0665 and fullwidth H-035 are not H-035. It writes
+# [0-9], or takes re.ASCII when it has no \s, \b or \w: re.ASCII would make those ASCII too, and they stay Unicode as
+# in 5.3.0. A detector whose match is an error or an unfilled field (PLACEHOLDER, the near detectors of the juries) and
+# a negative lookahead keep \d: there a wider match fails closed.
+ID = re.compile(r"\bH-?0*([0-9]{1,3})\b")
 # A K# of the registry: K-001, as the allocator writes it, or K-01 and K-1 (ENG-15); not K-001-3, a K# numbered by its
-# branch, which is a token of its own (KTOKEN) and never names K-001.
-KID = re.compile(r"\bK-0*(\d{1,3})\b(?!-\d)")
+# branch, which is a token of its own (KTOKEN) and never names K-001. KTOKEN is a detector (every token it takes that
+# KID does not read as an allocated K# is a warning): it keeps \d, so K-\u0660\u0660\u0667 is warned, as in 5.3.0.
+KID = re.compile(r"\bK-0*([0-9]{1,3})\b(?!-\d)")
 KTOKEN = re.compile(r"\bK-\d+(?:-\d+)*\b")
 LIMIT_F1 = 40   # minutes for a brief of f1
 LIMIT_BRANCH = 60
@@ -88,11 +93,24 @@ STATE_DIRS = (".swarmer", C.FILE_NAMES["it"][".swarmer"])
 MANIFESTS = ("MANIFEST.json", C.CONVENE_FILES["MANIFEST.json"])
 SKIP_DIRS = (".git", "__pycache__")
 STATUS_NAMES = ("status.md", C.CONVENE_FILES["status.md"])
+# The views an extension derives beside a brief's TASK.md (its inputs, their assembly): never a role's deliverable, and
+# absent when no extension writes them (ENG-7a, the early closure).
+DERIVED_VIEWS = ("INPUTS.md", "ASSEMBLY.json")
 SENTINEL_DIRS = ("00-sentinel", C.CONVENE_FILES["00-sentinel"])
 SENTINEL_NAMES = ("SENTINEL.md", C.CONVENE_FILES["SENTINEL.md"])
 PHASE_SENTINELS = ("f2", "f3", "f4")   # the phases with a sentinel of their own under the rules 3 (ENG-17)
 HIDDEN_NAMES = ("HIDDEN_ASSUMPTIONS.md", C.CONVENE_FILES["HIDDEN_ASSUMPTIONS.md"])
-AMENDMENT_RE = re.compile("|".join(f"(?:{p[0]})|(?:{p[2]})" for p in C.CONVENE_PATTERNS if p[1].startswith("AMENDMENT")))
+AMENDMENT_RE = re.compile("|".join(f"(?:{p[0]})|(?:{p[2]})" for p in C.CONVENE_PATTERNS if p[1].startswith("AMENDMENT")),
+                         re.ASCII)
+# The names and labels the engine reads by their digits: a briefed role folder NN-<role> (f3, f4), an amendment's gate
+# label A<n> and its gate file, the version in VERSION. Each is read through a function that refuses, with an error, a
+# name that only their 5.3.0 form (\d Unicode) reads: «٠٣-statistico» is not skipped as no role folder (5.3.1, third
+# repair round).
+ROLE_DIR = re.compile(r"^\d+-", re.ASCII)
+ROLE_DIR_2 = re.compile(r"^\d\d-", re.ASCII)
+AMENDMENT_LABEL = re.compile(r"A\d+", re.ASCII)
+GATE_AMENDMENT = re.compile(r"GATE_A\d+\.json", re.ASCII)
+VERSION_NUMBER = re.compile(r"\d+\.\d+", re.ASCII)
 # The output of each briefed folder NN-<role> of a round of f4, by its two digits (select and repin write them so):
 # what the predictions of that folder are ordered against under the rules 3 (ENG-19).
 F4_OUTPUTS = {"00": "REVISION.md", "01": "COUNTERCHECKS.md", "02": "DEFECTS.md", "08": "HIDDEN_ASSUMPTIONS.md",
@@ -156,7 +174,9 @@ def swarmer_version() -> str:
     not a format version (the dialect is told by the file names and keys, the gates by gate_rules)."""
     p = BASE / "VERSION"
     words = p.read_text(encoding="utf-8", errors="replace").split() if p.is_file() else []
-    if words and re.fullmatch(r"\d+\.\d+", words[0]):
+    if words:
+        C.refuse_wide(VERSION_NUMBER, words[0], str(p), "fullmatch")
+    if words and VERSION_NUMBER.fullmatch(words[0]):
         return words[0]
     import generate as G
     return G.VERSION
@@ -171,7 +191,7 @@ def sha(p: Path) -> str:
 
 
 def norm_id(s: str) -> str:
-    m = re.fullmatch(r"H-?0*(\d{1,3})", s.strip(), re.I)
+    m = re.fullmatch(r"H-?0*(\d{1,3})", s.strip(), re.I | re.ASCII)
     if not m:
         raise Error(f"malformed ID: {s} (the form is H-001)")
     return f"H-{int(m.group(1)):03d}"
@@ -615,14 +635,27 @@ def seal_rows(conv: Convening) -> dict[str, list[dict]]:
 
 
 def ids_in(p: Path) -> list[str]:
+    """The H# a file names; an H# in non-ASCII digits (H-٠٠٩) is an error, not an H# left out (5.3.1)."""
     if not p.exists():
         return []
-    return list(dict.fromkeys(f"H-{int(n):03d}" for n in ID.findall(p.read_text(encoding="utf-8"))))
+    text = p.read_text(encoding="utf-8")
+    C.refuse_wide(ID, text, p.name, "search")
+    return list(dict.fromkeys(f"H-{int(n):03d}" for n in ID.findall(text)))
 
 
-def k_ids_in(text: str) -> list[str]:
-    """The K# a text cites (K-1, K-01 and K-001 are one), in the form the allocator writes."""
+def k_ids_in(text: str, where: str = "the text") -> list[str]:
+    """The K# a text cites (K-1, K-01 and K-001 are one), in the form the allocator writes; a K# in non-ASCII digits
+    (K-٠٠١) is an error, not a K# left out (5.3.1)."""
+    C.refuse_wide(KID, text, where, "search")
     return list(dict.fromkeys(f"K-{int(x):03d}" for x in KID.findall(text)))
+
+
+def _k_of(token: str) -> str | None:
+    """The allocated K# a KTOKEN token reads as, or None: a token in non-ASCII digits reads as none, so it is warned."""
+    try:
+        return (k_ids_in(token) or [None])[0]
+    except C.Error:
+        return None
 
 
 def contradictions(conv: Convening) -> dict[str, dict]:
@@ -658,7 +691,7 @@ def _unallocated(conv: Convening, files: list[Path]) -> list[str]:
             text = p.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        missing = [t for t in dict.fromkeys(KTOKEN.findall(text)) if (k_ids_in(t) or [None])[0] not in known]
+        missing = [t for t in dict.fromkeys(KTOKEN.findall(text)) if _k_of(t) not in known]
         if missing:
             out.append(f"{', '.join(missing)} cited in {p.relative_to(conv.folder)} and not allocated in "
                        f"{conv.name('CONTRADICTIONS.jsonl')}: contradiction C FILE… --question TEXT allocates a K#")
@@ -750,6 +783,8 @@ def amendments(conv: Convening, clashes: list[str] | None = None) -> dict[str, P
     out = {}
     for p in sorted(conv.folder.iterdir()) if conv.folder.is_dir() else []:
         mt = AMENDMENT_RE.fullmatch(p.name)
+        if not mt and p.is_file():
+            C.refuse_wide(AMENDMENT_RE, p.name, str(conv.folder), "fullmatch")
         if not mt or not p.is_file():
             continue
         phase = "A" + str(int(next(g for g in mt.groups() if g).lstrip("A")))
@@ -765,7 +800,11 @@ def amendments(conv: Convening, clashes: list[str] | None = None) -> dict[str, P
 
 def amendment_phases(conv: Convening, clashes: list[str] | None = None) -> list[str]:
     """The phases of the amendments: those with a file, and those with a gate whose amendment is gone."""
-    gated = [q.name[5:-5] for q in conv.folder.glob("GATE_A*.json") if re.fullmatch(r"GATE_A\d+\.json", q.name)]
+    gated = []
+    for q in conv.folder.glob("GATE_A*.json"):
+        C.refuse_wide(GATE_AMENDMENT, q.name, str(conv.folder), "fullmatch")
+        if GATE_AMENDMENT.fullmatch(q.name):
+            gated.append(q.name[5:-5])
     return sorted(set(amendments(conv, clashes)) | set(gated), key=lambda a: int(a[1:]))
 
 
@@ -775,11 +814,34 @@ def gated_amendments(conv: Convening) -> list[Path]:
     return [p for a, p in amendments(conv, clashes).items() if valid(conv, a)]
 
 
+def role_dir(name: str, two: bool = False) -> bool:
+    """`name` is NN-<role> (two digits with `two`), the folder of a briefed role. A number in non-ASCII digits
+    («٠٣-statistico») is an error: 5.3.0 read it as a role folder, and skipping it would skip its checks (5.3.1)."""
+    rx = ROLE_DIR_2 if two else ROLE_DIR
+    C.refuse_wide(rx, name, f"the folder «{name}»")
+    return bool(rx.match(name))
+
+
+def amendment_label(phase: str) -> bool:
+    """`phase` is the gate label of an amendment, A<n>; A<n> in non-ASCII digits is an error (5.3.1)."""
+    C.refuse_wide(AMENDMENT_LABEL, phase, "the phase", "fullmatch")
+    return bool(AMENDMENT_LABEL.fullmatch(phase))
+
+
+def _role_folder_by(d: Path, role: re.Pattern, h: re.Pattern) -> bool:
+    return bool(role.match(d.name) and h.fullmatch(d.parent.name)
+                and (d.parent.parent.name in ("f3", "f4") or split_label(f"{d.parent.parent.name}/H-000")[1] > 1))
+
+
 def _role_folder(d: Path) -> bool:
     """A folder f3/<H#>/NN-<role>, f4/<H#>/NN-<role> or f4_<n>/<H#>/NN-<role> (a briefed role): always the
-    convening's own."""
-    return bool(re.match(r"\d+-", d.name) and ID.fullmatch(d.parent.name)
-                and (d.parent.parent.name in ("f3", "f4") or split_label(f"{d.parent.parent.name}/H-000")[1] > 1))
+    convening's own. One that only 5.3.0's \\d reads so (a number in non-ASCII digits) is an error (5.3.1)."""
+    if _role_folder_by(d, ROLE_DIR, ID):
+        return True
+    if _role_folder_by(d, C.wide(ROLE_DIR), C.wide(ID)):
+        raise Error(f"{d}: a role folder or a branch numbered in non-ASCII digits: the engine reads the digits 0-9 "
+                    "only (5.3.1)")
+    return False
 
 
 def _is_manifest(p: Path) -> bool:
@@ -939,7 +1001,7 @@ def _bind(top: Path, out: dict, exclude: set[str]) -> None:
                 continue
             if p.is_symlink():
                 out[str(p)] = _link(p, exclude, frozenset())
-            elif _aggregated(p, walked=r == top and bool(re.match(r"\d+-", x))):
+            elif _aggregated(p, walked=r == top and role_dir(x)):
                 out[str(p) + "/"] = _tree(p, exclude)
             else:
                 keep.append(x)
@@ -983,7 +1045,7 @@ _FP: dict = {}
 def fingerprints(conv: Convening, phase: str, rules: int = 1) -> dict[str, str]:
     key = (str(conv.folder), phase, rules)
     if key not in _FP:
-        if re.fullmatch(r"A\d+", phase):
+        if amendment_label(phase):
             p = amendments(conv, []).get(phase)
             _FP[key] = {str(p): sha(p)} if p else {}
         else:
@@ -1240,7 +1302,7 @@ def arbiter_verdict(conv: Convening, h: str, d: Path | None = None) -> Path:
     """The verdict of the arbiter of `h`: NN-arbitro/VERDICT.md in the folder of its latest round (or of the round
     folder `d`), the folder that select and repin brief (09-arbitro)."""
     d = f4_dir(conv, h) if d is None else d
-    folders = [x for x in sorted(d.iterdir()) if x.is_dir() and re.match(r"\d+-", x.name)
+    folders = [x for x in sorted(d.iterdir()) if x.is_dir() and role_dir(x.name)
                and _role_of(x.name) == C.ROLES["arbiter"]] if d.is_dir() else []
     for x in folders:
         if (x / conv.name("VERDICT.md")).is_file():
@@ -1281,13 +1343,13 @@ def proven(conv: Convening, h: str, warnings: list[str] | None = None, lvl: int 
 
 
 def _role_of(folder_name: str) -> str:
-    return re.sub(r"^\d+-", "", folder_name)
+    return ROLE_DIR.sub("", folder_name, count=1) if role_dir(folder_name) else folder_name
 
 
 def team(conv: Convening, h: str) -> set[str]:
     """The roles of the f3 team of `h` (its folders NN-<role>)."""
     d = conv.folder / "f3" / h
-    return {_role_of(x.name) for x in d.iterdir() if x.is_dir() and re.match(r"\d+-", x.name)} if d.is_dir() else set()
+    return {_role_of(x.name) for x in d.iterdir() if x.is_dir() and role_dir(x.name)} if d.is_dir() else set()
 
 
 def sentinel_required(conv: Convening) -> bool:
@@ -1348,7 +1410,7 @@ def conditions(conv: Convening, phase: str, not_delivered: set[str], lvl: int = 
     warnings = info["warnings"]
     label = phase
     phase, k = split_label(label)
-    amend = re.fullmatch(r"A\d+", phase)
+    amend = amendment_label(phase)
     before = {"f1": "f0", "f2": "f1", "f5": "f2"}.get(phase)
     if amend:
         before = "f0"
@@ -1562,7 +1624,7 @@ def conditions(conv: Convening, phase: str, not_delivered: set[str], lvl: int = 
             else:
                 if open_:
                     errors.append(f"branches without a valid G4 nor an early closure: {', '.join(open_)}")
-                if bs and not proven_:
+                if bs and not proven_ and outcome == "closed":   # no outcome: its own error above, not «closed»
                     errors.append("Outcome: closed but no H# proven by its verdict (Correctness proven or verified): "
                                   "the cycle does not close; a recorded non-closure has the other line of "
                                   f"{C.CONVENE_LINES['outcome'][conv.lang]}")
@@ -1620,9 +1682,9 @@ def _g4_rules2(conv: Convening, h: str, folder: Path, nd: set[str], warnings: li
         errors.append(f"{p.relative_to(conv.folder)}: only the arbiter's verdict carries the line "
                       f"{C.CONVENE_LINES['correctness'][conv.lang]}")
     is_proven = v in PROVEN
-    skip = {n("TASK.md"), *STATUS_NAMES}
+    skip = {n("TASK.md"), *STATUS_NAMES, *DERIVED_VIEWS}
     for d in sorted(folder.iterdir()) if folder.is_dir() else []:
-        if not d.is_dir() or not re.match(r"\d\d-", d.name) or not (d / n("TASK.md")).is_file():
+        if not d.is_dir() or not role_dir(d.name, two=True) or not (d / n("TASK.md")).is_file():
             continue
         role = _role_of(d.name)
         if _not_delivered(conv, role, nd) or (d.name.startswith("08-") and not is_proven):
@@ -1632,7 +1694,7 @@ def _g4_rules2(conv: Convening, h: str, folder: Path, nd: set[str], warnings: li
     if is_proven:
         f3_team = team(conv, h)
         audits = [p for p in _own(folder, *HIDDEN_NAMES) if full(p) and len(p.relative_to(folder).parts) >= 2
-                  and re.match(r"\d+-", p.relative_to(folder).parts[0])
+                  and role_dir(p.relative_to(folder).parts[0])
                   and _role_of(p.relative_to(folder).parts[0]) not in f3_team]
         if not audits:
             errors.append(f"V2 missing on a proven result: {n('HIDDEN_ASSUMPTIONS.md')} under f4/{h}, by a role "
@@ -1713,7 +1775,7 @@ def _order_rules3(conv: Convening, folder: Path) -> list[str]:
             errors.append(f"{p.relative_to(c)} {wrong}")
             continue
         parts = p.relative_to(folder).parts
-        role = folder / parts[0] if len(parts) > 1 and re.match(r"\d\d-", parts[0]) else None
+        role = folder / parts[0] if len(parts) > 1 and role_dir(parts[0], two=True) else None
         if role is None or f4_output(role.name) == "COUNTERCHECKS.md":
             targets, kind = checks, "a prediction before the counterchecks"
         else:
@@ -1760,10 +1822,10 @@ def _tail_only(p: Path, s: dict) -> bool:
 def gate(ns) -> None:
     conv = Convening.load(Path(ns.C).resolve())
     phase = ns.phase
-    mt = re.fullmatch(r"[Aa]?(\d+)", phase)
+    mt = re.fullmatch(r"[Aa]?(\d+)", phase, re.ASCII)
     if mt:
         phase = f"A{int(mt.group(1))}"
-    if not re.fullmatch(r"f[0125]|f[34]/H-\d{3}|A\d+", phase):
+    if not re.fullmatch(r"f[0125]|f[34]/H-\d{3}|A\d+", phase, re.ASCII):
         raise Error(f"unknown phase: {phase}")
     lvl = max(level(conv), ns.rules or 1)
     # f4/<H#> is the branch's latest round; f5 the closure that is open (5.3): the label names its folder and gate.
@@ -1930,7 +1992,7 @@ def _convened(conv: Convening, cat: dict, skip: Path | None = None) -> set[str]:
     for h in all_branches(conv):
         for f in [c / "f3" / h] + [f4_dir(conv, h, j) for j in f4_rounds(conv, h)]:
             if f.is_dir():
-                used |= {_role_of(x.name) for x in f.iterdir() if x.is_dir() and re.match(r"\d+-", x.name)}
+                used |= {_role_of(x.name) for x in f.iterdir() if x.is_dir() and role_dir(x.name)}
     return used
 
 
@@ -2018,7 +2080,7 @@ def _sentinel_brief(conv: Convening, cat: dict, k: int = 1) -> Path | None:
     for h in bs:
         for f in [c / "f3" / h] + [f4_dir(conv, h, j) for j in f4_rounds(conv, h)]:
             if f.is_dir():
-                used |= {_role_of(x.name) for x in f.iterdir() if x.is_dir() and re.match(r"\d+-", x.name)}
+                used |= {_role_of(x.name) for x in f.iterdir() if x.is_dir() and role_dir(x.name)}
     agents = tuple(f"{p}-" for p in dict.fromkeys((prefix(), *C.AGENT_PREFIXES)))
     for j in range(1, k):
         task = f5_dir(conv, j) / n("00-sentinel") / n("TASK.md")
@@ -2158,7 +2220,8 @@ def fund(ns) -> None:
 
 
 def _remove_unused_briefs(conv: Convening, h: str) -> None:
-    """After an early closure, the f3/f4 folders of `h` that hold only the TASK.md the engine wrote, unchanged."""
+    """After an early closure, the f3/f4 folders of `h` that hold only the TASK.md the engine wrote, unchanged, and the
+    views derived beside it (DERIVED_VIEWS)."""
     try:
         prof = catalog()["profiles"][conv.m["profile"]]
     except (Error, OSError, KeyError, ValueError):
@@ -2168,7 +2231,7 @@ def _remove_unused_briefs(conv: Convening, h: str) -> None:
         d = task.parent
         if not d.is_dir() or d.is_symlink():
             continue
-        files = [p for p in d.rglob("*") if not p.is_dir()]
+        files = [p for p in d.rglob("*") if not p.is_dir() and not (p.parent == d and p.name in DERIVED_VIEWS)]
         if files == [task] and task.read_text(encoding="utf-8", errors="replace") == text:
             shutil.rmtree(d)
     f4 = conv.folder / "f4" / h

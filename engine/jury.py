@@ -112,7 +112,7 @@ def sha(data: bytes) -> str:
 # --- lexicons: L4 (exactly the 4.0, Italian words only) and L5 (both languages) ---
 
 ID_IT = r"(D[0-9A-Za-z_.-]+)"
-ID_EN = r"(D\d[0-9A-Za-z_.-]*)"
+ID_EN = r"(D[0-9][0-9A-Za-z_.-]*)"
 _VALUE = {
     "DEPENDS": None,   # two ids
     "TEST-OUTCOME": "test_outcome", "VOTE": "vote", "CLASS": "class",
@@ -432,7 +432,7 @@ SEAL_L4 = C.L4["seal"]
 VERIFIED_L4 = C.L4["verified"]
 _SW, _VW = (re.escape(W["SEAL"]), re.escape(W["INCOMPATIBLE-VERIFIED"]))
 SEAL_L5 = re.compile(rf"^(?:{_SW}|SEAL) (?:([A-Za-z]+_[^/\s]*)/)?([A-Za-z0-9_.-]+\.(?:md|json)) ([0-9a-f]{{64}})\s*$")
-VERIFIED_L5 = re.compile(rf"^(?:{_VW} (\S+) (D[0-9A-Za-z_.-]+)|INCOMPATIBLE-VERIFIED (\S+) (D\d[0-9A-Za-z_.-]*))\s*$")
+VERIFIED_L5 = re.compile(rf"^(?:{_VW} (\S+) (D[0-9A-Za-z_.-]+)|INCOMPATIBLE-VERIFIED (\S+) (D[0-9][0-9A-Za-z_.-]*))\s*$")
 _ROUND_ALT = "|".join(re.escape(x) for x in C.ROUND_PREFIX.values())
 SEAL_NEAR = re.compile(rf"^[\s\-*>#]*(?i:({_VW}|INCOMPATIBLE-VERIFIED|{_SW}|SEAL))[\s:*]+"
                        rf"(?:(?:{_ROUND_ALT})|D\d|[A-Za-z0-9_.-]+\.(?:md|json)\b|[A-Za-z0-9_.-]+/)")
@@ -455,13 +455,18 @@ def read_seals(j: Jury) -> Seals:
     s = Seals(j.lexicon)
     text = p.read_text(encoding="utf-8")
     if s.l4:
-        for line in text.splitlines():
+        for n, line in enumerate(text.splitlines(), 1):
             m = SEAL_L4.match(line)
             if m:
                 s.files[m.group(1)] = m.group(2)
             m = VERIFIED_L4.match(line)
             if m:   # the clerk confirms the incompatibility declared by the rapporteur in that round
                 s.verified.add((m.group(1), m.group(2)))
+            # a line that the 4.0 read and that names a round in non-ASCII digits is an error, not a line skipped
+            for rx in (SEAL_L4, VERIFIED_L4):
+                if not rx.match(line) and C.wide(rx).match(line):
+                    raise Error(f"{p.name} l. {n}: line not conforming: «{line.strip()[:80]}» (a round in non-ASCII "
+                                "digits)")
         return s
     inside = False
     for n, line in enumerate(text.splitlines(), 1):
@@ -550,7 +555,7 @@ def _protocol_lines(text: str, name: str, words: dict, near) -> list[tuple[str, 
 
 _DW, _RW, _PW = (re.escape(W[x]) for x in ("DELEGATED", "RELEVANT", "PROXY"))
 DELEGATED_L5 = [("DELEGATED", re.compile(rf"^{_DW} (D[0-9A-Za-z_.-]+)\s*$")),
-                ("DELEGATED", re.compile(r"^DELEGATED (D\d[0-9A-Za-z_.-]*)\s*$"))]
+                ("DELEGATED", re.compile(r"^DELEGATED (D[0-9][0-9A-Za-z_.-]*)\s*$"))]
 DELEGATED_NEAR = re.compile(rf"^[\s\-*>#]*(?:(?i:{_DW})[\s:*]+D[0-9A-Za-z_.-]|(?i:DELEGATED|DELEGATE)[\s:*]+D\d)")
 RELEVANT_L5 = [("RELEVANT", re.compile(rf"^(?:{_RW}|RELEVANT) ([a-z][a-z0-9-]*)\s*$")),
                ("PROXY", re.compile(rf"^(?:{_PW}|PROXY) ([a-z][a-z0-9-]*) ([a-z][a-z0-9-]*)\s*$"))]
@@ -796,10 +801,12 @@ def compute_round(j: Jury, roles, r, prev, seals: Seals):
 
 def outcome_files(folder: Path) -> list[tuple[int, Path]]:
     """The outcomes of a jury folder in its dialect, ordered by round number; outcomes of two dialects → error."""
-    en = [(int(m.group(1)), p) for p in folder.glob("OUTCOME_round_*.json")
-          if (m := re.fullmatch(r"OUTCOME_round_(\d+)\.json", p.name))]
-    it = [(int(m.group(1)), p) for p in folder.glob(C.JURY_PATTERNS[2][3].format("*"))
-          if (m := re.fullmatch(C.JURY_PATTERNS[2][2], p.name))]
+    names = (re.compile(r"OUTCOME_round_(\d+)\.json", re.ASCII), re.compile(C.JURY_PATTERNS[2][2], re.ASCII))
+    for rx, glob in zip(names, ("OUTCOME_round_*.json", C.JURY_PATTERNS[2][3].format("*"))):
+        for p in folder.glob(glob):   # OUTCOME_round_<non-ASCII digits>.json is no outcome to skip: an error
+            C.refuse_wide(rx, p.name, str(folder), "fullmatch")
+    en = [(int(m.group(1)), p) for p in folder.glob("OUTCOME_round_*.json") if (m := names[0].fullmatch(p.name))]
+    it = [(int(m.group(1)), p) for p in folder.glob(C.JURY_PATTERNS[2][3].format("*")) if (m := names[1].fullmatch(p.name))]
     if en and it:
         raise Error(f"{folder}: outcomes of two dialects")
     return sorted(en or it)
@@ -904,7 +911,7 @@ def count(folder, r):
 
 TABLE_ROW = re.compile(r"^\|\s*\d{4}")
 REQUEST_ROW = re.compile(
-    r"^\|\s*(\d{4}-\d{2}-\d{2})\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*`([a-z0-9-]+)`\s*\|\s*([^|]+?)\s*\|\s*([^|]*?)\s*\|\s*$")
+    r"^\|\s*([0-9]{4}-[0-9]{2}-[0-9]{2})\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*`([a-z0-9-]+)`\s*\|\s*([^|]+?)\s*\|\s*([^|]*?)\s*\|\s*$")
 CLOSED_ROW = re.compile(r"^- `([a-z0-9-]+)`: (" + "|".join(C.REGISTER_WORDS["created"]) + r"|(?:"
                         + "|".join(C.REGISTER_WORDS["merged"]) + r") `([a-z0-9-]+)`)")
 

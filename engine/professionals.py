@@ -39,7 +39,7 @@ STRATEGIES = ("single", "fan-out", "classic", "jury", "light-jury", "full", "ple
 # Reserved ids: the names of the strategies and of the skills, in every language (C.1).
 RESERVED = set(STRATEGIES) | C.RESERVED_IT | {"local", "light"}
 PREFIX_ALT = "|".join(C.AGENT_PREFIXES)
-TITLE = re.compile(r"^### (\d+(?:\.\d+)?)\. (.+?) — `(?:" + PREFIX_ALT + r")-([a-z0-9-]+)`\s*$")
+TITLE = re.compile(r"^### ([0-9]+(?:\.[0-9]+)?)\. (.+?) — `(?:" + PREFIX_ALT + r")-([a-z0-9-]+)`\s*$")
 TEXT_FIELDS = ("name", "short", "keywords", "body")
 CONTROL = re.compile(r"[\x00-\x1f\x7f  ]")
 
@@ -182,7 +182,7 @@ def validate(d: dict, langs: list[str] | None = None, existing=(), required=REQU
             errors.append(f"{where}: status «{v.get('status')}» not in {STATUSES}")
         if v.get("core") not in cores:
             errors.append(f"{where}: unknown core «{v.get('core')}»")
-        if not re.match(r"^\d+\.\d+$", str(v.get("version", ""))):
+        if not re.match(r"^\d+\.\d+$", str(v.get("version", "")), re.ASCII):
             errors.append(f"{where}: version missing or not in the form «4.0»")
         texts = v.get("texts") if isinstance(v.get("texts"), dict) else {}
         if not texts:
@@ -295,6 +295,9 @@ def local_cards(path: Path) -> dict[str, dict]:
     if not p.is_file():
         return {}
     lines = p.read_text(encoding="utf-8").splitlines()
+    for i, r in enumerate(lines, 1):   # a title numbered in non-ASCII digits is an error, never the previous card's text
+        if not TITLE.match(r):
+            C.refuse_wide(TITLE, r, f"{p.name} l. {i}")
     starts = [i for i, r in enumerate(lines) if TITLE.match(r)]
     out = {}
     short_re = _short_re()

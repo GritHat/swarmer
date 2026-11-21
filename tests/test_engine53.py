@@ -867,8 +867,8 @@ def e8(swarms: dict, base: Path):
             check(f"{L} [{lang}]: the installed wrapper {w} states no older version",
                   not re.search(r"\b5\.[0-2]\b", t), t[:300])
     plugin = json.loads((SOURCE / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
-    check(f"{L}: plugin.json (the Claude Code plugin and the Agensi package) is 5.3.0",
-          plugin.get("version") == "5.3.0", plugin.get("version"))
+    check(f"{L}: plugin.json (the Claude Code plugin and the Agensi package) is 5.3.1",
+          plugin.get("version") == "5.3.1", plugin.get("version"))
     for p in sorted((SOURCE / "wrappers").glob("*.py")):
         t = p.read_text(encoding="utf-8")
         check(f"{L}: wrappers/{p.name} states no 5.0, 5.1 or 5.2", not re.search(r"\b5\.[0-2]\b", t), t[:300])
@@ -889,7 +889,8 @@ def e8(swarms: dict, base: Path):
     for name in ("CHANGELOG.md", "CHANGELOG.it.md"):
         p = SOURCE / name
         t = p.read_text(encoding="utf-8") if p.is_file() else ""
-        check(f"{L}: {name} has a 5.3.0 entry", re.search(r"^## 5\.3\.0\b", t, re.M), t[:200])
+        check(f"{L}: {name} has a 5.3.1 and a 5.3.0 entry",
+              re.search(r"^## 5\.3\.1\b", t, re.M) and re.search(r"^## 5\.3\.0\b", t, re.M), t[:200])
     script = SOURCE / ".github" / "scripts" / "agensi.py"
     if script.is_file() and (SOURCE / ".git").exists() and shutil.which("git"):
         out_dir = base / "agensi-pkg"

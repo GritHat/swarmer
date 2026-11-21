@@ -2,6 +2,42 @@
 
 *[Italiano](CHANGELOG.it.md)*
 
+## 5.3.1
+
+A patch release: four engine defects that the ECC act (D5) assigns to 5.3 or 5.3.1, and two tests that gave a false
+failure. Backward compatible: no gate, manifest or file format changes, and the engine's version stays 5.3.
+
+### The engine
+- G5 with `f5/CLOSURE.md` missing, or with no outcome line, reports only that; it no longer adds «Outcome: closed but
+  no H# proven», which named an outcome nobody wrote.
+- Every id regex of the engine reads ASCII digits only (`[0-9]`, or `re.ASCII` where the regex has no `\s`, `\b` or
+  `\w`): `H-٠٣٥` and the fullwidth `H-０３５` are no longer `H-035`, nor `D١` a jury's `D1`, `K-٠٠١` a K#, `agent-٣`,
+  `round_٢` or `AMENDMENT_١.md` the names of a convening's or a jury's files. `norm_id` refuses them as malformed, so
+  `select`, `fund`, `close-branch` and `repin` do too. Where 5.3.0 read such a number, 5.3.1 refuses it with an error
+  and never skips it: a role folder `٠٣-statistico` under `f3` or `f4`, an H# of a selection or a triage, a K# of a
+  closure, an amendment, gate or outcome file, a 4.0 seal line on `giro_١`, a local card `### ٢.` and the swarm's
+  `VERSION` are errors, a K# token such as `K-٠٠٧` is still warned as not allocated, and the privacy check still
+  reports a machine path written with non-ASCII digits. Spaces and word boundaries stay Unicode, as in 5.3.0: a jury
+  line such as «VOTE D1 no» with a non-breaking space, or «PREFER D١ (c)», is still a near-conforming line and an
+  error of the count, and «Results: <to fill in>» with a non-breaking space is still a field left to fill in.
+- `INPUTS.md` and `ASSEMBLY.json` beside a brief's `TASK.md` are derived views (H-042, row 24 of its revision): under
+  the rules 2 and 3 G4 no longer counts them as the role's deliverable (ENG-7a), and an early closure removes a brief
+  folder that holds only them beside the unchanged `TASK.md`. Without an extension that writes them nothing changes.
+
+### The tests
+- `tests/test_crossroads.py` no longer copies `ROOT` and `FACTORY.json` into its toy swarm, so the suite run from an
+  installed swarm gives all its checks, not 179/180. Its scale check A22 times each size in 5 interleaved rounds and
+  counts the fastest, so a loaded machine no longer fails it; the threshold stays 2.5.
+- `tests/test_skill.py` builds the copies of the repository (the ZIP of G3, the publication check of Y6, …) from the
+  files git tracks or would track, never from the ignored ones, such as the `.claude/` an installation writes at the
+  root of a checkout.
+- `tests/test_engine531.py` covers the three engine fixes, in English and in Italian, and the non-ASCII spaces and
+  digits that the near detectors and the placeholder check must still catch.
+- `tests/test_engine531_diff.py` runs every regex this release changed in the engine, and every one built from them,
+  against 5.3.0's engine (read with `git show` from the history of the source tree; without it the test checks
+  nothing), on numbers in ASCII, Arabic-Indic, Extended Arabic-Indic, fullwidth, Devanagari and superscript digits and
+  on Unicode spaces: 5.3.1 gives 5.3.0's result on ASCII digits, and refuses the others where 5.3.0 read them.
+
 ## 5.3.0
 
 Backward compatible: every gate is recomputed under the rules it was approved with, so every gate approved before
