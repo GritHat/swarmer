@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""swarmer 5.0, protocol G (JURY.md): counts the votes of a jury and the threshold of the new experts.
+"""swarmer, protocol G (JURY.md): counts the votes of a jury and the threshold of the new experts.
 
     python3 -I swarmer/jury.py count <jury folder> <round>
     python3 -I swarmer/jury.py requests [swarmer/EXPERT_REQUESTS.md]
@@ -810,10 +810,14 @@ def previous(j: Jury, e, k):
     An option already REJECTED is not proposed again; a second TO_REPROPOSE on the same decision becomes TO_USER."""
     if k != 0:
         return
+    # The parent of the folder as given, made absolute first (ENG-24): the parent of «.» or «..» is «.», which read
+    # the previous juries inside the jury itself. Lexically, as os.path.abspath does: an absolute folder reads its
+    # previous juries where it did before, also through a symbolic link.
+    parent = Path(os.path.abspath(j.folder)).parent
     for rel in j.g.get("previous", []):
         if Path(rel).is_absolute() or ".." in Path(rel).parts or "/" in rel:
             raise Error(f"previous: «{rel}» not allowed")
-        c = (j.folder.parent / rel).resolve()
+        c = (parent / rel).resolve()
         outs = outcome_files(c)
         if not outs:
             raise Error(f"previous: {rel} has no outcome")

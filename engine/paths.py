@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""swarmer 5.0: paths, safe writes, the local folder, the notes of the generated files and the checks of the public
+"""swarmer: paths, safe writes, the local folder, the notes of the generated files and the checks of the public
 material.
 
 One module, used by the generator and by the command line, so that the rules are the same everywhere:

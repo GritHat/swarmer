@@ -220,9 +220,9 @@ def env(tests=True):
     return e
 
 
-def run(*arg, tests=True):
+def run(*arg, tests=True, cwd=None):
     p = subprocess.run([sys.executable, "-I", "-B", str(JURY), *map(str, arg)], capture_output=True, text=True,
-                       stdin=subprocess.DEVNULL, env=env(tests))
+                       stdin=subprocess.DEVNULL, env=env(tests), cwd=cwd)
     return p.returncode, p.stdout + p.stderr
 
 
@@ -720,6 +720,15 @@ def battery(base):
     rc, out = run("count", c4, 0)
     check("G2: a second TO_REPROPOSE becomes TO_USER, also in the written outcome",
           rc == 0 and outcome(c4, 0)["D1"]["state"] == "TO_USER", out)
+    # ENG-24: a relative folder («.», «..») is resolved before «previous» is read against its parent
+    rc, out = run("count", ".", 0, cwd=c4)
+    check("G2: count «.» from inside the jury reads «previous» beside it: the same TO_USER",
+          rc == 0 and outcome(c4, 0)["D1"]["state"] == "TO_USER", out)
+    rc, out = run("count", "..", 0, cwd=c4 / D.rnd(0))
+    check("G2: count «..» from a round folder: the same", rc == 0 and outcome(c4, 0)["D1"]["state"] == "TO_USER", out)
+    rc, out = run("count", ".", 0, cwd=c2)
+    check("G2: count «.» from inside a jury whose option is REJECTED in «previous»: refused for it, not for a "
+          "missing outcome", rc == 2 and "already REJECTED" in out and "has no outcome" not in out, out)
     rel = ["garante", "avversario", "logico", "debugger", "statistico", "rovesciatore", "creativo"]
     cp = jury(base, "g2_plenary", jurors=[{"role": r, "fresh_on_subject": True} for r in rel],
               protocol="G2", classification="plenary", authority="recommendation", relevance=D.f("RELEVANCE.md"))

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""swarmer 5.0: the usual command, swarmer/jury.py. The code is in swarmer/engine/jury.py."""
+"""swarmer: the usual command, swarmer/jury.py. The code is in swarmer/engine/jury.py."""
 import runpy
 import sys
 from pathlib import Path

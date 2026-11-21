@@ -161,6 +161,8 @@
   "select": [],
   "fund": [],
   "close-branch": [],
+  "repin": [],
+  "contradiction": [],
   "status": [],
   "targets": [],
   "extensions": []
@@ -286,8 +288,14 @@
   "translations": "translations"
  },
  "missions": {
-  "closure": "The closure: at least one H# proven (Correctness proven or verified in its verdict), no open contradiction on an adopted conclusion, predictions resolved or declared unresolved with the test that would decide them, the four checks of the founding results. Also write {closure_file} with the line «Outcome: closed» or «Outcome: not closed», and at most three decisions for the user. «Outcome: not closed» is a recorded non-closure: name in it every branch without a verdict. If the sentinel did not work, write the line «Declared missing: sentinel: <reason>».",
+  "closure": "The closure: at least one H# proven (Correctness proven or verified in its verdict), no open contradiction on an adopted conclusion, predictions resolved or declared unresolved with the test that would decide them, the four checks of the founding results. Also write {closure_file} with the line «Outcome: closed» or «Outcome: not closed», and at most three decisions for the user. «Outcome: not closed» is a recorded non-closure: {open} If the sentinel did not work, write the line «Declared missing: sentinel: <reason>».",
+  "closure_open": "name in it every branch without a valid G4 of its latest round nor an early closure, and a radical never funded nor closed, as G5 checks: here {branches}, each unless its G4 holds by then.",
+  "closure_radical": "the radical {h}, never funded",
+  "closure_none": "none",
+  "k_registry": "The K# of this convening are allocated by the coordinator, convening-wide, with contradiction C FILE… --question TEXT, in {registry}: cite those; a contradiction without its K# is provisional, with your role's id (role-1), until it is allocated.",
+  "k_closure": "Under the gate rules 3 G5 wants every K# of {registry} named in {closure_file}, resolved or open.",
   "owner_solution": "You own {h}. Write the solution: steps, invariants, cost, «depends on», «invalidated if it changes». The predictions with their threshold go in PREDICTIONS.md, with the line «decides: yes» or «decides: no».",
+  "f3_predictions": "A prediction of yours goes in PREDICTIONS.md in your folder, with its threshold, before the test it decides, and with the line «decides: yes» or «decides: no»: G3 wants that line in every PREDICTIONS.md of f3.",
   "proof": "Write the proof or the check of {h}, after the owner's SOLUTION.md: what makes it correct, under which assumptions, and how it is checked.",
   "measurement_plan": "The measurement plan of {h}: what is measured, with which threshold, before the tests. If no measurements are needed, say so and why.",
   "attack": "The attack on {h}: the cases that should break it, with the predictions first.",
@@ -306,9 +314,20 @@
   "single": "Carry out the request in your role, in full, and reread your work with your «questions it always asks» before delivering.",
   "fan_out_slice": "You are an agent of a fan-out, with one slice of the work: yours is written below by the coordinator. Do only your slice, in full, and check the done criterion before delivering.",
   "race": "You are one arm of a race: other agents have your same brief, and the coordinator will choose with the rule declared in the contract. Work alone, in full, and check the done criterion before delivering.",
-  "owner_revision": "You own {h}. After the counterchecks and the defects, write the revision: what changes in the solution and why, each change with the countercheck or the defect it answers; what does not change, with the reason. A prediction born now goes in PREDICTIONS.md and is sealed by the coordinator before its test.",
+  "owner_revision": "You own {h}. After the counterchecks and the defects, write the revision: what changes in the solution and why, each change with the countercheck or the defect it answers; what does not change, with the reason.",
+  "f4_round": "This is round {k} of the f4 of {h}, opened by repin on a revised pin: the previous round, {previous}, is an input and stays as it is, and everything of this round goes in {folder}; its gate G4 runs under the gate rules 3 and counts only this round's files.",
+  "predictions_before": "Under the gate rules 3 your predictions come before the counterchecks: they go in PREDICTIONS.md in your folder, which the coordinator seals, with every block added to it later, before {output} is first sealed; the outcomes go in {output}, not in PREDICTIONS.md.",
+  "predictions_after": "You work after the counterchecks: a prediction of yours goes in PREDICTIONS.md in your folder, a post-countercheck prediction, which the gate rules 3 order by the seals against your own output: the coordinator seals it, with every block added to it later, before {output} is first sealed; the outcomes go in {output}, not in PREDICTIONS.md.",
+  "predictions_after_old": "You work after the counterchecks: under the gate rules {rules} of this convening G4 wants every PREDICTIONS.md born in f4 sealed before the counterchecks, so do not write one; write each prediction at the top of {output}, with its time from date -Is, before the test it decides.",
+  "revision_order": "The gate rules 3 check this order by the seals: COUNTERCHECKS.md and DEFECTS.md are sealed before REVISION.md, so write the revision once both are delivered.",
   "hidden_assumption_audit": "The hidden-assumption audit (V2) of {h}: you took part neither in the construction nor in the reread. List the unstated necessary conditions of its founding results: versions, data representations, encodings, caches and state, call order, edges, empty domains, operational limits, differences between the theory and the behavior of the system. For each: where it is assumed, whether it holds, and the check that says so. A negative audit lists the conditions checked.",
-  "sentinel": "You are the sentinel: a role that was not convened, read only, twenty minutes. Put one assumption shared by the branches to the test with an external check, and recount from the files the figures and the identifiers of the dossiers. A K# of your own enters only with a file. Write nothing outside your folder."
+  "sentinel": "You are the sentinel: a role that was not convened, read only, twenty minutes. Put one assumption shared by the branches to the test with an external check, and recount from the files the figures and the identifiers of the dossiers. A K# of your own enters only with a file. Write nothing outside your folder.",
+  "sentinel_f2": "You are the sentinel of f2: a role that was not convened, read only, twenty minutes. Put one assumption shared by the cards to the test with an external check, and recount from the files the figures and the identifiers of the cards, of the triage and of the tournament. Deliver SENTINEL.md in your folder before G2, which binds it. A K# of your own enters only with a file. Write nothing outside your folder.",
+  "sentinel_f3": "You are the sentinel of f3: a role that was not convened, read only, twenty minutes. Put one assumption shared by the solutions of the branches to the test with an external check, and recount from the files the figures and the identifiers of their solutions, verifications, measurement plans and predictions. Deliver SENTINEL.md in your folder: G5 binds it. A K# of your own enters only with a file. Write nothing outside your folder.",
+  "sentinel_f4": "You are the sentinel of f4: a role that was not convened, read only, twenty minutes. Put one assumption shared by the branches to the test with an external check, and recount from the files the figures and the identifiers of their counterchecks, measurements and dossiers. Deliver SENTINEL.md in your folder: G5 binds it. A K# of your own enters only with a file. Write nothing outside your folder.",
+  "sentinel_draw": "How you were drawn: with the seed {seed} of the convening, among the {n} free roles fit for the question, those with a keyword of their own in it ({pool}); yours: {words}. A free role is one that no brief of this convening names and that its profile does not convene.",
+  "sentinel_draw_unfit": "How you were drawn: with the seed {seed} of the convening, among all the {n} free roles, since none has a keyword of its own in the question. A free role is one that no brief of this convening names and that its profile does not convene.",
+  "sentinel_draw_none": "How you were drawn: no role of the swarm is free (each is named by a brief of this convening or convened by its profile), so the sentinel is {role}, by default."
  },
  "convene": {
   "agent": "Agent",
@@ -368,9 +387,12 @@
   "gate_warning": "  warning: {text}",
   "branch_not_funded": "{h} closed: not funded (the radical branch was never briefed)",
   "branch_funded": "{h} funded: its dossier and its briefs are written",
+  "repinned": "{h}: round {k} of f4 opened in {path}, with its briefs and its dossier; the earlier rounds stay as they are, and its G4 runs under the gate rules 3 (gate C f4/{h} --rules 3)",
+  "contradiction_allocated": "{id} allocated in {path}: {question}",
   "radical_recorded": "Radical {h} recorded, not funded: fund C {h} briefs it, close-branch C {h} --reason … closes it",
   "status_not_closed": "  {phase}: approved, NOT CLOSED (a recorded non-closure)",
   "status_not_funded": "  {phase}: radical not funded (fund C {h}, or close-branch C {h})",
+  "status_contradictions": "  K#: {ids} ({path})",
   "deciding_test_added": "{h}: the test that would decide it is recorded in its early closure",
   "status_clash": "  WARNING: {text}"
  }

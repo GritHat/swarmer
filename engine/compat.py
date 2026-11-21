@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""swarmer 5.0: the dialects of the data and the migration from the 4.0 «sciame».
+"""swarmer: the dialects of the data and the migration from the 4.0 «sciame».
 
 The only module of the engine that holds Italian words. Everything the code has to recognise from an Italian 4.0
 installation lives here, so that the other modules work only on canonical (English) forms:
@@ -576,7 +576,10 @@ CONVENE_KEYS = {
                                               "deciding_test": ("prova_decisiva",)}),
     # the map of the lanes (not in the 4.0 list of the spec, but written by prepare: role → folder, lane, canary)
     "map": Schema("map", {"*": (None, None, {"folder": ("cartella",), "lane": ("corsia", VALUES["lane"]),
-                                             "canary": ("canarino",)})}),
+                                             "canary": ("canarino",)})}, keymaps={("*",): [("agent-", "agente-")]}),
+    # a K# of the convening-wide registry CONTRADICTIONS.jsonl (5.3, ENG-15): one line per K#, written by contradiction
+    "contradiction": Schema("contradiction", {"id": ("id",), "time": ("ora",), "question": ("domanda",),
+                                              "files": ("file",)}),
 }
 
 # --- names of the files of a convening (C.4) and of a jury (C.5): canonical → Italian ---
@@ -594,6 +597,7 @@ CONVENE_FILES = {
     "HYPOTHESIS_CARD.md": "SCHEDA_IPOTESI.md",
     "00-sentinel": "00-sentinella", "SENTINEL.md": "SENTINELLA.md", "HIDDEN_ASSUMPTIONS.md": "ASSUNZIONI_NASCOSTE.md",
     "REVISION.md": "REVISIONE.md", "work": "lavoro", "status.md": "stato.md",
+    "CONTRADICTIONS.jsonl": "CONTRADDIZIONI.jsonl",
 }
 # Names with a variable part: (canonical regex, canonical template, Italian regex, Italian template).
 CONVENE_PATTERNS = [

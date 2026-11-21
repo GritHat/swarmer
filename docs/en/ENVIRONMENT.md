@@ -28,7 +28,7 @@ closest honest path, declaring it in the answer.
 | subagents | one agent per role, with the tool the environment offers (Claude Code: Agent with `subagent_type: "swarmer-<id>"`; Codex: the agent spawned by name; Antigravity: `invoke_subagent`; Gemini CLI: the tool with the subagent's name; `@swarmer-<id>` is the user's syntax, not the coordinator's) | the coordinator performs the roles one after another in the same session, each with its own brief, and writes at the top of the answer "roles performed in sequence by the coordinator: independence is reduced" |
 | parallel subagents | the independent phases in the same message, at most five at a time | one after another, in the same order as the waves |
 | model choice per role | the model written in `.swarmer/config.json` (`bash swarmer/swarmer.sh models`; it goes into the Claude Code agents, the other tools use the model of the session) | the session's model, declared |
-| shell | `convene.py` and `jury.py` prepare and check | the coordinator checks the gates against the written conditions, and declares it |
+| shell | `convene.py` and `jury.py` prepare and check | the coordinator checks the gates against the written conditions, draws the sentinels among the free roles fit for the question and numbers the K# in one list for the convening, writing the draw and the list down, and declares it |
 | writes | each agent in its own folder in `.swarmer/` | the briefs in the prompts; the answers are the deliverables |
 | structured questions to the user | the environment's tool (in Claude Code: AskUserQuestion), with the options and the recommended one first | a single clear question in the text |
 | network | reading documentation and public sources | "not verified" on what needed checking outside |

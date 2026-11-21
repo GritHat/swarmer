@@ -7,9 +7,12 @@ Codex, Antigravity, Gemini CLI e ogni strumento che legge `AGENTS.md` e le Agent
 per una richiesta, con una di otto strategie. I ruoli sono **professionisti** (le competenze generali) e
 **sottoprofessionisti** (le loro specializzazioni), in un database unico, in inglese e, se si vuole, nelle altre lingue della skill. Tutta la skill
 (documenti, database e motore) sta in un file solo, `swarmer.sh`, con la sola bash e la libreria standard di Python.
-La versione 5.2 aggiunge le estensioni facoltative, la prima delle quali è incroci (le decisioni di un progetto come
-grafo, e la via del ritorno a un bivio a monte), e cancelli più severi per le convocazioni; la 5.1 l'ha resa
-universale (la 5.0 era solo per Claude Code, e succedeva a `sciame` 4.0, che aggiorna sul posto).
+La versione 5.3 aggiunge le regole 3 dei cancelli, che leggono dai sigilli l'ordine dei controlli di un ramo e legano
+ogni cancello al contratto, i giri nuovi di un ramo e della chiusura, le sentinelle di ogni fase con la consegna
+scritta dal motore e una numerazione sola delle contraddizioni di una convocazione; la 5.2 ha aggiunto le estensioni facoltative,
+la prima delle quali è incroci (le decisioni di un progetto come grafo, e la via del ritorno a un bivio a monte), e
+cancelli più severi per le convocazioni; la 5.1 l'ha resa universale (la 5.0 era solo per Claude Code, e succedeva a
+`sciame` 4.0, che aggiorna sul posto).
 
 ## Installare
 
@@ -123,6 +126,14 @@ registro degli esperti, parole vietate, convocazioni e giurie restano con i loro
 riconta identico byte per byte. Una 4.0 italiana resta italiana, con gli stessi agenti e le stesse skill `sciame-*`;
 una 4.0 inglese passa a `swarmer-*` e ai nomi inglesi, con `sciame.sh`, `convoca.py` e `giuria.py` come alias. Un
 aggiornamento interrotto riprende con lo stesso comando.
+
+## Aggiornare dalla 5.2
+
+Lo stesso `aggiorna` lascia validi tutti i cancelli già approvati: una convocazione tiene le regole dei suoi cancelli,
+una nuova nasce con le regole 3, che leggono l'ordine di f4 dai sigilli, e `cancello C FASE --regole 3` le applica a un
+cancello nuovo di una convocazione più vecchia. `rifissa` apre un giro nuovo di un ramo, e dopo un G5 «non chiuso» la
+chiusura successiva va in `f5_2/`. Che cosa cambia, e che cosa vede un motore 5.2 di una convocazione della 5.3:
+[CHANGELOG.it.md](CHANGELOG.it.md).
 
 ## Aggiornare dalla 5.1
 

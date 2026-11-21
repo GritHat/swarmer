@@ -1,4 +1,4 @@
-# swarmer: lo sciame di agenti universale per gli agenti di programmazione (versione 5.2)
+# swarmer: lo sciame di agenti universale per gli agenti di programmazione (versione 5.3)
 
 Uno sciame di professionisti e sottoprofessionisti specialistici, che un coordinatore convoca per una richiesta con
 una di otto strategie. Il coordinatore è la sessione dell'agente di programmazione aperta nel progetto (Claude Code,
@@ -164,3 +164,9 @@ byte per byte, le stesse skill (con la sezione nuova su come delegare in ogni st
 (`bash sciame/sciame.sh estensioni --aggiungi incroci` quando la vuoi) e lascia validi tutti i cancelli già
 approvati: una convocazione cominciata prima tiene le regole 1 dei suoi cancelli, una nuova nasce con le regole 2
 (`PIPELINE.md`, §«Le regole dei cancelli»).
+
+**Dalla 5.2.** L'aggiornamento alla 5.3 lascia validi tutti i cancelli già approvati: una convocazione tiene le regole
+dei suoi cancelli, una nuova nasce con le regole 3, che leggono l'ordine di f4 dai sigilli, e `cancello C FASE --regole 3`
+le applica a un cancello nuovo di una convocazione più vecchia. `rifissa` apre un giro nuovo di un ramo, e dopo un G5
+«non chiuso» la chiusura successiva va in `f5_2/` (`PIPELINE.md`, §«I rami, gli spazi di lavoro e la chiusura»;
+`CHANGELOG.it.md`).
