@@ -255,9 +255,10 @@ main() {
                 local l="$SH_LANG"
                 [ -f "$ROOT_DIR/$SWARM_DIR/docs/$l/_HELP.txt" ] || l="en"
                 [ -f "$ROOT_DIR/$SWARM_DIR/docs/$l/_HELP.txt" ] && cat "$ROOT_DIR/$SWARM_DIR/docs/$l/_HELP.txt"
-                # the help lines of the enabled extensions (their i18n key «help»)
+                # the help lines of the enabled extensions (their i18n key «help»); swarmer.py is run from its source,
+                # and puts the engine folder after the standard library itself (5.3.2, K-100 and S18)
                 if command -v python3 >/dev/null 2>&1 && [ -f "$ROOT_DIR/$SWARM_DIR/engine/swarmer.py" ]; then
-                    python3 -I -B -c 'import sys, pathlib; s = pathlib.Path(sys.argv[1]).resolve(); sys.path.insert(0, str(s / "engine")); import swarmer; print(swarmer.extensions_help(s, sys.argv[2]), end="")' \
+                    python3 -I -B -c 'import runpy, sys, pathlib; s = pathlib.Path(sys.argv[1]).resolve(); g = runpy.run_path(str(s / "engine" / "swarmer.py"), run_name="swarmer_help"); print(g["extensions_help"](s, sys.argv[2]), end="")' \
                         "$ROOT_DIR/$SWARM_DIR" "$l" 2>/dev/null || true
                 fi
             fi
@@ -301,7 +302,15 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+_HERE = Path(__file__).resolve().parent
+# 5.3.2 (K-100, S18): compat is compiled from its source, never from a .pyc, and its engine_path puts this folder right
+# after the standard library, every module of it compiled from its source
+if not hasattr(sys.modules.get("compat"), "engine_path"):
+    _c = type(sys)("compat")
+    _c.__file__ = str(_HERE / "compat.py")
+    exec(compile((_HERE / "compat.py").read_bytes(), _c.__file__, "exec", dont_inherit=True), _c.__dict__)
+    sys.modules["compat"] = _c
+sys.modules["compat"].engine_path(_HERE)
 import compat as C  # noqa: E402
 
 VALUE_CATEGORIES = ("strategy", "form", "rule", "profile", "lane")
@@ -484,13 +493,79 @@ installation lives here, so that the other modules work only on canonical (Engli
   reasons of the engine (`REASONS`);
 - the 4.0 markers (`OLD_MARKS`), the reserved Italian ids (`RESERVED_IT`), the old environment variables
   (`ENV_ALIASES`) and the forms of the requesters of the expert register (`normalize_requester`).
+It also puts the engine's folders on sys.path (`engine_path`): every other module loads it from its source first.
 Standard library only.
 """
 from __future__ import annotations
 
+import importlib.machinery
 import os
 import re
+import sys
 from pathlib import Path
+
+
+# --- the engine's folders on sys.path (5.3.2, K-100 and S18) ---
+
+class SourceLoader(importlib.machinery.SourceFileLoader):
+    """A module compiled from its source, never from a .pyc: under -B Python writes no bytecode, but still runs a
+    timestamp .pyc of __pycache__ whose header matches the size and the mtime of the source (S18)."""
+
+    def get_code(self, fullname):
+        path = self.get_filename(fullname)
+        return self.source_to_code(self.get_data(path), path)
+
+
+def _source_hook():
+    """The path hook of the engine's folders (`hook.swarmer_source_dirs`, real paths): for those, a finder of the .py
+    files only, loaded by SourceLoader (no .pyc, no extension module); any other entry goes to the next hook."""
+    dirs: set = set()
+
+    def hook(entry):
+        try:
+            entry = os.fsdecode(entry)
+            real = os.path.realpath(entry or os.curdir)
+        except (OSError, TypeError, ValueError):
+            raise ImportError("not a folder of the swarmer engine") from None
+        if real not in dirs:
+            raise ImportError("not a folder of the swarmer engine")
+        return importlib.machinery.FileFinder(entry, (SourceLoader, [".py"]))
+
+    hook.swarmer_source_dirs = dirs
+    return hook
+
+
+def after_stdlib() -> int:
+    """The index of sys.path right after the standard library (the folder of os, and lib-dynload); the end of
+    sys.path when neither is on it."""
+    std = os.path.dirname(os.__file__)
+    last = [i for i, p in enumerate(sys.path)
+            if isinstance(p, str) and (p == std or os.path.basename(p) == "lib-dynload")]
+    return last[-1] + 1 if last else len(sys.path)
+
+
+def engine_path(folder) -> None:
+    """`folder`, an engine or extension folder, on sys.path right after the standard library (unless it is on sys.path
+    already), and every module imported from it compiled from its source (5.3.2). So a file named like a stdlib
+    module beside the engine never runs in place of the stdlib one (K-100), nor a .pyc, even one of the same size and
+    mtime, in place of the source (S18), whichever launch form or swarm (`--swarm`) names the folder."""
+    folder = str(folder)
+    hook = next((h for h in sys.path_hooks if hasattr(h, "swarmer_source_dirs")), None)
+    if hook is None:
+        hook = _source_hook()
+        sys.path_hooks.insert(0, hook)
+    real = os.path.realpath(folder)
+    if real not in hook.swarmer_source_dirs:
+        hook.swarmer_source_dirs.add(real)
+        for k in list(sys.path_importer_cache):    # a finder cached before for this folder would read the .pyc
+            try:
+                same = isinstance(k, (str, bytes)) and os.path.realpath(os.fsdecode(k) or os.curdir) == real
+            except (OSError, TypeError, ValueError):
+                same = False
+            if same:
+                del sys.path_importer_cache[k]
+    if folder not in sys.path:
+        sys.path.insert(after_stdlib(), folder)
 
 
 class Error(Exception):
@@ -1296,7 +1371,14 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE))
+# 5.3.2 (K-100, S18): compat is compiled from its source, never from a .pyc, and its engine_path puts this folder right
+# after the standard library, every module of it compiled from its source
+if not hasattr(sys.modules.get("compat"), "engine_path"):
+    _c = type(sys)("compat")
+    _c.__file__ = str(HERE / "compat.py")
+    exec(compile((HERE / "compat.py").read_bytes(), _c.__file__, "exec", dont_inherit=True), _c.__dict__)
+    sys.modules["compat"] = _c
+sys.modules["compat"].engine_path(HERE)
 import aliases as A  # noqa: E402
 import compat as C  # noqa: E402
 import paths as S  # noqa: E402
@@ -3702,7 +3784,15 @@ import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+_HERE = Path(__file__).resolve().parent
+# 5.3.2 (K-100, S18): compat is compiled from its source, never from a .pyc, and its engine_path puts this folder right
+# after the standard library, every module of it compiled from its source
+if not hasattr(sys.modules.get("compat"), "engine_path"):
+    _c = type(sys)("compat")
+    _c.__file__ = str(_HERE / "compat.py")
+    exec(compile((_HERE / "compat.py").read_bytes(), _c.__file__, "exec", dont_inherit=True), _c.__dict__)
+    sys.modules["compat"] = _c
+sys.modules["compat"].engine_path(_HERE)
 import compat as C  # noqa: E402
 
 FOLDER = "extensions"
@@ -3892,17 +3982,21 @@ def i18n_files(swarm) -> list[Path]:
 
 
 def entry(swarm, name: str, command: str | None = None):
-    """The entry module of a command of the extension, loaded once, with its folder and <swarm>/engine on sys.path."""
+    """The entry module of a command of the extension, loaded once, with <swarm>/engine and its folder on sys.path.
+
+    Both go right after the standard library, <swarm>/engine first, and every module of both, the entry module too,
+    is compiled from its source (5.3.2, K-100 and S18: compat.engine_path): the named swarm's folders never shadow the
+    stdlib, and no .pyc runs in place of a source."""
     m = manifests(swarm)[0][name]                        # a broken other extension does not stop this one
     cmd = command or next(iter(m["commands"]))
     path = (folder(swarm) / name / m["commands"][cmd]).resolve()
     key = str(path)
     if key not in _MODULES:
-        for p in (str(path.parent), str(Path(swarm).resolve() / "engine")):
-            if p not in sys.path:
-                sys.path.insert(0, p)
+        for p in (path.parent, Path(swarm).resolve() / "engine"):
+            C.engine_path(p)
         sys.dont_write_bytecode = True
-        spec = importlib.util.spec_from_file_location(f"swarmer_ext_{name}_{path.stem}", path)
+        mod_name = f"swarmer_ext_{name}_{path.stem}"
+        spec = importlib.util.spec_from_file_location(mod_name, path, loader=C.SourceLoader(mod_name, str(path)))
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         _MODULES[key] = mod
@@ -3979,7 +4073,14 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE))
+# 5.3.2 (K-100, S18): compat is compiled from its source, never from a .pyc, and its engine_path puts this folder right
+# after the standard library, every module of it compiled from its source
+if not hasattr(sys.modules.get("compat"), "engine_path"):
+    _c = type(sys)("compat")
+    _c.__file__ = str(HERE / "compat.py")
+    exec(compile((HERE / "compat.py").read_bytes(), _c.__file__, "exec", dont_inherit=True), _c.__dict__)
+    sys.modules["compat"] = _c
+sys.modules["compat"].engine_path(HERE)
 import compat as C  # noqa: E402
 import extensions as E  # noqa: E402
 import paths as S  # noqa: E402
@@ -4860,12 +4961,20 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 SWARM = HERE.parent if HERE.name == "engine" else HERE
 ENGINE = SWARM / "engine" / "swarmer.py"
-sys.path.insert(0, str(SWARM / "engine"))
+_ENG = SWARM / "engine"
+# 5.3.2 (K-100, S18): compat is compiled from its source, never from a .pyc, and its engine_path puts the engine folder
+# right after the standard library, every module of it compiled from its source
+if not hasattr(sys.modules.get("compat"), "engine_path"):
+    _c = type(sys)("compat")
+    _c.__file__ = str(_ENG / "compat.py")
+    exec(compile((_ENG / "compat.py").read_bytes(), _c.__file__, "exec", dont_inherit=True), _c.__dict__)
+    sys.modules["compat"] = _c
+sys.modules["compat"].engine_path(_ENG)
 import aliases as A  # noqa: E402
 
 
 def run(*arg):
-    sys.exit(subprocess.run([sys.executable, "-I", str(ENGINE), "--swarm", str(SWARM), *arg]).returncode)
+    sys.exit(subprocess.run([sys.executable, "-I", "-B", str(ENGINE), "--swarm", str(SWARM), *arg]).returncode)
 
 
 def canonical(option: str, al: dict) -> str:
@@ -5158,9 +5267,10 @@ main() {
                 local l="$SH_LANG"
                 [ -f "$ROOT_DIR/$SWARM_DIR/docs/$l/_HELP.txt" ] || l="en"
                 [ -f "$ROOT_DIR/$SWARM_DIR/docs/$l/_HELP.txt" ] && cat "$ROOT_DIR/$SWARM_DIR/docs/$l/_HELP.txt"
-                # the help lines of the enabled extensions (their i18n key «help»)
+                # the help lines of the enabled extensions (their i18n key «help»); swarmer.py is run from its source,
+                # and puts the engine folder after the standard library itself (5.3.2, K-100 and S18)
                 if command -v python3 >/dev/null 2>&1 && [ -f "$ROOT_DIR/$SWARM_DIR/engine/swarmer.py" ]; then
-                    python3 -I -B -c 'import sys, pathlib; s = pathlib.Path(sys.argv[1]).resolve(); sys.path.insert(0, str(s / "engine")); import swarmer; print(swarmer.extensions_help(s, sys.argv[2]), end="")' \
+                    python3 -I -B -c 'import runpy, sys, pathlib; s = pathlib.Path(sys.argv[1]).resolve(); g = runpy.run_path(str(s / "engine" / "swarmer.py"), run_name="swarmer_help"); print(g["extensions_help"](s, sys.argv[2]), end="")' \
                         "$ROOT_DIR/$SWARM_DIR" "$l" 2>/dev/null || true
                 fi
             fi
@@ -5212,7 +5322,14 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE))
+# 5.3.2 (K-100, S18): compat is compiled from its source, never from a .pyc, and its engine_path puts this folder right
+# after the standard library, every module of it compiled from its source
+if not hasattr(sys.modules.get("compat"), "engine_path"):
+    _c = type(sys)("compat")
+    _c.__file__ = str(HERE / "compat.py")
+    exec(compile((HERE / "compat.py").read_bytes(), _c.__file__, "exec", dont_inherit=True), _c.__dict__)
+    sys.modules["compat"] = _c
+sys.modules["compat"].engine_path(HERE)
 import compat as C  # noqa: E402
 
 BASE = HERE.parent if HERE.name in ("engine", C.OLD_TREE["engine"]) else HERE  # the swarm folder
@@ -6259,7 +6376,15 @@ import unicodedata
 import urllib.parse
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+_HERE = Path(__file__).resolve().parent
+# 5.3.2 (K-100, S18): compat is compiled from its source, never from a .pyc, and its engine_path puts this folder right
+# after the standard library, every module of it compiled from its source
+if not hasattr(sys.modules.get("compat"), "engine_path"):
+    _c = type(sys)("compat")
+    _c.__file__ = str(_HERE / "compat.py")
+    exec(compile((_HERE / "compat.py").read_bytes(), _c.__file__, "exec", dont_inherit=True), _c.__dict__)
+    sys.modules["compat"] = _c
+sys.modules["compat"].engine_path(_HERE)
 import compat as C  # noqa: E402
 
 Error = C.Error
@@ -6643,7 +6768,14 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE))
+# 5.3.2 (K-100, S18): compat is compiled from its source, never from a .pyc, and its engine_path puts this folder right
+# after the standard library, every module of it compiled from its source
+if not hasattr(sys.modules.get("compat"), "engine_path"):
+    _c = type(sys)("compat")
+    _c.__file__ = str(HERE / "compat.py")
+    exec(compile((HERE / "compat.py").read_bytes(), _c.__file__, "exec", dont_inherit=True), _c.__dict__)
+    sys.modules["compat"] = _c
+sys.modules["compat"].engine_path(HERE)
 import compat as C  # noqa: E402
 
 DEFAULT_DB = HERE.parent / "db"
@@ -7058,7 +7190,14 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent          # <swarm>/engine
 SWARM = HERE.parent                             # the swarm folder in the project (or the repository)
-sys.path.insert(0, str(HERE))
+# 5.3.2 (K-100, S18): compat is compiled from its source, never from a .pyc, and its engine_path puts this folder right
+# after the standard library, every module of it compiled from its source
+if not hasattr(sys.modules.get("compat"), "engine_path"):
+    _c = type(sys)("compat")
+    _c.__file__ = str(HERE / "compat.py")
+    exec(compile((HERE / "compat.py").read_bytes(), _c.__file__, "exec", dont_inherit=True), _c.__dict__)
+    sys.modules["compat"] = _c
+sys.modules["compat"].engine_path(HERE)
 import aliases as A  # noqa: E402
 import compat as C  # noqa: E402
 import extensions as E  # noqa: E402
@@ -14280,7 +14419,7 @@ You are at the root of the user's project. The agents have the tools and permiss
 - **The convening** lives in `.swarmer/` inside the project. In the classic and in the full it is prepared with:
 
   ```
-  python3 -I swarmer/convene.py prepare --name <short id> --strategy <single|classic|full> --profile <profile> --question '<the question>' [--roles a,b] --dest .swarmer
+  python3 -I -B swarmer/convene.py prepare --name <short id> --strategy <single|classic|full> --profile <profile> --question '<the question>' [--roles a,b] --dest .swarmer
   ```
 
   The script prints the convening folder (`C`) and, for each f1 agent, its `TASK.md`: you complete it with
@@ -14289,7 +14428,7 @@ You are at the root of the user's project. The agents have the tools and permiss
   - `gate C PHASE --notes …`, after reading;
   - `seal`, `select` and `status`.
 
-  `python3 -I swarmer/convene.py --help` tells everything, and `python3 -I swarmer/convene.py roles --question '<the question>'`
+  `python3 -I -B swarmer/convene.py --help` tells everything, and `python3 -I -B swarmer/convene.py roles --question '<the question>'`
   lists the roles whose keywords appear in the question.
 - **In the single** the folder is optional: the brief in the prompt is enough, and the agent's reply is the deliverable.
 - **Without a shell or without writes** the phases are the same: the briefs are in the prompts, the agents' replies
@@ -14785,9 +14924,9 @@ A project can change these choices in `swarmer/local/JURY.md` (§9), declaring i
 
 ## 8. Tools
 
-- `python3 -I swarmer/jury.py count <folder> <round>`: recomputes every round, writes `OUTCOME_round_<r>.json`
+- `python3 -I -B swarmer/jury.py count <folder> <round>`: recomputes every round, writes `OUTCOME_round_<r>.json`
   (`ESITO_giro_<r>.json` in an Italian jury). Exits with 0 if everything passes, with 2 and an "ERROR:" otherwise.
-- `python3 -I swarmer/jury.py requests [register]`: the ids at the §4 threshold and the similar ids.
+- `python3 -I -B swarmer/jury.py requests [register]`: the ids at the §4 threshold and the similar ids.
 - `bash swarmer/swarmer.sh tests`: the skill's batteries, including the jury ones; to be run before every
   jury.
 
@@ -15147,7 +15286,7 @@ complete rules are in `JURY.md`; here is what is needed to convene it.
 4. **The votes**, blind and sealed: for each `Dk` the lines `VOTE`, `REVISION` (for a no) or `CONDITION` (for a yes),
    `CLASS ordinary|plenary`, and optionally `PREFER`. Each juror reports their own seals in the final
    answer, and the clerk writes them into `SEALS.md`. The Italian forms of the lines are accepted too (`JURY.md` §11).
-5. **The count** is done by `python3 -I swarmer/jury.py count <folder> <round>`:
+5. **The count** is done by `python3 -I -B swarmer/jury.py count <folder> <round>`:
    - full consensus: APPROVED, or RECOMMENDED if the authority is a recommendation;
    - majority: REVISION, that is a round with a small revision that does not touch the CONDITION lines of the yes votes;
    - minority or consensus on no: REJECTED.
@@ -16144,7 +16283,7 @@ Sei nella radice del progetto dell'utente. Gli agenti hanno gli strumenti e i pe
 - **La convocazione** sta in `.sciame/` dentro il progetto. Nella classica e nella completa si prepara con:
 
   ```
-  python3 -I sciame/convoca.py prepara --nome <sigla breve> --strategia <singolo|classica|completa> --profilo <profilo> --domanda '<la domanda>' [--ruoli a,b] --dest .sciame
+  python3 -I -B sciame/convoca.py prepara --nome <sigla breve> --strategia <singolo|classica|completa> --profilo <profilo> --domanda '<la domanda>' [--ruoli a,b] --dest .sciame
   ```
 
   Lo script stampa la cartella della convocazione (`C`) e, per ogni agente di f1, il suo `TASK.md`: lo completi con
@@ -16153,7 +16292,7 @@ Sei nella radice del progetto dell'utente. Gli agenti hanno gli strumenti e i pe
   - `cancello C FASE --note …`, dopo aver letto;
   - `sigilla`, `seleziona` e `stato`.
 
-  `python3 -I sciame/convoca.py --help` dice tutto, e `python3 -I sciame/convoca.py ruoli --domanda '<la domanda>'`
+  `python3 -I -B sciame/convoca.py --help` dice tutto, e `python3 -I -B sciame/convoca.py ruoli --domanda '<la domanda>'`
   elenca i ruoli le cui parole chiave compaiono nella domanda.
 - **Nel singolo** la cartella è facoltativa: basta la consegna nel prompt, e la risposta dell'agente è la consegna.
 - **Senza shell o senza scritture** le fasi sono le stesse: le consegne stanno nei prompt, le risposte degli agenti
@@ -16649,9 +16788,9 @@ Un progetto può cambiare queste scelte in `sciame/locale/GIURIA.md` (§9), dich
 
 ## 8. Strumenti
 
-- `python3 -I sciame/giuria.py conta <cartella> <giro>`: ricalcola tutti i giri, scrive `ESITO_giro_<r>.json`. Esce
+- `python3 -I -B sciame/giuria.py conta <cartella> <giro>`: ricalcola tutti i giri, scrive `ESITO_giro_<r>.json`. Esce
   con 0 se tutto passa, con 2 e un «ERRORE:» altrimenti.
-- `python3 -I sciame/giuria.py richieste [registro]`: le sigle alla soglia del §4 e le sigle vicine.
+- `python3 -I -B sciame/giuria.py richieste [registro]`: le sigle alla soglia del §4 e le sigle vicine.
 - `bash sciame/sciame.sh prove`: le batterie della skill, comprese quelle della giuria; da lanciare prima di ogni
   giuria.
 
@@ -17011,7 +17150,7 @@ regole complete sono in `GIURIA.md`; qui c'è ciò che serve per convocarla.
 4. **I voti**, ciechi e sigillati: per ogni `Dk` le righe `VOTO`, `REVISIONE` (per un no) o `CONDIZIONE` (per un sì),
    `CLASSE ordinaria|plenaria`, e facoltativa `PREFERISCO`. Ogni giurato riporta i propri sigilli nella risposta
    finale, e il cancelliere li scrive in `SIGILLI.md`.
-5. **Il conto** lo fa `python3 -I sciame/giuria.py conta <cartella> <giro>`:
+5. **Il conto** lo fa `python3 -I -B sciame/giuria.py conta <cartella> <giro>`:
    - consenso totale: APPROVATA, o RACCOMANDATA se l'autorità è una raccomandazione;
    - maggioranza: REVISIONE, cioè un giro con una revisione piccola che non tocca le CONDIZIONE dei sì;
    - minoranza o consenso sul no: RESPINTA.
@@ -23120,8 +23259,8 @@ def e8(swarms: dict, base: Path):
             check(f"{L} [{lang}]: the installed wrapper {w} states no older version",
                   not re.search(r"\b5\.[0-2]\b", t), t[:300])
     plugin = json.loads((SOURCE / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
-    check(f"{L}: plugin.json (the Claude Code plugin and the Agensi package) is 5.3.1",
-          plugin.get("version") == "5.3.1", plugin.get("version"))
+    check(f"{L}: plugin.json (the Claude Code plugin and the Agensi package) is 5.3.2",
+          plugin.get("version") == "5.3.2", plugin.get("version"))
     for p in sorted((SOURCE / "wrappers").glob("*.py")):
         t = p.read_text(encoding="utf-8")
         check(f"{L}: wrappers/{p.name} states no 5.0, 5.1 or 5.2", not re.search(r"\b5\.[0-2]\b", t), t[:300])
@@ -23142,8 +23281,8 @@ def e8(swarms: dict, base: Path):
     for name in ("CHANGELOG.md", "CHANGELOG.it.md"):
         p = SOURCE / name
         t = p.read_text(encoding="utf-8") if p.is_file() else ""
-        check(f"{L}: {name} has a 5.3.1 and a 5.3.0 entry",
-              re.search(r"^## 5\.3\.1\b", t, re.M) and re.search(r"^## 5\.3\.0\b", t, re.M), t[:200])
+        check(f"{L}: {name} has a 5.3.2, a 5.3.1 and a 5.3.0 entry",
+              all(re.search(rf"^## 5\.3\.{n}\b", t, re.M) for n in (2, 1, 0)), t[:200])
     script = SOURCE / ".github" / "scripts" / "agensi.py"
     if script.is_file() and (SOURCE / ".git").exists() and shutil.which("git"):
         out_dir = base / "agensi-pkg"
@@ -24437,11 +24576,13 @@ def a7(s: T.Swarm):
 def a6():
     L = "A6"
     plugin = json.loads((SOURCE / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
-    check(f"{L}: plugin.json is 5.3.1", plugin.get("version") == "5.3.1", plugin.get("version"))
+    check(f"{L}: plugin.json is 5.3.2 (5.3.1, then the patch 5.3.2)", plugin.get("version") == "5.3.2",
+          plugin.get("version"))
     for name in ("CHANGELOG.md", "CHANGELOG.it.md"):
         t = (SOURCE / name).read_text(encoding="utf-8")
         heads = re.findall(r"^## (\S+)", t, re.M)
-        check(f"{L}: {name} opens with 5.3.1, then 5.3.0", heads[:2] == ["5.3.1", "5.3.0"], heads[:3])
+        check(f"{L}: {name} opens with 5.3.2, then 5.3.1 and 5.3.0", heads[:3] == ["5.3.2", "5.3.1", "5.3.0"],
+              heads[:4])
     import generate as G
     check(f"{L}: the engine version stays 5.3 (no format or gate changed)", G.VERSION == "5.3", G.VERSION)
     rc, out = T.py(SOURCE / "engine" / "swarmer.py", "--swarm", SOURCE, "build", "--check")
@@ -25234,6 +25375,276 @@ def main():
                   f"{sum(1 for s in SITES if s[4] == 'detector')} detectors, "
                   f"{sum(1 for s in SITES if s[4] == 'new')} new in this round); strings: "
                   f"{sum(len(v) for v in a.values())} per engine")
+    failed = [n for n, ok in results if not ok]
+    print(f"\n{len(results) - len(failed)}/{len(results)} checks passed")
+    sys.exit(1 if failed else 0)
+
+
+if __name__ == "__main__":
+    main()
+#==== swarmer.sh: file tests/test_engine532.py ====
+#!/usr/bin/env python3
+"""Tests of swarmer 5.3.2, K-100 and S18: python3 -I -B tests/test_engine532.py
+
+- K-100: no module of the engine puts its folder, nor extensions.entry the named swarm's <swarm>/engine or the
+  extension's own folder, on sys.path ahead of the standard library: a file named like a stdlib module, planted in
+  those folders, never runs in its place;
+- S18: a timestamp .pyc of the same size and mtime as its source, planted in their __pycache__, never runs in place of
+  the source: the engine compiles its modules, and the extension modules, from their source;
+- a clean run of every launch form writes no .pyc;
+- the version: plugin.json says 5.3.2 and both CHANGELOGs open with it.
+
+Every launch form, with `python3 -I -B` (swarmer.sh finds `python3` in the PATH, here the interpreter under test):
+swarmer.sh (a command, help, an extension command through the loader extensions.entry), the engine's module scripts
+and the installed wrappers, crossroads.py run directly, the repository layout, and across swarms (the clean engine of
+one swarm with `--swarm` naming another one, which is planted). On sys.executable and on python3.8, python3.10 and
+python3.14 when the PATH has them. Installs the swarm with this tree's swarmer.sh, in a temporary folder. Exits with 1
+if a check fails.
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import traceback
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+SOURCE = HERE.parent
+sys.dont_write_bytecode = True
+
+results: list[tuple[str, bool]] = []
+# names of stdlib modules that the engine, or crossroads, imports at its top or later (none of them is imported by the
+# interpreter before a script runs, under -I)
+STDLIB_NAMES = ("argparse", "ast", "base64", "bisect", "calendar", "datetime", "difflib", "fnmatch", "hashlib", "heapq",
+                "hmac", "html", "json", "random", "secrets", "shutil", "string", "struct", "subprocess", "tempfile",
+                "textwrap", "tokenize", "unicodedata")
+TOY_IGNORE = (".git", "__pycache__", "tests", "swarmer.sh", "sciame.sh", "ROOT", "FACTORY.json", "RADICE",
+              "FABBRICA.json")
+# run by the interpreter under test: a timestamp .pyc (PEP 552 flags 0) for every source of a folder, with the mtime and
+# the size of the source in its header, whose code appends to MARK and then runs the real source (so the outputs of a
+# run do not change: only MARK tells)
+PLANT_PYC = r'''
+import importlib.util, marshal, os, sys
+folder, mark = sys.argv[1], sys.argv[2]
+for n in sorted(os.listdir(folder)):
+    if not n.endswith(".py"):
+        continue
+    src = os.path.join(folder, n)
+    st = os.stat(src)
+    text = ("open(%r, 'a').write(%r)\n" % (mark, "pyc " + n + "\n")
+            + "exec(compile(open(__file__, 'rb').read(), __file__, 'exec', dont_inherit=True))\n")
+    code = compile(text, src, "exec", dont_inherit=True)
+    pyc = importlib.util.cache_from_source(src)
+    os.makedirs(os.path.dirname(pyc), exist_ok=True)
+    with open(pyc, "wb") as f:
+        f.write(importlib.util.MAGIC_NUMBER + (0).to_bytes(4, "little")
+                + (int(st.st_mtime) & 0xFFFFFFFF).to_bytes(4, "little")
+                + (st.st_size & 0xFFFFFFFF).to_bytes(4, "little")
+                + marshal.dumps(code))
+'''
+
+
+def check(name, ok, detail=""):
+    results.append((name, bool(ok)))
+    print(("ok   " if ok else "FAILED ") + name + ("" if ok or not detail else f"\n     {str(detail)[:1500]}"),
+          flush=True)
+
+
+def interpreters() -> list[tuple[str, str]]:
+    """(label, path) of sys.executable and of python3.8, python3.10 and python3.14 when found, each real one once."""
+    out, seen = [], set()
+    for n in (sys.executable, "python3.8", "python3.10", "python3.14"):
+        p = n if os.sep in n else shutil.which(n)
+        if not p:
+            print(f"skip {n}: not in the PATH")
+            continue
+        r = os.path.realpath(p)
+        if r in seen:
+            continue
+        v = subprocess.run([p, "-I", "-B", "-c", "import sys; print('%d.%d' % sys.version_info[:2]); "
+                            "sys.exit(sys.version_info < (3, 8))"], capture_output=True)
+        if v.returncode != 0:
+            print(f"skip {n}: not a python >= 3.8")
+            continue
+        seen.add(r)
+        out.append((v.stdout.decode().strip(), p))
+    return out
+
+
+class Lab:
+    """Two installations (the planted one, and the clean one whose engine names it with --swarm), a repository copy,
+    and the environment of one interpreter."""
+
+    def __init__(self, base: Path):
+        self.base = base
+        self.home = base / "home"
+        self.home.mkdir()
+        self.mark = base / "MARK"
+        self.root = base / "root"
+        self.other = base / "other"
+        for r in (self.root, self.other):
+            r.mkdir()
+            rc, out = self.sh_raw(["bash", str(SOURCE / "swarmer.sh"), "-C", str(r), "install", "--language", "en"])
+            assert rc == 0, out
+            rc, out = self.sh_raw(["bash", str(r / "swarmer" / "swarmer.sh"), "extensions", "--add", "crossroads"],
+                                  cwd=r)
+            assert rc == 0, out
+        self.sw = self.root / "swarmer"
+        self.osw = self.other / "swarmer"
+        self.repo = base / "repo"
+        shutil.copytree(SOURCE, self.repo, ignore=shutil.ignore_patterns(*TOY_IGNORE))
+        self.proj = base / "proj"          # the project root of the repository forms (the current folder)
+        self.proj.mkdir()
+        self.bin = base / "bin"
+        self.bin.mkdir()
+
+    def env(self) -> dict:
+        e = {k: v for k, v in os.environ.items() if not k.startswith(("SWARMER_", "SCIAME_"))}
+        e["PATH"] = str(self.bin) + os.pathsep + e.get("PATH", "")
+        e.update(HOME=str(self.home), GIT_CEILING_DIRECTORIES=str(self.base), GIT_CONFIG_NOSYSTEM="1")
+        return e
+
+    def use(self, py: str) -> None:
+        """`python3` in the PATH is the interpreter under test (swarmer.sh runs python3)."""
+        link = self.bin / "python3"
+        if link.is_symlink() or link.exists():
+            link.unlink()
+        link.symlink_to(py)
+
+    def sh_raw(self, argv, cwd=None):
+        p = subprocess.run(argv, capture_output=True, stdin=subprocess.DEVNULL, cwd=cwd or self.base,
+                           env={k: v for k, v in os.environ.items() if not k.startswith(("SWARMER_", "SCIAME_"))},
+                           timeout=600)
+        return p.returncode, (p.stdout + p.stderr).decode("utf-8", "replace")
+
+    def run(self, argv, cwd) -> tuple[int, str, str, str]:
+        """rc, stdout, stderr and what the planted files wrote to MARK."""
+        if self.mark.exists():
+            self.mark.unlink()
+        p = subprocess.run([str(a) for a in argv], capture_output=True, stdin=subprocess.DEVNULL, cwd=str(cwd),
+                           env=self.env(), timeout=300)
+        mark = self.mark.read_text(encoding="utf-8") if self.mark.exists() else ""
+        if self.mark.exists():
+            self.mark.unlink()
+        return p.returncode, p.stdout.decode("utf-8", "replace"), p.stderr.decode("utf-8", "replace"), mark
+
+    def forms(self, py: str) -> list[tuple[str, list, Path]]:
+        sw, osw, repo, root = self.sw, self.osw, self.repo, self.root
+        q = ["roles", "--question", "a python bug"]
+        return [
+            ("swarmer.sh verify", ["bash", sw / "swarmer.sh", "verify"], root),
+            ("swarmer.sh professionals", ["bash", sw / "swarmer.sh", "professionals"], root),
+            ("swarmer.sh help", ["bash", sw / "swarmer.sh", "help"], root),
+            ("swarmer.sh crossroads derive (extensions.entry)",
+             ["bash", sw / "swarmer.sh", "crossroads", "derive"], root),
+            ("engine/swarmer.py language", [py, "-I", "-B", sw / "engine" / "swarmer.py", "--swarm", sw, "language"],
+             root),
+            ("engine/swarmer.py crossroads derive (extensions.entry)",
+             [py, "-I", "-B", sw / "engine" / "swarmer.py", "--swarm", sw, "crossroads", "derive"], root),
+            ("convene.py roles (installed wrapper)", [py, "-I", "-B", sw / "convene.py", *q], root),
+            ("engine/convene.py roles", [py, "-I", "-B", sw / "engine" / "convene.py", *q], root),
+            ("jury.py requests (installed wrapper)", [py, "-I", "-B", sw / "jury.py", "requests"], root),
+            ("engine/jury.py requests", [py, "-I", "-B", sw / "engine" / "jury.py", "requests"], root),
+            ("generate_agents.py --list", [py, "-I", "-B", sw / "generate_agents.py", "--list"], root),
+            ("engine/professionals.py", [py, "-I", "-B", sw / "engine" / "professionals.py"], root),
+            ("crossroads.py derive, run directly",
+             [py, "-I", "-B", sw / "extensions" / "crossroads" / "engine" / "crossroads.py", "derive"], root),
+            ("across swarms: the other swarm's clean engine, --swarm this one, crossroads derive",
+             [py, "-I", "-B", osw / "engine" / "swarmer.py", "--swarm", sw, "crossroads", "derive"], root),
+            ("across swarms: the other swarm's clean engine, --swarm this one, verify",
+             [py, "-I", "-B", osw / "engine" / "swarmer.py", "--swarm", sw, "verify"], root),
+            ("repository layout: engine/swarmer.py crossroads derive",
+             [py, "-I", "-B", repo / "engine" / "swarmer.py", "--swarm", repo, "crossroads", "derive"], self.proj),
+            ("repository layout: engine/convene.py roles", [py, "-I", "-B", repo / "engine" / "convene.py", *q],
+             self.proj),
+        ]
+
+    def folders(self) -> list[Path]:
+        """The planted folders: the engine and the extension folder of this swarm and of the repository copy."""
+        return [d for s in (self.sw, self.repo) for d in (s / "engine", s / "extensions" / "crossroads" / "engine")]
+
+    def plant_stdlib(self) -> None:
+        for d in self.folders():
+            for n in STDLIB_NAMES:
+                (d / f"{n}.py").write_text(f"open({str(self.mark)!r}, 'a').write({'stdlib ' + n + chr(10)!r})\n",
+                                           encoding="utf-8")
+
+    def plant_pyc(self, py: str) -> None:
+        for d in self.folders():
+            rc = subprocess.run([py, "-I", "-B", "-c", PLANT_PYC, str(d), str(self.mark)], capture_output=True,
+                                stdin=subprocess.DEVNULL, env=self.env(), timeout=120)
+            assert rc.returncode == 0, rc.stderr.decode("utf-8", "replace")
+
+    def unplant(self) -> None:
+        for d in self.folders():
+            shutil.rmtree(d / "__pycache__", ignore_errors=True)
+            for n in STDLIB_NAMES:
+                p = d / f"{n}.py"
+                if p.exists():
+                    p.unlink()
+
+    def pycs(self) -> list[str]:
+        out = []
+        for top in (self.sw, self.osw, self.repo, self.proj):
+            for dp, dn, fn in os.walk(top):
+                out += [os.path.join(dp, x) for x in dn if x == "__pycache__"]
+                out += [os.path.join(dp, x) for x in fn if x.endswith((".pyc", ".pyo"))]
+        return sorted(out)
+
+
+def one_interpreter(lab: Lab, label: str, py: str) -> None:
+    L = f"[python {label}]"
+    lab.use(py)
+    lab.unplant()
+    clean = {}
+    for name, argv, cwd in lab.forms(py):
+        clean[name] = r = lab.run(argv, cwd)
+        check(f"{L} {name}: the clean run ends without a traceback", "Traceback" not in r[2], (r[0], r[2][-800:]))
+    left = lab.pycs()
+    check(f"{L}: a clean run of every launch form writes no __pycache__ and no .pyc", not left, left)
+    for kind in ("stdlib", "pyc"):
+        what = ("a file named like a stdlib module, planted in the engine and extension folders, never runs"
+                if kind == "stdlib" else
+                "a timestamp .pyc of the same size and mtime as its source, planted, never runs instead of the source")
+        lab.unplant()
+        lab.plant_stdlib() if kind == "stdlib" else lab.plant_pyc(py)
+        for name, argv, cwd in lab.forms(py):
+            r = lab.run(argv, cwd)
+            check(f"{L} {name}: {what}", r[3] == "", (r[3], r[0], r[2][-600:]))
+            check(f"{L} {name}: with the {kind} plants, the same exit code and output as the clean run",
+                  r[:2] == clean[name][:2], (r[0], clean[name][0], r[1][-400:], clean[name][1][-400:], r[2][-400:]))
+        lab.unplant()
+
+
+def version():
+    plugin = json.loads((SOURCE / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+    check("version: plugin.json is 5.3.2", plugin.get("version") == "5.3.2", plugin.get("version"))
+    for name in ("CHANGELOG.md", "CHANGELOG.it.md"):
+        heads = re.findall(r"^## (\S+)", (SOURCE / name).read_text(encoding="utf-8"), re.M)
+        check(f"version: {name} opens with 5.3.2, then 5.3.1", heads[:2] == ["5.3.2", "5.3.1"], heads[:3])
+
+
+def main():
+    if (SOURCE / ".claude-plugin" / "plugin.json").is_file():   # the repository (an installed swarm has none)
+        version()
+    pys = interpreters()
+    with tempfile.TemporaryDirectory() as b:
+        try:
+            lab = Lab(Path(b))
+        except Exception:  # noqa: BLE001
+            check("the two installations and the repository copy are made", False, traceback.format_exc())
+            lab = None
+        if lab is not None:
+            for label, py in pys:
+                try:
+                    one_interpreter(lab, label, py)
+                except Exception:  # noqa: BLE001
+                    check(f"[python {label}] ran to the end", False, traceback.format_exc())
     failed = [n for n, ok in results if not ok]
     print(f"\n{len(results) - len(failed)}/{len(results)} checks passed")
     sys.exit(1 if failed else 0)
@@ -31533,9 +31944,15 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 SWARM = HERE.parents[2]                        # <swarm>/extensions/crossroads/engine
-for _p in (str(HERE), str(SWARM / "engine")):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+# 5.3.2 (K-100, S18): <swarm>/engine/compat.py is compiled from its source, never from a .pyc, and its engine_path puts
+# <swarm>/engine and this folder right after the standard library, every module of both compiled from its source
+if not hasattr(sys.modules.get("compat"), "engine_path"):
+    _c = type(sys)("compat")
+    _c.__file__ = str(SWARM / "engine" / "compat.py")
+    exec(compile((SWARM / "engine" / "compat.py").read_bytes(), _c.__file__, "exec", dont_inherit=True), _c.__dict__)
+    sys.modules["compat"] = _c
+for _p in (HERE, SWARM / "engine"):
+    sys.modules["compat"].engine_path(_p)
 sys.dont_write_bytecode = True
 import hunksha  # noqa: E402  the hunk-sha reference (CROSSROADS_FORMATS.md §3 and §10)
 import backtrack as A  # noqa: E402

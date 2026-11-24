@@ -255,9 +255,10 @@ main() {
                 local l="$SH_LANG"
                 [ -f "$ROOT_DIR/$SWARM_DIR/docs/$l/_HELP.txt" ] || l="en"
                 [ -f "$ROOT_DIR/$SWARM_DIR/docs/$l/_HELP.txt" ] && cat "$ROOT_DIR/$SWARM_DIR/docs/$l/_HELP.txt"
-                # the help lines of the enabled extensions (their i18n key «help»)
+                # the help lines of the enabled extensions (their i18n key «help»); swarmer.py is run from its source,
+                # and puts the engine folder after the standard library itself (5.3.2, K-100 and S18)
                 if command -v python3 >/dev/null 2>&1 && [ -f "$ROOT_DIR/$SWARM_DIR/engine/swarmer.py" ]; then
-                    python3 -I -B -c 'import sys, pathlib; s = pathlib.Path(sys.argv[1]).resolve(); sys.path.insert(0, str(s / "engine")); import swarmer; print(swarmer.extensions_help(s, sys.argv[2]), end="")' \
+                    python3 -I -B -c 'import runpy, sys, pathlib; s = pathlib.Path(sys.argv[1]).resolve(); g = runpy.run_path(str(s / "engine" / "swarmer.py"), run_name="swarmer_help"); print(g["extensions_help"](s, sys.argv[2]), end="")' \
                         "$ROOT_DIR/$SWARM_DIR" "$l" 2>/dev/null || true
                 fi
             fi

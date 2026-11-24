@@ -10,13 +10,79 @@ installation lives here, so that the other modules work only on canonical (Engli
   reasons of the engine (`REASONS`);
 - the 4.0 markers (`OLD_MARKS`), the reserved Italian ids (`RESERVED_IT`), the old environment variables
   (`ENV_ALIASES`) and the forms of the requesters of the expert register (`normalize_requester`).
+It also puts the engine's folders on sys.path (`engine_path`): every other module loads it from its source first.
 Standard library only.
 """
 from __future__ import annotations
 
+import importlib.machinery
 import os
 import re
+import sys
 from pathlib import Path
+
+
+# --- the engine's folders on sys.path (5.3.2, K-100 and S18) ---
+
+class SourceLoader(importlib.machinery.SourceFileLoader):
+    """A module compiled from its source, never from a .pyc: under -B Python writes no bytecode, but still runs a
+    timestamp .pyc of __pycache__ whose header matches the size and the mtime of the source (S18)."""
+
+    def get_code(self, fullname):
+        path = self.get_filename(fullname)
+        return self.source_to_code(self.get_data(path), path)
+
+
+def _source_hook():
+    """The path hook of the engine's folders (`hook.swarmer_source_dirs`, real paths): for those, a finder of the .py
+    files only, loaded by SourceLoader (no .pyc, no extension module); any other entry goes to the next hook."""
+    dirs: set = set()
+
+    def hook(entry):
+        try:
+            entry = os.fsdecode(entry)
+            real = os.path.realpath(entry or os.curdir)
+        except (OSError, TypeError, ValueError):
+            raise ImportError("not a folder of the swarmer engine") from None
+        if real not in dirs:
+            raise ImportError("not a folder of the swarmer engine")
+        return importlib.machinery.FileFinder(entry, (SourceLoader, [".py"]))
+
+    hook.swarmer_source_dirs = dirs
+    return hook
+
+
+def after_stdlib() -> int:
+    """The index of sys.path right after the standard library (the folder of os, and lib-dynload); the end of
+    sys.path when neither is on it."""
+    std = os.path.dirname(os.__file__)
+    last = [i for i, p in enumerate(sys.path)
+            if isinstance(p, str) and (p == std or os.path.basename(p) == "lib-dynload")]
+    return last[-1] + 1 if last else len(sys.path)
+
+
+def engine_path(folder) -> None:
+    """`folder`, an engine or extension folder, on sys.path right after the standard library (unless it is on sys.path
+    already), and every module imported from it compiled from its source (5.3.2). So a file named like a stdlib
+    module beside the engine never runs in place of the stdlib one (K-100), nor a .pyc, even one of the same size and
+    mtime, in place of the source (S18), whichever launch form or swarm (`--swarm`) names the folder."""
+    folder = str(folder)
+    hook = next((h for h in sys.path_hooks if hasattr(h, "swarmer_source_dirs")), None)
+    if hook is None:
+        hook = _source_hook()
+        sys.path_hooks.insert(0, hook)
+    real = os.path.realpath(folder)
+    if real not in hook.swarmer_source_dirs:
+        hook.swarmer_source_dirs.add(real)
+        for k in list(sys.path_importer_cache):    # a finder cached before for this folder would read the .pyc
+            try:
+                same = isinstance(k, (str, bytes)) and os.path.realpath(os.fsdecode(k) or os.curdir) == real
+            except (OSError, TypeError, ValueError):
+                same = False
+            if same:
+                del sys.path_importer_cache[k]
+    if folder not in sys.path:
+        sys.path.insert(after_stdlib(), folder)
 
 
 class Error(Exception):

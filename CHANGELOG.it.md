@@ -2,6 +2,35 @@
 
 *[English](CHANGELOG.md)*
 
+## 5.3.2
+
+Una versione di correzione: ciò che `python3 -I -B` garantisce quando il motore carica i propri moduli (K-100 e S18
+dell'atto ECC). Compatibile all'indietro: nessun cambio di cancelli, manifesti o formati di file, e la versione del
+motore resta 5.3.
+
+### Il motore
+- La cartella del motore non va più in testa a `sys.path`, prima della libreria standard: ogni modulo del motore la
+  mette subito dopo la libreria standard (`compat.engine_path`), e `extensions.entry` fa lo stesso con il
+  `<sciame>/engine` dello sciame nominato e con la cartella dell'estensione, come crossroads lanciato da solo. Un file
+  con il nome di un modulo della libreria standard (`difflib.py`, `secrets.py`, …) accanto al motore, o nella cartella
+  del motore dello sciame che `--swarm` nomina, non è mai eseguito al posto di quello della libreria standard.
+- Il motore compila i suoi moduli dal sorgente, mai dal bytecode: `-B` impedisce a Python di scrivere un `.pyc`, non di
+  eseguirlo, e un `.pyc` a marca temporale in `__pycache__` con la dimensione e l'mtime del suo sorgente era eseguito al
+  suo posto. Un path hook limitato alle cartelle del motore e delle estensioni carica solo i loro file `.py`, compilati
+  dal sorgente (nessun `.pyc`, nessun modulo di estensione); `extensions.entry` carica allo stesso modo il modulo di
+  ingresso. La libreria standard tiene il proprio bytecode in cache. Ogni modulo carica `compat.py` dal sorgente prima
+  di tutto.
+- `sciame.sh aiuto` esegue `engine/swarmer.py` dal sorgente (importava il modulo); `generate_agents.py` lancia il
+  motore con `-B`, così non scrive più `engine/__pycache__`.
+
+### I test
+- `tests/test_engine532.py` mette un file con il nome di un modulo della libreria standard, e un `.pyc` con la
+  dimensione e l'mtime del suo sorgente, nelle cartelle del motore e dell'estensione, e controlla che nessuno dei due
+  sia eseguito e che le uscite non cambino, in ogni forma di lancio (swarmer.sh, un comando attraverso
+  `extensions.entry`, gli script dei moduli e i wrapper installati, crossroads lanciato da solo, il repository, e tra
+  sciami diversi), su python3.8, 3.10 e 3.14 quando sono nel PATH; e che un'esecuzione pulita di ogni forma non scriva
+  nessun `.pyc`.
+
 ## 5.3.1
 
 Una versione di correzione: quattro difetti del motore che l'atto ECC (D5) assegna alla 5.3 o alla 5.3.1, e due test

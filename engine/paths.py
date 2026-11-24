@@ -25,7 +25,15 @@ import unicodedata
 import urllib.parse
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+_HERE = Path(__file__).resolve().parent
+# 5.3.2 (K-100, S18): compat is compiled from its source, never from a .pyc, and its engine_path puts this folder right
+# after the standard library, every module of it compiled from its source
+if not hasattr(sys.modules.get("compat"), "engine_path"):
+    _c = type(sys)("compat")
+    _c.__file__ = str(_HERE / "compat.py")
+    exec(compile((_HERE / "compat.py").read_bytes(), _c.__file__, "exec", dont_inherit=True), _c.__dict__)
+    sys.modules["compat"] = _c
+sys.modules["compat"].engine_path(_HERE)
 import compat as C  # noqa: E402
 
 Error = C.Error

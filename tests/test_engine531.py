@@ -663,11 +663,13 @@ def a7(s: T.Swarm):
 def a6():
     L = "A6"
     plugin = json.loads((SOURCE / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
-    check(f"{L}: plugin.json is 5.3.1", plugin.get("version") == "5.3.1", plugin.get("version"))
+    check(f"{L}: plugin.json is 5.3.2 (5.3.1, then the patch 5.3.2)", plugin.get("version") == "5.3.2",
+          plugin.get("version"))
     for name in ("CHANGELOG.md", "CHANGELOG.it.md"):
         t = (SOURCE / name).read_text(encoding="utf-8")
         heads = re.findall(r"^## (\S+)", t, re.M)
-        check(f"{L}: {name} opens with 5.3.1, then 5.3.0", heads[:2] == ["5.3.1", "5.3.0"], heads[:3])
+        check(f"{L}: {name} opens with 5.3.2, then 5.3.1 and 5.3.0", heads[:3] == ["5.3.2", "5.3.1", "5.3.0"],
+              heads[:4])
     import generate as G
     check(f"{L}: the engine version stays 5.3 (no format or gate changed)", G.VERSION == "5.3", G.VERSION)
     rc, out = T.py(SOURCE / "engine" / "swarmer.py", "--swarm", SOURCE, "build", "--check")

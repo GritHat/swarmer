@@ -15,9 +15,15 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 SWARM = HERE.parents[2]                        # <swarm>/extensions/crossroads/engine
-for _p in (str(HERE), str(SWARM / "engine")):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+# 5.3.2 (K-100, S18): <swarm>/engine/compat.py is compiled from its source, never from a .pyc, and its engine_path puts
+# <swarm>/engine and this folder right after the standard library, every module of both compiled from its source
+if not hasattr(sys.modules.get("compat"), "engine_path"):
+    _c = type(sys)("compat")
+    _c.__file__ = str(SWARM / "engine" / "compat.py")
+    exec(compile((SWARM / "engine" / "compat.py").read_bytes(), _c.__file__, "exec", dont_inherit=True), _c.__dict__)
+    sys.modules["compat"] = _c
+for _p in (HERE, SWARM / "engine"):
+    sys.modules["compat"].engine_path(_p)
 sys.dont_write_bytecode = True
 import hunksha  # noqa: E402  the hunk-sha reference (CROSSROADS_FORMATS.md §3 and §10)
 import backtrack as A  # noqa: E402

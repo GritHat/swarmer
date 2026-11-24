@@ -275,7 +275,7 @@ complete rules are in `JURY.md`; here is what is needed to convene it.
 4. **The votes**, blind and sealed: for each `Dk` the lines `VOTE`, `REVISION` (for a no) or `CONDITION` (for a yes),
    `CLASS ordinary|plenary`, and optionally `PREFER`. Each juror reports their own seals in the final
    answer, and the clerk writes them into `SEALS.md`. The Italian forms of the lines are accepted too (`JURY.md` §11).
-5. **The count** is done by `python3 -I swarmer/jury.py count <folder> <round>`:
+5. **The count** is done by `python3 -I -B swarmer/jury.py count <folder> <round>`:
    - full consensus: APPROVED, or RECOMMENDED if the authority is a recommendation;
    - majority: REVISION, that is a round with a small revision that does not touch the CONDITION lines of the yes votes;
    - minority or consensus on no: REJECTED.

@@ -21,7 +21,15 @@ import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+_HERE = Path(__file__).resolve().parent
+# 5.3.2 (K-100, S18): compat is compiled from its source, never from a .pyc, and its engine_path puts this folder right
+# after the standard library, every module of it compiled from its source
+if not hasattr(sys.modules.get("compat"), "engine_path"):
+    _c = type(sys)("compat")
+    _c.__file__ = str(_HERE / "compat.py")
+    exec(compile((_HERE / "compat.py").read_bytes(), _c.__file__, "exec", dont_inherit=True), _c.__dict__)
+    sys.modules["compat"] = _c
+sys.modules["compat"].engine_path(_HERE)
 import compat as C  # noqa: E402
 
 FOLDER = "extensions"
@@ -211,17 +219,21 @@ def i18n_files(swarm) -> list[Path]:
 
 
 def entry(swarm, name: str, command: str | None = None):
-    """The entry module of a command of the extension, loaded once, with its folder and <swarm>/engine on sys.path."""
+    """The entry module of a command of the extension, loaded once, with <swarm>/engine and its folder on sys.path.
+
+    Both go right after the standard library, <swarm>/engine first, and every module of both, the entry module too,
+    is compiled from its source (5.3.2, K-100 and S18: compat.engine_path): the named swarm's folders never shadow the
+    stdlib, and no .pyc runs in place of a source."""
     m = manifests(swarm)[0][name]                        # a broken other extension does not stop this one
     cmd = command or next(iter(m["commands"]))
     path = (folder(swarm) / name / m["commands"][cmd]).resolve()
     key = str(path)
     if key not in _MODULES:
-        for p in (str(path.parent), str(Path(swarm).resolve() / "engine")):
-            if p not in sys.path:
-                sys.path.insert(0, p)
+        for p in (path.parent, Path(swarm).resolve() / "engine"):
+            C.engine_path(p)
         sys.dont_write_bytecode = True
-        spec = importlib.util.spec_from_file_location(f"swarmer_ext_{name}_{path.stem}", path)
+        mod_name = f"swarmer_ext_{name}_{path.stem}"
+        spec = importlib.util.spec_from_file_location(mod_name, path, loader=C.SourceLoader(mod_name, str(path)))
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         _MODULES[key] = mod

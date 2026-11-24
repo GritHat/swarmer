@@ -290,9 +290,9 @@ Un progetto può cambiare queste scelte in `sciame/locale/GIURIA.md` (§9), dich
 
 ## 8. Strumenti
 
-- `python3 -I sciame/giuria.py conta <cartella> <giro>`: ricalcola tutti i giri, scrive `ESITO_giro_<r>.json`. Esce
+- `python3 -I -B sciame/giuria.py conta <cartella> <giro>`: ricalcola tutti i giri, scrive `ESITO_giro_<r>.json`. Esce
   con 0 se tutto passa, con 2 e un «ERRORE:» altrimenti.
-- `python3 -I sciame/giuria.py richieste [registro]`: le sigle alla soglia del §4 e le sigle vicine.
+- `python3 -I -B sciame/giuria.py richieste [registro]`: le sigle alla soglia del §4 e le sigle vicine.
 - `bash sciame/sciame.sh prove`: le batterie della skill, comprese quelle della giuria; da lanciare prima di ogni
   giuria.
 
