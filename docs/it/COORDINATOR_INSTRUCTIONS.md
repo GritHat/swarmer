@@ -99,7 +99,7 @@ Sei nella radice del progetto dell'utente. Gli agenti hanno gli strumenti e i pe
 - **La convocazione** sta in `.sciame/` dentro il progetto. Nella classica e nella completa si prepara con:
 
   ```
-  python3 -I sciame/convoca.py prepara --nome <sigla breve> --strategia <singolo|classica|completa> --profilo <profilo> --domanda '<la domanda>' [--ruoli a,b] --dest .sciame
+  python3 -I -B sciame/convoca.py prepara --nome <sigla breve> --strategia <singolo|classica|completa> --profilo <profilo> --domanda '<la domanda>' [--ruoli a,b] --dest .sciame
   ```
 
   Lo script stampa la cartella della convocazione (`C`) e, per ogni agente di f1, il suo `TASK.md`: lo completi con
@@ -108,7 +108,7 @@ Sei nella radice del progetto dell'utente. Gli agenti hanno gli strumenti e i pe
   - `cancello C FASE --note …`, dopo aver letto;
   - `sigilla`, `seleziona` e `stato`.
 
-  `python3 -I sciame/convoca.py --help` dice tutto, e `python3 -I sciame/convoca.py ruoli --domanda '<la domanda>'`
+  `python3 -I -B sciame/convoca.py --help` dice tutto, e `python3 -I -B sciame/convoca.py ruoli --domanda '<la domanda>'`
   elenca i ruoli le cui parole chiave compaiono nella domanda.
 - **Nel singolo** la cartella è facoltativa: basta la consegna nel prompt, e la risposta dell'agente è la consegna.
 - **Senza shell o senza scritture** le fasi sono le stesse: le consegne stanno nei prompt, le risposte degli agenti

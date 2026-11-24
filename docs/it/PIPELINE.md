@@ -275,7 +275,7 @@ regole complete sono in `GIURIA.md`; qui c'è ciò che serve per convocarla.
 4. **I voti**, ciechi e sigillati: per ogni `Dk` le righe `VOTO`, `REVISIONE` (per un no) o `CONDIZIONE` (per un sì),
    `CLASSE ordinaria|plenaria`, e facoltativa `PREFERISCO`. Ogni giurato riporta i propri sigilli nella risposta
    finale, e il cancelliere li scrive in `SIGILLI.md`.
-5. **Il conto** lo fa `python3 -I sciame/giuria.py conta <cartella> <giro>`:
+5. **Il conto** lo fa `python3 -I -B sciame/giuria.py conta <cartella> <giro>`:
    - consenso totale: APPROVATA, o RACCOMANDATA se l'autorità è una raccomandazione;
    - maggioranza: REVISIONE, cioè un giro con una revisione piccola che non tocca le CONDIZIONE dei sì;
    - minoranza o consenso sul no: RESPINTA.

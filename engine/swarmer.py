@@ -25,7 +25,14 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent          # <swarm>/engine
 SWARM = HERE.parent                             # the swarm folder in the project (or the repository)
-sys.path.insert(0, str(HERE))
+# 5.3.2 (K-100, S18): compat is compiled from its source, never from a .pyc, and its engine_path puts this folder right
+# after the standard library, every module of it compiled from its source
+if not hasattr(sys.modules.get("compat"), "engine_path"):
+    _c = type(sys)("compat")
+    _c.__file__ = str(HERE / "compat.py")
+    exec(compile((HERE / "compat.py").read_bytes(), _c.__file__, "exec", dont_inherit=True), _c.__dict__)
+    sys.modules["compat"] = _c
+sys.modules["compat"].engine_path(HERE)
 import aliases as A  # noqa: E402
 import compat as C  # noqa: E402
 import extensions as E  # noqa: E402

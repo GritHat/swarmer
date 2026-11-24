@@ -2,6 +2,32 @@
 
 *[Italiano](CHANGELOG.it.md)*
 
+## 5.3.2
+
+A patch release: what `python3 -I -B` guarantees when the engine loads its own modules (K-100 and S18 of the ECC act).
+Backward compatible: no gate, manifest or file format changes, and the engine's version stays 5.3.
+
+### The engine
+- The engine folder no longer goes at the head of `sys.path`, ahead of the standard library: every module of the
+  engine puts it right after the standard library (`compat.engine_path`), and `extensions.entry` does the same with
+  the named swarm's `<swarm>/engine` and with the extension's folder, as does crossroads run directly. A file named like
+  a stdlib module (`difflib.py`, `secrets.py`, …) beside the engine, or in the engine folder of the swarm that
+  `--swarm` names, never runs in place of the stdlib one.
+- The engine compiles its modules from their source, never from bytecode: `-B` stops Python from writing a `.pyc`, not
+  from running one, and a timestamp `.pyc` in `__pycache__` with the size and mtime of its source ran in its place.
+  A path hook limited to the engine and extension folders loads only their `.py` files, compiled from the source (no
+  `.pyc`, no extension module); `extensions.entry` loads the entry module the same way. The standard library keeps
+  its own cached bytecode. Every module loads `compat.py` from its source before anything else.
+- `swarmer.sh help` runs `engine/swarmer.py` from its source (it imported the module); `generate_agents.py` runs the
+  engine with `-B`, so it no longer writes `engine/__pycache__`.
+
+### The tests
+- `tests/test_engine532.py` plants a stdlib-named file, and a `.pyc` of the same size and mtime as its source, in the
+  engine and extension folders, and checks that neither runs and that the outputs do not change, in every launch form
+  (swarmer.sh, a command through `extensions.entry`, the module scripts and the installed wrappers, crossroads run
+  directly, the repository, and across swarms), on python3.8, 3.10 and 3.14 when they are in the PATH; and that a
+  clean run of every form writes no `.pyc`.
+
 ## 5.3.1
 
 A patch release: four engine defects that the ECC act (D5) assigns to 5.3 or 5.3.1, and two tests that gave a false

@@ -291,9 +291,9 @@ A project can change these choices in `swarmer/local/JURY.md` (§9), declaring i
 
 ## 8. Tools
 
-- `python3 -I swarmer/jury.py count <folder> <round>`: recomputes every round, writes `OUTCOME_round_<r>.json`
+- `python3 -I -B swarmer/jury.py count <folder> <round>`: recomputes every round, writes `OUTCOME_round_<r>.json`
   (`ESITO_giro_<r>.json` in an Italian jury). Exits with 0 if everything passes, with 2 and an "ERROR:" otherwise.
-- `python3 -I swarmer/jury.py requests [register]`: the ids at the §4 threshold and the similar ids.
+- `python3 -I -B swarmer/jury.py requests [register]`: the ids at the §4 threshold and the similar ids.
 - `bash swarmer/swarmer.sh tests`: the skill's batteries, including the jury ones; to be run before every
   jury.
 

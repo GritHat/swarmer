@@ -17,12 +17,20 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 SWARM = HERE.parent if HERE.name == "engine" else HERE
 ENGINE = SWARM / "engine" / "swarmer.py"
-sys.path.insert(0, str(SWARM / "engine"))
+_ENG = SWARM / "engine"
+# 5.3.2 (K-100, S18): compat is compiled from its source, never from a .pyc, and its engine_path puts the engine folder
+# right after the standard library, every module of it compiled from its source
+if not hasattr(sys.modules.get("compat"), "engine_path"):
+    _c = type(sys)("compat")
+    _c.__file__ = str(_ENG / "compat.py")
+    exec(compile((_ENG / "compat.py").read_bytes(), _c.__file__, "exec", dont_inherit=True), _c.__dict__)
+    sys.modules["compat"] = _c
+sys.modules["compat"].engine_path(_ENG)
 import aliases as A  # noqa: E402
 
 
 def run(*arg):
-    sys.exit(subprocess.run([sys.executable, "-I", str(ENGINE), "--swarm", str(SWARM), *arg]).returncode)
+    sys.exit(subprocess.run([sys.executable, "-I", "-B", str(ENGINE), "--swarm", str(SWARM), *arg]).returncode)
 
 
 def canonical(option: str, al: dict) -> str:

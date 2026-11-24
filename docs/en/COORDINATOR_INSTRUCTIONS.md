@@ -98,7 +98,7 @@ You are at the root of the user's project. The agents have the tools and permiss
 - **The convening** lives in `.swarmer/` inside the project. In the classic and in the full it is prepared with:
 
   ```
-  python3 -I swarmer/convene.py prepare --name <short id> --strategy <single|classic|full> --profile <profile> --question '<the question>' [--roles a,b] --dest .swarmer
+  python3 -I -B swarmer/convene.py prepare --name <short id> --strategy <single|classic|full> --profile <profile> --question '<the question>' [--roles a,b] --dest .swarmer
   ```
 
   The script prints the convening folder (`C`) and, for each f1 agent, its `TASK.md`: you complete it with
@@ -107,7 +107,7 @@ You are at the root of the user's project. The agents have the tools and permiss
   - `gate C PHASE --notes …`, after reading;
   - `seal`, `select` and `status`.
 
-  `python3 -I swarmer/convene.py --help` tells everything, and `python3 -I swarmer/convene.py roles --question '<the question>'`
+  `python3 -I -B swarmer/convene.py --help` tells everything, and `python3 -I -B swarmer/convene.py roles --question '<the question>'`
   lists the roles whose keywords appear in the question.
 - **In the single** the folder is optional: the brief in the prompt is enough, and the agent's reply is the deliverable.
 - **Without a shell or without writes** the phases are the same: the briefs are in the prompts, the agents' replies
